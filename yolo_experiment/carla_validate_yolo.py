@@ -16,7 +16,7 @@ class ObjectDetection:
         # Initialize model
         # CUDAExecutionProvider
         providers = ["CPUExecutionProvider"]
-        self.session = ort.InferenceSession("updated_model.onnx", providers=providers)
+        self.session = ort.InferenceSession("best.onnx", providers=providers)
         self.input_name = self.session.get_inputs()[0].name
         self.classes = ["Vehicle", "Motor", "Bike","traffic light","traffic sign","pedestrian"]
         self.input_size = 800
@@ -87,7 +87,7 @@ class ObjectDetection:
 # ---------------------------
 # CARLA setup
 # ---------------------------
-object_detection = ObjectDetection()
+#object_detection = ObjectDetection()
 
 client = carla.Client('localhost', 2000)
 client.set_timeout(50.0)
@@ -137,8 +137,8 @@ def camera_callback(image):
     array = array.reshape((image.height, image.width, 4))
     new_frame = array[:, :, :3]
     new_frame = cv2.cvtColor(new_frame, cv2.COLOR_BGR2RGB)
-    frame_with_boxes=object_detection.detect_and_add_overlay(new_frame)
-    cv2.imshow("Camera", frame_with_boxes)
+    #frame_with_boxes=object_detection.detect_and_add_overlay(new_frame)
+    cv2.imshow("Camera", new_frame)
     cv2.waitKey(1)
 image_queue = queue.Queue()
 camera.listen(image_queue.put)
