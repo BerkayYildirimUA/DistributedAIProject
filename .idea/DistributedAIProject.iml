@@ -10,4 +10,8 @@
     <orderEntry type="jdk" jdkName="Python 3.7 virtualenv at D:\UA\Master\Semester1\AI\Project\Carla\carla_env_37" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
+  <component name="PyDocumentationSettings">
+    <option name="format" value="PLAIN" />
+    <option name="myDocStringFormat" value="Plain" />
+  </component>
 </module>
