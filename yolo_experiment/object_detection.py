@@ -12,7 +12,7 @@ class ObjectDetection:
     def __init__(self):
         # Initialize model
         print("CUDA:", torch.cuda.is_available())
-        self.model = YOLO("inference/best.pt")
+        self.model = YOLO("best.pt")
         self.classes = ["Vehicle", "Motor", "Bike","traffic light","traffic sign","pedestrian"]
         self.input_size = 800
 
