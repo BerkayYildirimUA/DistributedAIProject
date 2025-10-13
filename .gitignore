@@ -1,0 +1,13 @@
+# PyCharm user-specific files
+# Contains local settings like interpreter path, open files, and window layout
+.idea/workspace.xml
+
+# Can contain local SDK (interpreter) paths
+.idea/misc.xml
+
+# Optional but good to ignore for teams
+.idea/shelf/
+.idea/tasks.xml
+.idea/dataSources/
+.idea/dataSources.local.xml
+.idea/httpRequests/
