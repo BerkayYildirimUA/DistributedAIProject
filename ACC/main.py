@@ -1,8 +1,9 @@
 import carla
 import argparse
+import queue
 import random
 from typing import List, Optional
-from ACC.Utils.implementations import CarlaStateSensor, SimpleAccAgent, PygameUI
+from implementations import CarlaStateSensor, SimpleAccAgent, PygameUI
 
 
 def main_loop(args):
@@ -19,11 +20,11 @@ def main_loop(args):
         world: carla.World = client.load_world('Town04')
         settings: carla.WorldSettings = world.get_settings()
         settings.synchronous_mode = True
-        settings.fixed_delta_seconds = 0.01
+        settings.fixed_delta_seconds = 0.05
         world.apply_settings(settings)
 
         # Traffic Manger
-        traffic_manager: carla.TrafficManager = client.get_trafficmanager(8000)
+        traffic_manager = client.get_trafficmanager(8000)
         traffic_manager.set_synchronous_mode(True)
 
         # Blueprints
@@ -32,7 +33,7 @@ def main_loop(args):
         spawn_points: List[carla.Transform] = world.get_map().get_spawn_points()
 
         # Spawn NPCs
-        for i in range(0, 10):
+        for i in range(0, 50):
             world.try_spawn_actor(random.choice(blueprints_vehicles), random.choice(spawn_points))
 
         world.tick() #tick is needed for the actors to spawn so can use world.get_actors()
@@ -62,26 +63,17 @@ def main_loop(args):
         camera_bp.set_attribute('image_size_x', str(args.width))
         camera_bp.set_attribute('image_size_y', str(args.height))
 
-        #transform: carla.Transform = carla.Transform(carla.Location(x=0.8, z=1.7))
-        #camera: carla.Sensor = world.spawn_actor(camera_bp, transform, attach_to=ego_vehicle)
-        #sensor_list.append(camera)
+        transform: carla.Transform = carla.Transform(carla.Location(x=0.8, z=1.7))
+        camera: carla.Sensor = world.spawn_actor(camera_bp, transform, attach_to=ego_vehicle)
+        sensor_list.append(camera)
 
-        #image_queue: queue.Queue[carla.Image] = queue.Queue()
-        #camera.listen(image_queue.put)
+        image_queue: queue.Queue[carla.Image] = queue.Queue()
+        camera.listen(image_queue.put)
 
+        #TODO: delete later
         ego_vehicle.set_autopilot(True, 8000)
-
-        sensor = CarlaStateSensor(ego_vehicle, lead_vehicle)
-        decisionAgent = SimpleAccAgent(ego_vehicle, sensor)
-
-        traffic_manager.ignore_lights_percentage(ego_vehicle, 100)
-        traffic_manager.ignore_signs_percentage(ego_vehicle, 100)
-        traffic_manager.ignore_vehicles_percentage(ego_vehicle, 100)
-        traffic_manager.ignore_walkers_percentage(ego_vehicle, 100)
-
-        traffic_manager.vehicle_percentage_speed_difference(ego_vehicle, -1000)
-
         while True:
+            world.tick()
             # Move spectator to follow ego vehicle
             ego_transform = ego_vehicle.get_transform()
             spectator_transform = spectator.get_transform()
@@ -89,12 +81,8 @@ def main_loop(args):
 
             spectator.set_transform(carla.Transform(spectator_location, spectator_transform.rotation))
 
-            ego_vehicle.set_autopilot(True)
-            ego_vehicle.apply_control(decisionAgent.make_decision())
-            ego_vehicle.set_autopilot(False)
-            world.tick()
 
-            #image: carla.Image = image_queue.get()
+            image: carla.Image = image_queue.get()
 
             # TODO: uncomment later, change controls and stuff
             #control = ego_vehicle.get_control()
