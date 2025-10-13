@@ -63,12 +63,12 @@ def main_loop(args):
         camera_bp.set_attribute('image_size_x', str(args.width))
         camera_bp.set_attribute('image_size_y', str(args.height))
 
-        transform: carla.Transform = carla.Transform(carla.Location(x=0.8, z=1.7))
-        camera: carla.Sensor = world.spawn_actor(camera_bp, transform, attach_to=ego_vehicle)
-        sensor_list.append(camera)
+        #transform: carla.Transform = carla.Transform(carla.Location(x=0.8, z=1.7))
+        #camera: carla.Sensor = world.spawn_actor(camera_bp, transform, attach_to=ego_vehicle)
+        #sensor_list.append(camera)
 
-        image_queue: queue.Queue[carla.Image] = queue.Queue()
-        camera.listen(image_queue.put)
+        #image_queue: queue.Queue[carla.Image] = queue.Queue()
+        #camera.listen(image_queue.put)
 
         #TODO: delete later
         ego_vehicle.set_autopilot(True, 8000)
@@ -82,7 +82,7 @@ def main_loop(args):
             spectator.set_transform(carla.Transform(spectator_location, spectator_transform.rotation))
 
 
-            image: carla.Image = image_queue.get()
+            #image: carla.Image = image_queue.get()
 
             # TODO: uncomment later, change controls and stuff
             #control = ego_vehicle.get_control()
