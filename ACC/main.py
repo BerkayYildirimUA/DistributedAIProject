@@ -20,7 +20,7 @@ def main_loop(args):
         world: carla.World = client.load_world('Town04')
         settings: carla.WorldSettings = world.get_settings()
         settings.synchronous_mode = True
-        settings.fixed_delta_seconds = 0.05
+        settings.fixed_delta_seconds = 0.01
         world.apply_settings(settings)
 
         # Traffic Manger
@@ -33,7 +33,7 @@ def main_loop(args):
         spawn_points: List[carla.Transform] = world.get_map().get_spawn_points()
 
         # Spawn NPCs
-        for i in range(0, 50):
+        for i in range(0, 10):
             world.try_spawn_actor(random.choice(blueprints_vehicles), random.choice(spawn_points))
 
         world.tick() #tick is needed for the actors to spawn so can use world.get_actors()
@@ -72,6 +72,10 @@ def main_loop(args):
 
         #TODO: delete later
         ego_vehicle.set_autopilot(True, 8000)
+
+        sensor = CarlaStateSensor(ego_vehicle, lead_vehicle)
+        decisionAgent = SimpleAccAgent(ego_vehicle, sensor)
+
         while True:
             world.tick()
             # Move spectator to follow ego vehicle
@@ -81,6 +85,7 @@ def main_loop(args):
 
             spectator.set_transform(carla.Transform(spectator_location, spectator_transform.rotation))
 
+            ego_vehicle.apply_control(decisionAgent.make_decision())
 
             #image: carla.Image = image_queue.get()
 
