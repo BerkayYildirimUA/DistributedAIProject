@@ -1,0 +1,8 @@
+path: dataset/
+train: images/train
+val: images/valid
+test: images/test
+nc: 6
+names: ["vehicle", "motorbike","bike", "traffic light","traffic sign","pedestrian"]
+# class weights: calculated on raqw dataset, see class_weights.txt
+class_weights: [0.35350785340314134, 0.02994764397905759, 0.019895287958115182, 0.5614659685863874, 0.01842931937172775, 0.016753926701570682]
