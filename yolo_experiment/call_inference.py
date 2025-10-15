@@ -3,6 +3,7 @@ import random
 import carla
 import numpy as np
 import cv2
+import threading
 
 # ---------------------------
 # CARLA setup
@@ -12,7 +13,7 @@ client.set_timeout(50.0)
 world = client.get_world()
 
 settings = world.get_settings()
-settings.synchronous_mode = True
+settings.synchronous_mode = False
 settings.fixed_delta_seconds = 0.05
 world.apply_settings(settings)
 
@@ -26,7 +27,7 @@ ego_bp = blueprint_library.find('vehicle.tesla.model3')
 spawn_points = world.get_map().get_spawn_points()
 # Spawn 50 vehicles randomly distributed throughout the map
 # for each spawn point, we choose a random vehicle from the blueprint library
-for i in range(0,50):
+for i in range(0, 25):
     world.try_spawn_actor(random.choice(vehicle_blueprints), random.choice(spawn_points))
 
 spawned=False
@@ -37,6 +38,11 @@ while not spawned:
     except:
         print("Trying other spawn location")
 
+
+# ---------------
+# RGB Camera
+# ---------------
+
 # Create a transform to place the camera on top of the vehicle
 camera_init_trans = carla.Transform(carla.Location(z=1.5),carla.Rotation(pitch=0, yaw=0, roll=0))
 
@@ -44,7 +50,7 @@ camera_init_trans = carla.Transform(carla.Location(z=1.5),carla.Rotation(pitch=0
 camera_bp = world.get_blueprint_library().find('sensor.camera.rgb')
 camera_bp.set_attribute("image_size_x", "640")
 camera_bp.set_attribute("image_size_y", "480")
-camera_bp.set_attribute("sensor_tick", "0.033")
+camera_bp.set_attribute("sensor_tick", "0.05")
 # camera_bp.set_attribute("sensor_tick", "0.05")  # match fixed_delta_seconds
 
 
@@ -56,8 +62,9 @@ filename = "shared_frame.dat"
 image_shape = (480, 640, 3)
 dtype = np.uint8
 shared_frame = np.memmap(filename, dtype=dtype, mode='w+', shape=image_shape)
-print('Memory created!')
+print('Shared memory for RGB camera created!')
 def camera_callback(image):
+    print("RGB image received")
     array = np.frombuffer(image.raw_data, dtype=np.uint8)
     array = array.reshape((image.height, image.width, 4))
     new_frame = array[:, :, :3]
@@ -65,8 +72,43 @@ def camera_callback(image):
     np.copyto(shared_frame, frame_send_to_inference)
     shared_frame.flush()
 
-image_queue = queue.Queue()
-camera.listen(image_queue.put)
+image_queue = queue.Queue(maxsize=10)
+camera.listen(lambda image: image_queue.put_nowait(image))
+# ---------------
+# Depth Camera
+# ---------------
+
+# Depth camera setup
+depth_bp = world.get_blueprint_library().find('sensor.camera.depth')
+depth_bp.set_attribute("image_size_x", "640")
+depth_bp.set_attribute("image_size_y", "480")
+depth_bp.set_attribute("sensor_tick", "0.05")
+depth_cam = world.spawn_actor(depth_bp, camera_init_trans, attach_to=ego_vehicle)
+
+# Create shared memory
+depth_filename = "shared_depth.dat"
+depth_shape = (480, 640)
+depth_shared = np.memmap(depth_filename, dtype=np.float32, mode='w+', shape=depth_shape)
+print('Shared memory for Depth Camera created!')
+
+# Callback to calculate depth map in meters
+def depth_callback(image):
+    print("Depth image received")
+    array = np.frombuffer(image.raw_data, dtype=np.uint8).reshape((image.height, image.width, 4))
+    b = array[:, :, 0].astype(np.float32)
+    g = array[:, :, 1].astype(np.float32)
+    r = array[:, :, 2].astype(np.float32)
+    normalized_depth = (r + g * 256.0 + b * 256.0 * 256.0) / (256.0**3 - 1)
+    depth_meters = normalized_depth * 1000.0 
+    np.copyto(depth_shared, depth_meters)
+    depth_shared.flush()
+
+depth_queue = queue.Queue(maxsize=10)
+depth_cam.listen(lambda image: depth_queue.put_nowait(image))
+# ---------------
+# Ego vehicle
+# ---------------
+
 EgoLocation = ego_vehicle.get_location()
 
 traffic_manager = client.get_trafficmanager()
@@ -77,29 +119,56 @@ ego_vehicle.set_autopilot(True, traffic_manager.get_port())
 
 # ego_vehicle.apply_control(carla.VehicleControl(throttle=0.5, steer=0.0))
 
+# ---------------------------
+# Threaded image processing
+# ---------------------------
+
+def process_rgb_images():
+    while True:
+        try:
+            image_carla = image_queue.get(timeout=1.0)
+            camera_callback(image_carla)
+        except queue.Empty:
+            continue
+
+def process_depth_images():
+    while True:
+        try:
+            depth_image = depth_queue.get(timeout=1.0)
+            depth_callback(depth_image)
+        except queue.Empty:
+            continue
+
+# Start threads
+rgb_thread = threading.Thread(target=process_rgb_images, daemon=True)
+depth_thread = threading.Thread(target=process_depth_images, daemon=True)
+rgb_thread.start()
+depth_thread.start()
+
+
 spectator = world.get_spectator()
 print("World started ticking!")
 try:
     while True:
-        world.tick()
+        try:
+            world.tick()
+        except RuntimeError as e:
+            print(f"Tick failed {e}")
         transform = ego_vehicle.get_transform()
         # Compute position 10m behind and 5m above ego car
         forward_vector = transform.get_forward_vector()
         spectator_location = transform.location - 10 * forward_vector + carla.Location(z=5)
-
         spectator_transform = carla.Transform(spectator_location, transform.rotation)
         spectator.set_transform(spectator_transform)
-        try:
-            image_carla = image_queue.get_nowait()
-            camera_callback(image_carla)
-        except queue.Empty:
-            continue
 except KeyboardInterrupt:
     print("Closing simulation!")
 finally:
     camera.stop()
     camera.destroy()
+    depth_cam.stop()
+    depth_cam.destroy()
     ego_vehicle.destroy()
+
 
 
 

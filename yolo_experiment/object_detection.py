@@ -63,13 +63,30 @@ class ObjectDetection:
         return frame
 
 
-    def detect_and_add_overlay(self,frame):
-        start_time=time.time()
+    def detect_and_add_overlay(self, frame, depth_map=None):
+        start_time = time.time()
         pro_frame, frame_w, frame_h = self.preprocess_frame(frame)
-        boxes, scores, class_ids = self.get_objects(pro_frame,frame_w,frame_h)
-        frame = self.add_object_boxes(frame, boxes, scores, class_ids)
+        boxes, scores, class_ids = self.get_objects(pro_frame, frame_w, frame_h)
+    
+        for (x1, y1, x2, y2), score, cls_id in zip(boxes, scores, class_ids):
+            x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
+            cls_name = self.classes[int(cls_id)]
+            color = (0, 255, 0)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(frame, f"{cls_name} {score:.2f}", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        
+            # calculate distance_m = the closest distance within the bounding box relative to the ego car.
+            if depth_map is not None:
+                # clip coords to image dimensions
+                x1d = max(0, min(depth_map.shape[1]-1, x1))
+                x2d = max(0, min(depth_map.shape[1]-1, x2))
+                y1d = max(0, min(depth_map.shape[0]-1, y1))
+                y2d = max(0, min(depth_map.shape[0]-1, y2))
+                crop = depth_map[y1d:y2d+1, x1d:x2d+1]
+                if crop.size > 0:
+                    distance_m = np.nanmin(crop)
+                    cv2.putText(frame, f"{distance_m:.1f} m", (x1, y2 + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
         frame_with_boxes_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        end_time=time.time()
-        total_time_ms = (end_time - start_time) * 1000
-        print(f"Inference + overlay time: {total_time_ms:.2f} ms")
+        print(f"Inference + overlay time: {(time.time()-start_time)*1000:.2f} ms")
         return frame_with_boxes_bgr

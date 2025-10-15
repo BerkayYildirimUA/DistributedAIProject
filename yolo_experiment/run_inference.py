@@ -7,8 +7,13 @@ filename = "shared_frame.dat"
 image_shape = (480, 640, 3)
 dtype = np.uint8
 
+depth_filename = "shared_depth.dat"
+depth_shape = (480, 640)
+dtype_depth = np.float32
+
 # Attach to shared memory
 shared_frame = np.memmap(filename, dtype=dtype, mode='r', shape=image_shape)
+depth_shared = np.memmap(depth_filename, dtype=dtype_depth, mode='r', shape=depth_shape)
 
 object_detection=ObjectDetection()
 try:
@@ -16,10 +21,11 @@ try:
     while True:
         # Convert to Torch tensor and normalize
         frame=shared_frame.copy()
+        depth_map = depth_shared.copy()
         if np.count_nonzero(frame) == 0:
             # No data yet, skip this iteration
             continue
-        frame_with_boxes=object_detection.detect_and_add_overlay(frame)
+        frame_with_boxes=object_detection.detect_and_add_overlay(frame, depth_map)
         cv2.imshow("Camera", frame_with_boxes)
         cv2.waitKey(1)
         # time.sleep(0.05)
