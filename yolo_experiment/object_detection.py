@@ -66,7 +66,7 @@ class ObjectDetection:
     def detect_and_add_overlay(self, frame, depth_map=None):
         start_time = time.time()
         pro_frame, frame_w, frame_h = self.preprocess_frame(frame)
-        boxes, scores, class_ids = self.get_objects(pro_frame, frame_w, frame_h)
+        boxes,class_ids,scores = self.get_objects(pro_frame, frame_w, frame_h)
     
         for (x1, y1, x2, y2), score, cls_id in zip(boxes, scores, class_ids):
             x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
