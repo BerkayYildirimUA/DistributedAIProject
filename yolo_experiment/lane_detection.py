@@ -1,3 +1,6 @@
+import numpy as np
+import cv2
+
 class LaneDetection:
     def __init__(self):
         print("Lane detection created")
