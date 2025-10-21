@@ -67,6 +67,8 @@ class ObjectDetection:
         start_time = time.time()
         pro_frame, frame_w, frame_h = self.preprocess_frame(frame)
         boxes,class_ids,scores = self.get_objects(pro_frame, frame_w, frame_h)
+
+        distance_vehicle_in_front_m = 0
     
         for (x1, y1, x2, y2), score, cls_id in zip(boxes, scores, class_ids):
             x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
@@ -86,7 +88,16 @@ class ObjectDetection:
                 if crop.size > 0:
                     distance_m = np.nanmin(crop)
                     cv2.putText(frame, f"{distance_m:.1f} m", (x1, y2 + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                    if (self.vehicle_is_in_front(x1, y1, x2, y2)):
+                        distance_vehicle_in_front_m = distance_m
 
         frame_with_boxes_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         print(f"Inference + overlay time: {(time.time()-start_time)*1000:.2f} ms")
-        return frame_with_boxes_bgr
+        return frame_with_boxes_bgr, distance_vehicle_in_front_m
+
+
+     #TODO: check whether car is in front of the ego vehicle using Image Processing techniques.
+     def vehicle_is_in_front(self, x1, y1, x2, y2):
+        # implementation, currently just returns tru
+
+        return true

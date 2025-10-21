@@ -64,7 +64,6 @@ dtype = np.uint8
 shared_frame = np.memmap(filename, dtype=dtype, mode='w+', shape=image_shape)
 print('Shared memory for RGB camera created!')
 def camera_callback(image):
-    print("RGB image received")
     array = np.frombuffer(image.raw_data, dtype=np.uint8)
     array = array.reshape((image.height, image.width, 4))
     new_frame = array[:, :, :3]
@@ -93,7 +92,6 @@ print('Shared memory for Depth Camera created!')
 
 # Callback to calculate depth map in meters
 def depth_callback(image):
-    print("Depth image received")
     array = np.frombuffer(image.raw_data, dtype=np.uint8).reshape((image.height, image.width, 4))
     b = array[:, :, 0].astype(np.float32)
     g = array[:, :, 1].astype(np.float32)
@@ -105,6 +103,11 @@ def depth_callback(image):
 
 depth_queue = queue.Queue(maxsize=10)
 depth_cam.listen(lambda image: depth_queue.put_nowait(image))
+
+# Shared memory for closest vehicle in front distance in meters
+vehicle_distance_filename = "vehicle_distance.dat"
+shared_vehicle_distance_in_front_m = np.memmap(vehicle_distance_filename, dtype=np.float32, mode='r', shape=(1,1))
+
 # ---------------
 # Ego vehicle
 # ---------------
@@ -160,6 +163,10 @@ try:
         spectator_location = transform.location - 10 * forward_vector + carla.Location(z=5)
         spectator_transform = carla.Transform(spectator_location, transform.rotation)
         spectator.set_transform(spectator_transform)
+
+        # TODO: feed this distance data into the reinforcement module to calculate acceleration
+        distance_vehicle_in_front_m = shared_vehicle_distance_in_front_m[0,0]
+        print(f"Distance to vehicle in front: {distance_vehicle_in_front_m}m")
 except KeyboardInterrupt:
     print("Closing simulation!")
 finally:
