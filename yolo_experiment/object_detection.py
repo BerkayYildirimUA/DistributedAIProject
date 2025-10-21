@@ -96,8 +96,7 @@ class ObjectDetection:
         return frame_with_boxes_bgr, distance_vehicle_in_front_m
 
 
-     #TODO: check whether car is in front of the ego vehicle using Image Processing techniques.
-     def vehicle_is_in_front(self, x1, y1, x2, y2):
-        # implementation, currently just returns tru
-
-        return true
+    #TODO: check whether car is in front of the ego vehicle using Image Processing techniques.
+    def vehicle_is_in_front(self,  x1, y1, x2, y2):
+        # implementation, currently just returns true
+        return True
