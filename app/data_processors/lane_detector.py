@@ -50,6 +50,7 @@ class LaneDetector:
         return self.transform(img_pil).unsqueeze(0).cuda()
 
     def get_lanes(self, img_tensor):
+        img_tensor=self.preprocess(img_tensor)
         """Run inference and return lane polylines [(x1,y1), (x2,y2), ...] per lane"""
         with torch.no_grad():
             out = self.net(img_tensor)

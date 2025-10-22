@@ -30,6 +30,8 @@ try:
         distances=object_distance_calculator.get_distances(boxes,depth_map)
 
         # Overlay lanes
+
+        print(frame,frame.shape)
         lanes = lane_detector.get_lanes(frame)
 
         # Visualise
