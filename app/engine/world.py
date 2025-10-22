@@ -73,7 +73,7 @@ class World:
                     raise Exception("Failed to spawn ego vehicle")
 
     def create_ego_cameras(self):
-        camera_init_trans = carla.Transform(carla.Location(z=1.5), carla.Rotation(pitch=0, yaw=0, roll=0))
+        camera_init_trans = carla.Transform(carla.Location(z=1.5,x=1.5), carla.Rotation(pitch=0, yaw=0, roll=0))
         # We create the camera through a blueprint that defines its properties
         camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
         camera_bp.set_attribute("image_size_x", "640")
