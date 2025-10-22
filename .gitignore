@@ -2,3 +2,5 @@
 /.idea/DistributedAIProject.iml
 /.idea/misc.xml
 .idea
+.idea
+app/__pycache__
