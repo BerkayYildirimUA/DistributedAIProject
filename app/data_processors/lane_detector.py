@@ -44,8 +44,9 @@ class LaneDetector:
         self.col_sample = np.linspace(0, 800 - 1, self.griding_num)
         self.col_sample_w = self.col_sample[1] - self.col_sample[0]
 
-    def preprocess(self, img_pil: Image.Image):
+    def preprocess(self, img):
         """Convert PIL image to model input tensor"""
+        img_pil = Image.fromarray(img)
         return self.transform(img_pil).unsqueeze(0).cuda()
 
     def get_lanes(self, img_tensor):
