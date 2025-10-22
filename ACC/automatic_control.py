@@ -22,6 +22,7 @@ import re
 import sys
 import weakref
 
+from ACC.MyAgtents.ProjectAgent import ProjectAgent
 from ACC.Utils.implementations import CarlaStateSensor, SimpleAccAgent
 
 try:
@@ -62,48 +63,6 @@ from carla import ColorConverter as cc
 
 from ACC.PythonAPI.carla.agents.navigation.behavior_agent import BehaviorAgent  # pylint: disable=import-error
 
-
-# ==============================================================================
-# -- Global functions ----------------------------------------------------------
-# ==============================================================================
-
-
-def find_weather_presets():
-    """Method to find weather presets"""
-    rgx = re.compile('.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)')
-    def name(x): return ' '.join(m.group(0) for m in rgx.finditer(x))
-    presets = [x for x in dir(carla.WeatherParameters) if re.match('[A-Z].+', x)]
-    return [(getattr(carla.WeatherParameters, x), name(x)) for x in presets]
-
-
-def get_actor_display_name(actor, truncate=250):
-    """Method to get actor display name"""
-    name = ' '.join(actor.type_id.replace('_', '.').title().split('.')[1:])
-    return (name[:truncate - 1] + u'\u2026') if len(name) > truncate else name
-
-def get_actor_blueprints(world, filter, generation):
-    bps = world.get_blueprint_library().filter(filter)
-
-    if generation.lower() == "all":
-        return bps
-
-    # If the filter returns only one bp, we assume that this one needed
-    # and therefore, we ignore the generation
-    if len(bps) == 1:
-        return bps
-
-    try:
-        int_generation = int(generation)
-        # Check if generation is in available generations
-        if int_generation in [1, 2]:
-            bps = [x for x in bps if int(x.get_attribute('generation')) == int_generation]
-            return bps
-        else:
-            print("   Warning! Actor Generation is not valid. No actor will be spawned.")
-            return []
-    except:
-        print("   Warning! Actor Generation is not valid. No actor will be spawned.")
-        return []
 
 # ==============================================================================
 # -- World ---------------------------------------------------------------
@@ -173,10 +132,10 @@ class World(object):
             self.modify_vehicle_physics(self.player)
 
         if self._args.sync:
-            print("WE ARE SYNC")
+            print("WE ARE IN SYNC")
             self.world.tick()
         else:
-            print("WE ARE NOT SYNC")
+            print("WE ARE NOT IN SYNC")
             self.world.wait_for_tick()
 
         # Set up the sensors.
@@ -474,79 +433,11 @@ class HelpText(object):
         if self._render:
             display.blit(self.surface, self.pos)
 
-# ==============================================================================
-# -- CollisionSensor -----------------------------------------------------------
-# ==============================================================================
-
-
-class CollisionSensor(object):
-    """ Class for collision sensors"""
-
-    def __init__(self, parent_actor, hud):
-        """Constructor method"""
-        self.sensor = None
-        self.history = []
-        self._parent = parent_actor
-        self.hud = hud
-        world = self._parent.get_world()
-        blueprint = world.get_blueprint_library().find('sensor.other.collision')
-        self.sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=self._parent)
-        # We need to pass the lambda a weak reference to
-        # self to avoid circular reference.
-        weak_self = weakref.ref(self)
-        self.sensor.listen(lambda event: CollisionSensor._on_collision(weak_self, event))
-
-    def get_collision_history(self):
-        """Gets the history of collisions"""
-        history = collections.defaultdict(int)
-        for frame, intensity in self.history:
-            history[frame] += intensity
-        return history
-
-    @staticmethod
-    def _on_collision(weak_self, event):
-        """On collision method"""
-        self = weak_self()
-        if not self:
-            return
-        actor_type = get_actor_display_name(event.other_actor)
-        self.hud.notification('Collision with %r' % actor_type)
-        impulse = event.normal_impulse
-        intensity = math.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
-        self.history.append((event.frame, intensity))
-        if len(self.history) > 4000:
-            self.history.pop(0)
 
 # ==============================================================================
 # -- LaneInvasionSensor --------------------------------------------------------
 # ==============================================================================
 
-
-class LaneInvasionSensor(object):
-    """Class for lane invasion sensors"""
-
-    def __init__(self, parent_actor, hud):
-        """Constructor method"""
-        self.sensor = None
-        self._parent = parent_actor
-        self.hud = hud
-        world = self._parent.get_world()
-        bp = world.get_blueprint_library().find('sensor.other.lane_invasion')
-        self.sensor = world.spawn_actor(bp, carla.Transform(), attach_to=self._parent)
-        # We need to pass the lambda a weak reference to self to avoid circular
-        # reference.
-        weak_self = weakref.ref(self)
-        self.sensor.listen(lambda event: LaneInvasionSensor._on_invasion(weak_self, event))
-
-    @staticmethod
-    def _on_invasion(weak_self, event):
-        """On invasion method"""
-        self = weak_self()
-        if not self:
-            return
-        lane_types = set(x.type for x in event.crossed_lane_markings)
-        text = ['%r' % str(x).split()[-1] for x in lane_types]
-        self.hud.notification('Crossed line %s' % ' and '.join(text))
 
 # ==============================================================================
 # -- GnssSensor --------------------------------------------------------
@@ -741,20 +632,7 @@ def game_loop(args):
         world = World(client.get_world(), hud, args)
         controller = KeyboardControl(world)
 
-        agent = BehaviorAgent(world.player, behavior=args.behavior)
-        """
-        if args.agent == "Basic":
-            agent = BasicAgent(world.player, 30)
-            agent.follow_speed_limits(True)
-        elif args.agent == "Constant":
-            agent = ConstantVelocityAgent(world.player, 30)
-            ground_loc = world.world.ground_projection(world.player.get_location(), 5)
-            if ground_loc:
-                world.player.set_location(ground_loc.location + carla.Location(z=0.01))
-            agent.follow_speed_limits(True)
-        elif args.agent == "Behavior":
-            agent = BehaviorAgent(world.player, behavior=args.behavior)
-        """
+
 
 
         # MY CODE ----------------------------------------------------------------------
@@ -776,6 +654,7 @@ def game_loop(args):
 
         sensor = CarlaStateSensor(world.player, lead_vehicle)
         acc_agent = SimpleAccAgent(world.player, sensor)
+        agent = ProjectAgent(world.player, behavior=args.behavior, decision_agent=acc_agent)
 
         # MY CODE ---------------------------------------------------------------
         # Set the agent destination
@@ -802,9 +681,8 @@ def game_loop(args):
 
             #TODO: CHANGE CONTROL
             nav_control = agent.run_step()
-            final_control = acc_agent.make_decision(nav_control)
 
-            world.player.apply_control(final_control)
+            world.player.apply_control(nav_control)
 
     finally:
 
