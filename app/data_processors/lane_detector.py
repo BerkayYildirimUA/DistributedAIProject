@@ -3,7 +3,7 @@ import numpy as np
 import scipy.special
 import torchvision.transforms as transforms
 from PIL import Image
-from model.model import parsingNet
+from .model.model import parsingNet
 
 tusimple_row_anchor = [ 64,  68,  72,  76,  80,  84,  88,  92,  96, 100, 104, 108, 112,
             116, 120, 124, 128, 132, 136, 140, 144, 148, 152, 156, 160, 164,
