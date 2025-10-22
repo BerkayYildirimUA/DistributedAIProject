@@ -11,7 +11,7 @@ tusimple_row_anchor = [ 64,  68,  72,  76,  80,  84,  88,  92,  96, 100, 104, 10
             220, 224, 228, 232, 236, 240, 244, 248, 252, 256, 260, 264, 268,
             272, 276, 280, 284]
 class LaneDetector:
-    def __init__(self, model_path='model/tusimple_18.pth'):
+    def __init__(self, model_path='./model/tusimple_18.pth'):
         self.cls_num_per_lane = 56
         self.griding_num = 100
         self.row_anchor = tusimple_row_anchor
