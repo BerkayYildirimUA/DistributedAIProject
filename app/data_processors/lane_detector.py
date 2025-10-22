@@ -15,7 +15,7 @@ class LaneDetector:
         self.cls_num_per_lane = 56
         self.griding_num = 100
         self.row_anchor = tusimple_row_anchor
-        self.img_w, self.img_h = 1280, 720  # original image size (Tusimple)
+
 
         # --- Load model ---
         self.net = parsingNet(
@@ -46,6 +46,8 @@ class LaneDetector:
 
     def preprocess(self, img):
         """Convert PIL image to model input tensor"""
+        self.frame_w, self.frame_h = img.shape[1], img.shape[0]
+
         img_pil = Image.fromarray(img)
         return self.transform(img_pil).unsqueeze(0).cuda()
 
@@ -65,14 +67,21 @@ class LaneDetector:
         out_j = loc
 
         lanes = []
-        for i in range(out_j.shape[1]):  # per lane
-            if np.sum(out_j[:, i] != 0) > 2:  # at least a few valid points
-                pts = []
-                for k in range(out_j.shape[0]):  # per row anchor
+        for i in range(out_j.shape[1]):
+            if np.sum(out_j[:, i] != 0) > 2:
+                for k in range(out_j.shape[0]):
                     if out_j[k, i] > 0:
-                        x = int(out_j[k, i] * self.col_sample_w * self.img_w / 800) - 1
-                        y = int(self.img_h * (self.row_anchor[self.cls_num_per_lane - 1 - k] / 288)) - 1
-                        pts.append((x, y))
-                if len(pts) > 1:
-                    lanes.append(pts)
+                        ppp = (int(out_j[k, i] * self.col_sample_w * self.frame_w / 800) - 1,
+                               int(self.frame_h * (self.row_anchor[self.cls_num_per_lane - 1 - k] / 288)) - 1)
+                        lanes.append(ppp)
+        # for i in range(out_j.shape[1]):  # per lane
+        #     if np.sum(out_j[:, i] != 0) > 2:  # at least a few valid points
+        #         pts = []
+        #         for k in range(out_j.shape[0]):  # per row anchor
+        #             if out_j[k, i] > 0:
+        #                 x = int(out_j[k, i] * self.col_sample_w * self.img_w / 800) - 1
+        #                 y = int(self.img_h * (self.row_anchor[self.cls_num_per_lane - 1 - k] / 288)) - 1
+        #                 pts.append((x, y))
+        #         if len(pts) > 1:
+        #             lanes.append(pts)
         return lanes
