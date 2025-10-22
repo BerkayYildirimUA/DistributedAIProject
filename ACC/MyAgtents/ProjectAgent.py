@@ -1,4 +1,4 @@
-from ACC.PythonAPI.carla.agents.navigation.behavior_agent import BehaviorAgent
+from PythonAPI.carla.agents.navigation.behavior_agent import BehaviorAgent
 from ACC.Utils.abstractions import *
 
 class ProjectAgent(BehaviorAgent):
