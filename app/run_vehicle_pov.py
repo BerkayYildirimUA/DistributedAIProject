@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from app.data_processors.lane_detector import LaneDetector
+from data_processors.lane_detector import LaneDetector
 from data_processors.object_detector import ObjectDetector
 from data_processors.object_distance_calculator import ObjectDistanceCalculator
 from memory.shared_memory import RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory
