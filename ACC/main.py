@@ -1,9 +1,8 @@
 import carla
 import argparse
-import queue
 import random
 from typing import List, Optional
-from implementations import CarlaStateSensor, SimpleAccAgent, PygameUI
+from ACC.Utils.implementations import CarlaStateSensor, SimpleAccAgent, PygameUI
 
 
 def main_loop(args):
@@ -24,7 +23,7 @@ def main_loop(args):
         world.apply_settings(settings)
 
         # Traffic Manger
-        traffic_manager = client.get_trafficmanager(8000)
+        traffic_manager: carla.TrafficManager = client.get_trafficmanager(8000)
         traffic_manager.set_synchronous_mode(True)
 
         # Blueprints
@@ -70,14 +69,19 @@ def main_loop(args):
         #image_queue: queue.Queue[carla.Image] = queue.Queue()
         #camera.listen(image_queue.put)
 
-        #TODO: delete later
         ego_vehicle.set_autopilot(True, 8000)
 
         sensor = CarlaStateSensor(ego_vehicle, lead_vehicle)
         decisionAgent = SimpleAccAgent(ego_vehicle, sensor)
 
+        traffic_manager.ignore_lights_percentage(ego_vehicle, 100)
+        traffic_manager.ignore_signs_percentage(ego_vehicle, 100)
+        traffic_manager.ignore_vehicles_percentage(ego_vehicle, 100)
+        traffic_manager.ignore_walkers_percentage(ego_vehicle, 100)
+
+        traffic_manager.vehicle_percentage_speed_difference(ego_vehicle, -1000)
+
         while True:
-            world.tick()
             # Move spectator to follow ego vehicle
             ego_transform = ego_vehicle.get_transform()
             spectator_transform = spectator.get_transform()
@@ -85,7 +89,10 @@ def main_loop(args):
 
             spectator.set_transform(carla.Transform(spectator_location, spectator_transform.rotation))
 
+            ego_vehicle.set_autopilot(True)
             ego_vehicle.apply_control(decisionAgent.make_decision())
+            ego_vehicle.set_autopilot(False)
+            world.tick()
 
             #image: carla.Image = image_queue.get()
 
