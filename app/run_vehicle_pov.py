@@ -11,6 +11,8 @@ rgb_camera_memory = RGBCameraMemory().get_read_access()
 depth_camera_memory = DepthCameraMemory().get_read_access()
 vehicle_distance_memory = VehicleDistanceMemory().get_write_access()
 
+object_detector = ObjectDetector()
+object_distance_calculator=ObjectDistanceCalculator()
 try:
     import time
     while True:
@@ -21,10 +23,9 @@ try:
             # No data yet, skip this iteration
             continue
         # Detect objects
-        object_detector=ObjectDetector()
         boxes, class_ids, scores =object_detector.get_objects(frame)
         # Get distance for each object
-        distances=ObjectDistanceCalculator().get_distances(boxes,depth_map)
+        distances=object_distance_calculator.get_distances(boxes,depth_map)
 
         # Visualise
         visualiser= POVVisualiser(
