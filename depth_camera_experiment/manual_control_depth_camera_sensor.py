@@ -940,14 +940,59 @@ class DepthCameraSensor(object):
         cv2.imshow("Depth Camera View", depth_color)
         cv2.waitKey(1)
 
-        # TODO: change this to something that makes sense instead of the closest pixels. 
-        # Closest pixels will always be <= 2 meters.
-        # This needs to become a selection method for pixels that are closest within the bounding box of the 
-        # vehicle that is within the camera view. For that, the logic of identifying vehicles and creating their
-        # bounding boxes is necessary
-        closest_distance = np.min(depth_meters)
 
-        self.hud.notification(f"Closest vehicle distance: {closest_distance:.2f} m")
+        # TODO: test with CARLA bounding box detection
+        
+        # Compute distances only inside bounding boxes
+        if boxes is not None:
+            distances = self.get_bounding_box_distances(depth_meters, boxes)
+            if distances:
+                self.hud.notification(f"Distances: {closest_distance:.2f} m")
+
+
+    def get_bounding_box_distances(self, depth_meters, boxes):
+    """
+    Compute the closest distance inside each bounding box in meters.
+    
+    Parameters:
+        depth_meters: np.ndarray
+            Depth map in meters (H x W).
+        boxes: list of tuples
+            Bounding boxes in (x1, y1, x2, y2) format. (calculated by )
+        class_ids: list of int, optional
+            Class IDs for each bounding box (useful to filter for vehicles).
+        target_class: int, optional
+            Only consider bounding boxes of this class.
+    
+    Returns:
+        list of floats: closest distance for each bounding box (in meters).
+    """
+    distances = []
+
+    for i, box in enumerate(boxes):
+
+        # convert bounding box coordinates to integers to use them as indices
+        x1, y1, x2, y2 = map(int, box)
+        
+        # Clip coordinates to image dimensions
+        # ensures that bounding box coordinates do not go outside of the image boundaries
+        # depth_meters.shape returns (H, W) of image
+        x1 = max(0, min(depth_meters.shape[1] - 1, x1)) # depth_meters_shape[1] = number of columns
+        x2 = max(0, min(depth_meters.shape[1] - 1, x2))
+        y1 = max(0, min(depth_meters.shape[0] - 1, y1)) # depth_meter_shape[0] = number of rows
+        y2 = max(0, min(depth_meters.shape[0] - 1, y2))
+        
+        # Crop depth map to bounding box
+        depth_crop = depth_meters[y1:y2+1, x1:x2+1]
+        
+        if depth_crop.size == 0:
+            continue
+        
+        # Get closest distance within bounding box
+        closest_distance = np.min(depth_crop)
+        distances.append(closest_distance)
+    
+    return distances
 
 
 
