@@ -22,7 +22,10 @@ import re
 import sys
 import weakref
 
+from ACC.MyAgtents.ProjectAgent import ProjectAgent
+from ACC.Sensors.carla_sensors import CollisionSensor, GnssSensor, LaneInvasionSensor
 from ACC.Utils.implementations import CarlaStateSensor, SimpleAccAgent
+from ACC.Utils.utils import get_actor_display_name, find_weather_presets, get_actor_blueprints
 
 try:
     import pygame
@@ -61,49 +64,6 @@ import carla
 from carla import ColorConverter as cc
 
 from PythonAPI.carla.agents.navigation.behavior_agent import BehaviorAgent  # pylint: disable=import-error
-
-
-# ==============================================================================
-# -- Global functions ----------------------------------------------------------
-# ==============================================================================
-
-
-def find_weather_presets():
-    """Method to find weather presets"""
-    rgx = re.compile('.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)')
-    def name(x): return ' '.join(m.group(0) for m in rgx.finditer(x))
-    presets = [x for x in dir(carla.WeatherParameters) if re.match('[A-Z].+', x)]
-    return [(getattr(carla.WeatherParameters, x), name(x)) for x in presets]
-
-
-def get_actor_display_name(actor, truncate=250):
-    """Method to get actor display name"""
-    name = ' '.join(actor.type_id.replace('_', '.').title().split('.')[1:])
-    return (name[:truncate - 1] + u'\u2026') if len(name) > truncate else name
-
-def get_actor_blueprints(world, filter, generation):
-    bps = world.get_blueprint_library().filter(filter)
-
-    if generation.lower() == "all":
-        return bps
-
-    # If the filter returns only one bp, we assume that this one needed
-    # and therefore, we ignore the generation
-    if len(bps) == 1:
-        return bps
-
-    try:
-        int_generation = int(generation)
-        # Check if generation is in available generations
-        if int_generation in [1, 2]:
-            bps = [x for x in bps if int(x.get_attribute('generation')) == int_generation]
-            return bps
-        else:
-            print("   Warning! Actor Generation is not valid. No actor will be spawned.")
-            return []
-    except:
-        print("   Warning! Actor Generation is not valid. No actor will be spawned.")
-        return []
 
 # ==============================================================================
 # -- World ---------------------------------------------------------------
@@ -475,112 +435,6 @@ class HelpText(object):
             display.blit(self.surface, self.pos)
 
 # ==============================================================================
-# -- CollisionSensor -----------------------------------------------------------
-# ==============================================================================
-
-
-class CollisionSensor(object):
-    """ Class for collision sensors"""
-
-    def __init__(self, parent_actor, hud):
-        """Constructor method"""
-        self.sensor = None
-        self.history = []
-        self._parent = parent_actor
-        self.hud = hud
-        world = self._parent.get_world()
-        blueprint = world.get_blueprint_library().find('sensor.other.collision')
-        self.sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=self._parent)
-        # We need to pass the lambda a weak reference to
-        # self to avoid circular reference.
-        weak_self = weakref.ref(self)
-        self.sensor.listen(lambda event: CollisionSensor._on_collision(weak_self, event))
-
-    def get_collision_history(self):
-        """Gets the history of collisions"""
-        history = collections.defaultdict(int)
-        for frame, intensity in self.history:
-            history[frame] += intensity
-        return history
-
-    @staticmethod
-    def _on_collision(weak_self, event):
-        """On collision method"""
-        self = weak_self()
-        if not self:
-            return
-        actor_type = get_actor_display_name(event.other_actor)
-        self.hud.notification('Collision with %r' % actor_type)
-        impulse = event.normal_impulse
-        intensity = math.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
-        self.history.append((event.frame, intensity))
-        if len(self.history) > 4000:
-            self.history.pop(0)
-
-# ==============================================================================
-# -- LaneInvasionSensor --------------------------------------------------------
-# ==============================================================================
-
-
-class LaneInvasionSensor(object):
-    """Class for lane invasion sensors"""
-
-    def __init__(self, parent_actor, hud):
-        """Constructor method"""
-        self.sensor = None
-        self._parent = parent_actor
-        self.hud = hud
-        world = self._parent.get_world()
-        bp = world.get_blueprint_library().find('sensor.other.lane_invasion')
-        self.sensor = world.spawn_actor(bp, carla.Transform(), attach_to=self._parent)
-        # We need to pass the lambda a weak reference to self to avoid circular
-        # reference.
-        weak_self = weakref.ref(self)
-        self.sensor.listen(lambda event: LaneInvasionSensor._on_invasion(weak_self, event))
-
-    @staticmethod
-    def _on_invasion(weak_self, event):
-        """On invasion method"""
-        self = weak_self()
-        if not self:
-            return
-        lane_types = set(x.type for x in event.crossed_lane_markings)
-        text = ['%r' % str(x).split()[-1] for x in lane_types]
-        self.hud.notification('Crossed line %s' % ' and '.join(text))
-
-# ==============================================================================
-# -- GnssSensor --------------------------------------------------------
-# ==============================================================================
-
-
-class GnssSensor(object):
-    """ Class for GNSS sensors"""
-
-    def __init__(self, parent_actor):
-        """Constructor method"""
-        self.sensor = None
-        self._parent = parent_actor
-        self.lat = 0.0
-        self.lon = 0.0
-        world = self._parent.get_world()
-        blueprint = world.get_blueprint_library().find('sensor.other.gnss')
-        self.sensor = world.spawn_actor(blueprint, carla.Transform(carla.Location(x=1.0, z=2.8)),
-                                        attach_to=self._parent)
-        # We need to pass the lambda a weak reference to
-        # self to avoid circular reference.
-        weak_self = weakref.ref(self)
-        self.sensor.listen(lambda event: GnssSensor._on_gnss_event(weak_self, event))
-
-    @staticmethod
-    def _on_gnss_event(weak_self, event):
-        """GNSS method"""
-        self = weak_self()
-        if not self:
-            return
-        self.lat = event.latitude
-        self.lon = event.longitude
-
-# ==============================================================================
 # -- CameraManager -------------------------------------------------------------
 # ==============================================================================
 
@@ -702,122 +556,121 @@ class CameraManager(object):
 # -- Game Loop ---------------------------------------------------------
 # ==============================================================================
 
+class Engine():
 
-def game_loop(args):
-    """
-    Main loop of the simulation. It handles updating all the HUD information,
-    ticking the agent and, if needed, the world.
-    """
+    def __init__(self, args):
+        pygame.init()
+        pygame.font.init()
+        self.world = None
 
-    pygame.init()
-    pygame.font.init()
-    world = None
+        try:
+            if args.seed:
+                random.seed(args.seed)
 
-    try:
-        if args.seed:
-            random.seed(args.seed)
+            client = carla.Client(args.host, args.port)
+            client.set_timeout(60.0)
 
-        client = carla.Client(args.host, args.port)
-        client.set_timeout(60.0)
+            self.traffic_manager = client.get_trafficmanager()
+            client.load_world('Town04')
+            sim_world = client.get_world()
 
-        traffic_manager = client.get_trafficmanager()
-        client.load_world('Town04')
-        sim_world = client.get_world()
-
-
-        if args.sync:
-            settings = sim_world.get_settings()
-            settings.synchronous_mode = True
-            settings.fixed_delta_seconds = 0.05
-            sim_world.apply_settings(settings)
-
-            traffic_manager.set_synchronous_mode(True)
-
-        display = pygame.display.set_mode(
-            (args.width, args.height),
-            pygame.HWSURFACE | pygame.DOUBLEBUF)
-
-        hud = HUD(args.width, args.height)
-        world = World(client.get_world(), hud, args)
-        controller = KeyboardControl(world)
-
-        agent = BehaviorAgent(world.player, behavior=args.behavior)
-        """
-        if args.agent == "Basic":
-            agent = BasicAgent(world.player, 30)
-            agent.follow_speed_limits(True)
-        elif args.agent == "Constant":
-            agent = ConstantVelocityAgent(world.player, 30)
-            ground_loc = world.world.ground_projection(world.player.get_location(), 5)
-            if ground_loc:
-                world.player.set_location(ground_loc.location + carla.Location(z=0.01))
-            agent.follow_speed_limits(True)
-        elif args.agent == "Behavior":
-            agent = BehaviorAgent(world.player, behavior=args.behavior)
-        """
-
-
-        # MY CODE ----------------------------------------------------------------------
-
-        ego_transform = world.player.get_transform()
-        lead_transform = carla.Transform(
-            ego_transform.location + 15.0 * ego_transform.get_forward_vector(),
-            ego_transform.rotation
-        )
-
-        bus_bp = world.world.get_blueprint_library().filter("*.mitsubishi.fusorosa")[0]
-
-        lead_vehicle = world.world.try_spawn_actor(bus_bp, lead_transform)
-        traffic_manager.set_desired_speed(lead_vehicle, 360)
-
-        if lead_vehicle:
-            lead_vehicle.set_autopilot(True, traffic_manager.get_port())
-            print("Spawned lead vehicle.")
-
-        sensor = CarlaStateSensor(world.player, lead_vehicle)
-        acc_agent = SimpleAccAgent(world.player, sensor)
-
-        # MY CODE ---------------------------------------------------------------
-        # Set the agent destination
-
-        clock = pygame.time.Clock()
-
-        while True:
-            clock.tick()
             if args.sync:
-                world.world.tick()
-            else:
-                world.world.wait_for_tick()
-            if controller.parse_events():
-                return
+                settings = sim_world.get_settings()
+                settings.synchronous_mode = True
+                settings.fixed_delta_seconds = 0.05
+                sim_world.apply_settings(settings)
 
-            world.tick(clock)
-            world.render(display)
-            pygame.display.flip()
+                self.traffic_manager.set_synchronous_mode(True)
 
-            lead_transform = lead_vehicle.get_transform()
-            lead_forward_vector = lead_transform.get_forward_vector()
-            destination = lead_transform.location + 8.0 * lead_forward_vector
-            agent.set_destination(destination)
+            self.display = pygame.display.set_mode(
+                (args.width, args.height),
+                pygame.HWSURFACE | pygame.DOUBLEBUF)
 
-            #TODO: CHANGE CONTROL
-            nav_control = agent.run_step()
-            final_control = acc_agent.make_decision(nav_control)
+            hud = HUD(args.width, args.height)
+            self.world = World(client.get_world(), hud, args)
+            self.controller = KeyboardControl(self.world)
 
-            world.player.apply_control(final_control)
+            """
+            if args.agent == "Basic":
+                agent = BasicAgent(world.player, 30)
+                agent.follow_speed_limits(True)
+            elif args.agent == "Constant":
+                agent = ConstantVelocityAgent(world.player, 30)
+                ground_loc = world.world.ground_projection(world.player.get_location(), 5)
+                if ground_loc:
+                    world.player.set_location(ground_loc.location + carla.Location(z=0.01))
+                agent.follow_speed_limits(True)
+            elif args.agent == "Behavior":
+                agent = BehaviorAgent(world.player, behavior=args.behavior)
+            """
 
-    finally:
+            # MY CODE ----------------------------------------------------------------------
 
-        if world is not None:
-            settings = world.world.get_settings()
+            ego_transform = self.world.player.get_transform()
+            lead_transform = carla.Transform(
+                ego_transform.location + 15.0 * ego_transform.get_forward_vector(),
+                ego_transform.rotation
+            )
+
+            bus_bp = self.world.world.get_blueprint_library().filter("*.mitsubishi.fusorosa")[0]
+
+            self.lead_vehicle = self.world.world.try_spawn_actor(bus_bp, lead_transform)
+            self.traffic_manager.set_desired_speed(self.lead_vehicle, 360)
+
+            if self.lead_vehicle:
+                self.lead_vehicle.set_autopilot(True, self.traffic_manager.get_port())
+                print("Spawned lead vehicle.")
+
+            sensor = CarlaStateSensor(self.world.player, self.lead_vehicle)
+            decision_agent = SimpleAccAgent(self.world.player, sensor)
+            self.agent = ProjectAgent(decision_agent, behavior=args.behavior)
+
+            # MY CODE ---------------------------------------------------------------
+            # Set the agent destination
+
+        except Exception as E:
+            print(E)
+            self.close()
+
+    def close(self):
+        if self.world is not None:
+            settings = self.world.world.get_settings()
             settings.synchronous_mode = False
             settings.fixed_delta_seconds = None
-            world.world.apply_settings(settings)
-            traffic_manager.set_synchronous_mode(True)
+            self.world.world.apply_settings(settings)
+            self.traffic_manager.set_synchronous_mode(True)
 
-            world.destroy()
+            self.world.destroy()
 
         pygame.quit()
+
+    def game_loop(self, args):
+        try:
+            clock = pygame.time.Clock()
+            while True:
+                clock.tick()
+                if args.sync:
+                    self.world.world.tick()
+                else:
+                    self.world.world.wait_for_tick()
+                if self.controller.parse_events():
+                    return
+
+                self.world.tick(clock)
+                self.world.render(self.display)
+                pygame.display.flip()
+
+                lead_transform = self.lead_vehicle.get_transform()
+                lead_forward_vector = lead_transform.get_forward_vector()
+                destination = lead_transform.location + 8.0 * lead_forward_vector
+                self.agent.set_destination(destination)
+
+                #TODO: CHANGE CONTROL
+                nav_control = self.agent.run_step()
+                self.world.player.apply_control(nav_control)
+
+        finally:
+            self.close()
 
 
 # ==============================================================================
@@ -898,7 +751,8 @@ def main():
     print(__doc__)
 
     try:
-        game_loop(args)
+        engine = Engine(args)
+        engine.game_loop(args)
 
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
