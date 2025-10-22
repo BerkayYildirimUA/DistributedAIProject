@@ -5,6 +5,12 @@ import collections
 import math
 from ACC.Utils.utils import get_actor_display_name # Assuming utils.py is in the same directory or accessible
 
+
+# ==============================================================================
+# -- CollisionSensor -----------------------------------------------------------
+# ==============================================================================
+
+
 class CollisionSensor(object):
     """ Class for collision sensors"""
 
@@ -45,6 +51,11 @@ class CollisionSensor(object):
 
 
 
+# ==============================================================================
+# -- LaneInvasionSensor --------------------------------------------------------
+# ==============================================================================
+
+
 class LaneInvasionSensor(object):
     """Class for lane invasion sensors"""
 
@@ -72,8 +83,14 @@ class LaneInvasionSensor(object):
         self.hud.notification('Crossed line %s' % ' and '.join(text))
 
 
+# ==============================================================================
+# -- GnssSensor --------------------------------------------------------
+# ==============================================================================
+
+
 class GnssSensor(object):
     """ Class for GNSS sensors"""
+
     def __init__(self, parent_actor):
         """Constructor method"""
         self.sensor = None
@@ -82,9 +99,8 @@ class GnssSensor(object):
         self.lon = 0.0
         world = self._parent.get_world()
         blueprint = world.get_blueprint_library().find('sensor.other.gnss')
-        # Adjust sensor location if necessary, or use default Transform
-        transform = carla.Transform(carla.Location(x=1.0, z=2.8))
-        self.sensor = world.spawn_actor(blueprint, transform, attach_to=self._parent)
+        self.sensor = world.spawn_actor(blueprint, carla.Transform(carla.Location(x=1.0, z=2.8)),
+                                        attach_to=self._parent)
         # We need to pass the lambda a weak reference to
         # self to avoid circular reference.
         weak_self = weakref.ref(self)
@@ -99,7 +115,3 @@ class GnssSensor(object):
         self.lat = event.latitude
         self.lon = event.longitude
 
-    def destroy(self):
-        if self.sensor:
-            self.sensor.destroy()
-            self.sensor = None
