@@ -17,3 +17,4 @@ app/__pycache__
 .idea/dataSources/
 .idea/dataSources.local.xml
 .idea/httpRequests/
+.idea/DistributedAIProject.iml
