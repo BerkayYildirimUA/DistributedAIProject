@@ -19,6 +19,8 @@ class World:
         self.spawn_random_vehicles()
         # Spawn ego vehicle
         self.create_and_spawn_ego_vehicle()
+        # Enable autopilot
+        self.enable_autopilot_for_ego_vehicle()
         # Create cameras and attach to ego vehicle
         self.create_ego_cameras()
         # Set spectator
