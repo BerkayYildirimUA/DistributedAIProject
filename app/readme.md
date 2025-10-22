@@ -31,9 +31,9 @@ This script will load the world, vehicles in the carla simulator and adds specta
 to track our car. It sends every frame to a shared memory that will be processed by another script
 see step 5.
 
-``cd ~/shared/gitrepo/DistributedAIProject/yolo_experiments``
+``cd ~/shared/gitrepo/DistributedAIProject/app``
 
-``python call_inference.py``
+``python run_world.py``
 
 4. Open new terminal and enter venv for processing the data. We use for this venv a new python verion: 3.12.
 
@@ -43,6 +43,6 @@ see step 5.
 5. Run the data processing script: it will read the shared memory and render the camera view of the car in 
 a separate window and overlay the boxes (object detection). 
 
-``cd ~/shared/gitrepo/DistributedAIProject/yolo_experiments``
+``cd ~/shared/gitrepo/DistributedAIProject/app``
 
-``python3.12 run_inference.py``
+``python3.12 run_vehicle_pov.py``
