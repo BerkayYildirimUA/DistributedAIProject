@@ -61,7 +61,7 @@ except IndexError:
 import carla
 from carla import ColorConverter as cc
 
-from ACC.PythonAPI.carla.agents.navigation.behavior_agent import BehaviorAgent  # pylint: disable=import-error
+from PythonAPI.carla.agents.navigation.behavior_agent import BehaviorAgent  # pylint: disable=import-error
 
 
 # ==============================================================================
