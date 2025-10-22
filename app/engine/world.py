@@ -59,12 +59,16 @@ class World:
     def create_and_spawn_ego_vehicle(self):
         spawn_points = self.world.get_map().get_spawn_points()
         spawned = False
+        max_tries=100
         while not spawned:
             try:
-                self.ego_vehicle = self.world.spawn_actor(self.get_vehicle_bps(), random.choice(spawn_points))
+                self.ego_vehicle = self.world.spawn_actor(self.get_ego_vehicle_bps(), random.choice(spawn_points))
                 spawned = True
             except:
                 print("Trying other spawn location")
+                max_tries-=1
+                if max_tries<=0:
+                    raise Exception("Failed to spawn ego vehicle")
 
     def create_ego_cameras(self):
         camera_init_trans = carla.Transform(carla.Location(z=1.5), carla.Rotation(pitch=0, yaw=0, roll=0))
