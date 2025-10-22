@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+from app.data_processors.lane_detector import LaneDetector
 from data_processors.object_detector import ObjectDetector
 from data_processors.object_distance_calculator import ObjectDistanceCalculator
 from memory.shared_memory import RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory
@@ -13,6 +14,7 @@ vehicle_distance_memory = VehicleDistanceMemory().get_write_access()
 
 object_detector = ObjectDetector()
 object_distance_calculator=ObjectDistanceCalculator()
+lane_detector=LaneDetector()
 try:
     import time
     while True:
@@ -27,13 +29,17 @@ try:
         # Get distance for each object
         distances=object_distance_calculator.get_distances(boxes,depth_map)
 
+        # Overlay lanes
+        lanes = lane_detector.get_lanes(frame)
+
         # Visualise
         visualiser= POVVisualiser(
             object_detector.classes,
             frame,boxes,
             class_ids,
             scores,
-            distances)
+            distances,
+            lanes)
         visualiser.show()
 
 finally:
