@@ -108,12 +108,12 @@ class LaneDetector:
 
     def get_lane_coords(self,scores):
         lanes = []
-        print(scores.shape)
-        print(scores)
 
+        # For each lane
         for i in range(scores.shape[1]):
-            print(scores[:,i])
+            # Get row
             if torch.count_nonzero(scores[:, i]) > 2:
+                # Convert scores to pixels
                 for k in range(scores.shape[0]):
                     if scores[k, i] > 0:
                         ppp = (int(scores[k, i] * self.col_sample_w * self.frame_w / self.model_input_width) - 1,
