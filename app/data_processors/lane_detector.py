@@ -77,9 +77,9 @@ class LaneDetector:
 
         # Shape output (batch_size, num_grid_cells+1,num_row_anchors,num_lanes)
         # Batch_size=1, we only pass one sample -> take it
-        output = self.net(img_tensor)[0].data.cpu()
+        output = self.net(img_tensor)[0].data
         # Model predicts from top -> bottom, we change order
-        output =  output[:, ::-1, :].contiguous()
+        output = torch.flip(output, dims=[1])
 
         # Calculate the probability of a lane in that cell with softmax
         # Drop last element in num_grid_cells dimension: it used to indicate if there is no lane detected, we don't need a prob
