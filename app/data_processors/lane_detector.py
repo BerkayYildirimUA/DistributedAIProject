@@ -109,6 +109,7 @@ class LaneDetector:
     def get_lanes(self, frame):
         scores= self.get_lane_scores(frame)
         x,y,mask = self.get_lane_coords(scores)
+        return torch.stack((x,y), dim=0).cpu().numpy()
         return self.filter_car_lane(x,y,mask)
 
     # def get_lane_coords(self,scores):
