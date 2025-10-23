@@ -45,6 +45,9 @@ class LaneDetector:
             transforms.Normalize((0.485, 0.456, 0.406),
                                  (0.229, 0.224, 0.225))
         ])
+        # Scaling
+        self.scaling_x = self.col_sample_w * self.frame_w / self.model_input_width
+        self.scaling_y = self.row_anchors[self.cls_num_per_lane - 1 - k] / self.model_input_height
 
     # Create all grid samples for a row
     def calculate_grid(self):
@@ -116,7 +119,7 @@ class LaneDetector:
                 # Convert scores to pixels
                 for k in range(scores.shape[0]):
                     if scores[k, i] > 0:
-                        ppp = (int(scores[k, i] * self.col_sample_w * self.frame_w / self.model_input_width) - 1,
-                               int(self.frame_h * (self.row_anchors[self.cls_num_per_lane - 1 - k] / self.model_input_height)) - 1)
+                        ppp = (int(scores[k, i] * self.scaling_x) - 1,
+                               int(self.frame_h * self.scaling_y) - 1)
                         lanes.append(ppp)
         return lanes
