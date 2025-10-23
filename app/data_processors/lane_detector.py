@@ -105,9 +105,11 @@ class LaneDetector:
 
         return output
 
+    # TODO: optimise, cant we filter earlier?
     def get_lanes(self, frame):
         scores= self.get_lane_scores(frame)
-        return self.get_lane_coords(scores)
+        lanes = self.get_lane_coords(scores)
+        return self.filter_car_lane(lanes)
 
     def get_lane_coords(self,scores):
         lanes = []
@@ -123,3 +125,9 @@ class LaneDetector:
                                int(self.frame_h * self.scaling_y) - 1)
                         lanes.append(ppp)
         return lanes
+
+    def filter_car_lane(self,lanes):
+        frame_center = self.frame_w / 2
+        best_lane = min(lanes, key=lambda lane: abs(
+            torch.tensor([x for x, y in lane], dtype=torch.float).mean() - frame_center))
+        return best_lane
