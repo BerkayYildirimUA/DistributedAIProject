@@ -91,7 +91,7 @@ class LaneDetector:
 
         # outputs an x coordinate for each row for each lane
         # soft_loc = np.sum(prob * bins.reshape(-1, 1, 1), axis=0)
-        soft_loc = torch.sum(prob * bins[:, None, None], dim=0)
+        soft_loc = torch.sum(prob * bins.view(-1,1,1), dim=0)
 
         # Hard classification, find max bin
         # Outputs bin number for each row for each lane
