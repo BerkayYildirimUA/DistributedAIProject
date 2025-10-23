@@ -154,27 +154,33 @@ class LaneDetector:
 
     def filter_car_lanes(self, lanes):
         """
-        Select the two lanes closest to the center of the frame (assume car is between them).
+        Select the two lanes closest to the frame center (left and right of the car)
+        using the same logic as before.
         lanes: list of lanes, each lane is a list of (x, y) points
         Returns:
-            best_lanes: list of two lanes (left and right)
+            best_lanes: list of two lanes
         """
-        if not lanes or len(lanes) < 2:
-            return lanes  # return whatever exists if fewer than 2 lanes
-
         frame_center = self.frame_w / 2
 
         # Compute average x of each lane
         lane_avgs = [torch.tensor([x for x, y in lane], dtype=torch.float).mean() for lane in lanes]
 
-        # Compute distance from frame center
-        lane_dist = [abs(avg - frame_center) for avg in lane_avgs]
+        # Split lanes into left and right relative to frame center
+        left_lanes = [lane for lane, avg in zip(lanes, lane_avgs) if avg < frame_center]
+        right_lanes = [lane for lane, avg in zip(lanes, lane_avgs) if avg >= frame_center]
 
-        # Sort lanes by distance from center
-        sorted_indices = sorted(range(len(lanes)), key=lambda i: lane_dist[i])
+        # Pick the left lane closest to the center
+        best_left = min(left_lanes, key=lambda lane: abs(
+            torch.tensor([x for x, y in lane], dtype=torch.float).mean() - frame_center)) \
+            if left_lanes else None
 
-        # Return the two closest lanes
-        best_lanes = [lanes[sorted_indices[0]], lanes[sorted_indices[1]]]
+        # Pick the right lane closest to the center
+        best_right = min(right_lanes, key=lambda lane: abs(
+            torch.tensor([x for x, y in lane], dtype=torch.float).mean() - frame_center)) \
+            if right_lanes else None
+
+        # Return both lanes (filter out None)
+        best_lanes = [lane for lane in [best_left, best_right] if lane is not None]
 
         return best_lanes
 
