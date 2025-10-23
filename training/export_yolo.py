@@ -12,10 +12,10 @@ if __name__=='__main__':
     print(nms)
 
     # Load a model
-    model = YOLO("runs/detect/train8/weights/best.pt")
+    model = YOLO("runs/detect/train_all_640_m/weights/best.pt")
 
     # Export the model
-    model.export(format="onnx",imgsz=800)
+    model.export(format="onnx",imgsz=640)
 
     # https: // github.com / ultralytics / ultralytics / issues / 16959  # issuecomment-2416464815
     # model_path = 'runs/detect/train8/weights/best.onnx'
