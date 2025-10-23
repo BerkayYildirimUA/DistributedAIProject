@@ -154,11 +154,10 @@ class LaneDetector:
 
     def filter_car_lanes(self, lanes):
         """
-        Select the two lanes closest to the frame center (left and right of the car)
-        using the same logic as before.
+        Select lanes left and right of the car and return a single list of coordinates.
         lanes: list of lanes, each lane is a list of (x, y) points
         Returns:
-            best_lanes: list of two lanes
+            best_coords: list of (x, y) coordinates for both lanes
         """
         frame_center = self.frame_w / 2
 
@@ -169,20 +168,18 @@ class LaneDetector:
         left_lanes = [lane for lane, avg in zip(lanes, lane_avgs) if avg < frame_center]
         right_lanes = [lane for lane, avg in zip(lanes, lane_avgs) if avg >= frame_center]
 
-        # Pick the left lane closest to the center
+        # Pick closest lanes on each side
         best_left = min(left_lanes, key=lambda lane: abs(
             torch.tensor([x for x, y in lane], dtype=torch.float).mean() - frame_center)) \
-            if left_lanes else None
-
-        # Pick the right lane closest to the center
+            if left_lanes else []
         best_right = min(right_lanes, key=lambda lane: abs(
             torch.tensor([x for x, y in lane], dtype=torch.float).mean() - frame_center)) \
-            if right_lanes else None
+            if right_lanes else []
 
-        # Return both lanes (filter out None)
-        best_lanes = [lane for lane in [best_left, best_right] if lane is not None]
+        # Flatten coordinates into a single list
+        best_coords = best_left + best_right
 
-        return best_lanes
+        return best_coords
 
     # import torch
     #
