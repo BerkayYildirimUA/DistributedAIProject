@@ -113,7 +113,7 @@ class LaneDetector:
 
         for i in range(scores.shape[1]):
             print(scores[:,i])
-            if np.sum(scores[:, i] != 0) > 2:
+            if torch.count_nonzero(scores[:, i]) > 2:
                 for k in range(scores.shape[0]):
                     if scores[k, i] > 0:
                         ppp = (int(scores[k, i] * self.col_sample_w * self.frame_w / self.model_input_width) - 1,
