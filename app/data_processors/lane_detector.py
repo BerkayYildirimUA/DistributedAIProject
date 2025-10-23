@@ -110,7 +110,7 @@ class LaneDetector:
         scores= self.get_lane_scores(frame)
         lanes = self.get_lane_coords(scores)
         # return torch.stack((x,y), dim=0).cpu().numpy()
-        return self.filter_car_lane(lanes)
+        return self.filter_car_lanes(lanes)
 
     # def get_lane_coords(self,scores):
     #     lanes = []
@@ -151,6 +151,32 @@ class LaneDetector:
         best_lane = min(lanes, key=lambda lane: abs(
             torch.tensor([x for x, y in lane], dtype=torch.float).mean() - frame_center))
         return best_lane
+
+    def filter_car_lanes(self, lanes):
+        """
+        Select the two lanes closest to the center of the frame (assume car is between them).
+        lanes: list of lanes, each lane is a list of (x, y) points
+        Returns:
+            best_lanes: list of two lanes (left and right)
+        """
+        if not lanes or len(lanes) < 2:
+            return lanes  # return whatever exists if fewer than 2 lanes
+
+        frame_center = self.frame_w / 2
+
+        # Compute average x of each lane
+        lane_avgs = [torch.tensor([x for x, y in lane], dtype=torch.float).mean() for lane in lanes]
+
+        # Compute distance from frame center
+        lane_dist = [abs(avg - frame_center) for avg in lane_avgs]
+
+        # Sort lanes by distance from center
+        sorted_indices = sorted(range(len(lanes)), key=lambda i: lane_dist[i])
+
+        # Return the two closest lanes
+        best_lanes = [lanes[sorted_indices[0]], lanes[sorted_indices[1]]]
+
+        return best_lanes
 
     # import torch
     #
