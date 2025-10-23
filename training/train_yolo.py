@@ -11,17 +11,22 @@ if __name__=='__main__':
     print(nms)
 
     # Load a model
-    model = YOLO("yolo11n.pt")
+    model = YOLO("yolo11m.pt")
 
     # Train the model
     model.train(data="data.yaml",
-                imgsz=800,
-                batch=32,
-                epochs=500,
-                device=0,
-                workers=4,
+                imgsz=640,
+                batch=8,
+                epochs=350,
+                device='cuda:0',
+                workers=2,
                 patience=50,
                 plots=True,
                 augment=False,
                 val=True,
-                classes=[0,1,2])
+                classes=[0,1,2,3,4,5],
+                amp=False,
+                project="runs/detect",
+                name="train_all_640_s",  # vaste naam (makkelijker voor eval/export)
+                exist_ok=True
+                )
