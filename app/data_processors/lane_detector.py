@@ -79,7 +79,7 @@ class LaneDetector:
         # Batch_size=1, we only pass one sample -> take it
         output = self.net(img_tensor)[0].data.cpu()
         # Model predicts from top -> bottom, we change order
-        output =  output[:, ::-1, :]
+        output =  output[:, ::-1, :].contiguous()
 
         # Calculate the probability of a lane in that cell with softmax
         # Drop last element in num_grid_cells dimension: it used to indicate if there is no lane detected, we don't need a prob
