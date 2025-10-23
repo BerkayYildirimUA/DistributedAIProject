@@ -11,8 +11,11 @@ class _SharedMemory(np.memmap):
 
 class SharedMemory:
     def __init__(self, filename,shape,dtype):
-        os.makedirs("./memory_files", exist_ok=True)
-        self.filename = "./memory_files/"+filename
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        memory_dir = os.path.join(base_dir, "memory_files")
+
+        os.makedirs(memory_dir, exist_ok=True)
+        self.filename = os.path.join(memory_dir, filename)
         self.shape = shape
         self.dtype = dtype
 
@@ -24,7 +27,7 @@ class SharedMemory:
             print(f"Memory {self.__class__.__name__} created!")
 
     def get_write_access(self):
-        return _SharedMemory(self.filename, dtype=self.dtype, mode='w+', shape=self.shape)
+        return _SharedMemory(self.filename, dtype=self.dtype, mode='r+', shape=self.shape)
     def get_read_access(self):
         return _SharedMemory(self.filename, dtype=self.dtype, mode='r', shape=self.shape)
 
