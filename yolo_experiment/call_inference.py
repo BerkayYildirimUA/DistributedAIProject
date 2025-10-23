@@ -114,11 +114,17 @@ shared_vehicle_distance_in_front_m = np.memmap(vehicle_distance_filename, dtype=
 
 EgoLocation = ego_vehicle.get_location()
 
-traffic_manager = client.get_trafficmanager()
+tm = client.get_trafficmanager()
+tm.vehicle_percentage_speed_difference(ego_vehicle, 0)  # no speed scaling
+tm.distance_to_leading_vehicle(ego_vehicle, 5.0)       # safety distance
+tm.ignore_vehicles_percentage(ego_vehicle, 0)          # don’t ignore virtual vehicles
+tm.max_speed(ego_vehicle, 20.0) 
 for vehicle in world.get_actors().filter('*vehicle*'):
     if vehicle.id != ego_vehicle.id:
-        vehicle.set_autopilot(True,traffic_manager.get_port())
-ego_vehicle.set_autopilot(True, traffic_manager.get_port())
+        vehicle.set_autopilot(True,tm.get_port())
+ego_vehicle.set_autopilot(True, tm.get_port())
+
+
 
 # ego_vehicle.apply_control(carla.VehicleControl(throttle=0.5, steer=0.0))
 

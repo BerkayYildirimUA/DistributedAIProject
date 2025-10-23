@@ -6,7 +6,6 @@ import torch
 import torchvision
 from ultralytics import YOLO
 import os
-from lane_detection import LaneDetection
 
 # https://medium.com/@zain.18j2000/how-to-use-your-yolov11-model-with-onnx-runtime-69f4ea243c01
 # TODO: remove overlapping boxes
@@ -18,33 +17,6 @@ class ObjectDetection:
         self.classes = ["Vehicle", "Motor", "Bike","traffic light","traffic sign","pedestrian"]
         self.input_size = 800
         self.laneDetection = LaneDetection()
-
-    def visualize_lanes(self, frame):
-        """TODO: used for debugging, remove this! """
-        nwindows = 9
-        margin = 100
-        minpix = 50
-
-        # Warp frame to bird-eye view
-        img_warped = self.laneDetection.get_perspective_matrices(frame)
-
-        # Convert to grayscale and threshold
-        img_gray = cv2.cvtColor(img_warped, cv2.COLOR_RGB2GRAY)
-        _, img_binary = cv2.threshold(img_gray, 220, 255, cv2.THRESH_BINARY)
-
-        # Extract lane feature pixels
-        nonzerox, nonzeroy, window_height = self.laneDetection.extract_features(img_binary, nwindows)
-
-        # Find lane pixels
-        leftx, lefty, rightx, righty, out_img = self.laneDetection.find_lane_pixels(
-            img_binary, nwindows, margin, minpix, nonzerox, nonzeroy, window_height
-        )
-
-        # Fit polynomials and get visualization overlay
-        lane_overlay = self.laneDetection.fit_poly(img_binary, leftx, lefty, rightx, righty)
-
-        # Warp the overlay back to original perspective
-        return lane_overlay
 
     # Convert frame to correct input format for yolo
     def preprocess_frame(self,frame):
@@ -93,7 +65,7 @@ class ObjectDetection:
         return frame
 
 
-    def detect_and_add_overlay(self, frame, depth_map=None, show_lanes=True):
+    def detect_and_add_overlay(self, frame, depth_map=None):
         start_time = time.time()
         pro_frame, frame_w, frame_h = self.preprocess_frame(frame)
         boxes,class_ids,scores = self.get_objects(pro_frame, frame_w, frame_h)
@@ -120,55 +92,11 @@ class ObjectDetection:
                     cv2.putText(frame, f"{distance_m:.1f} m", (x1, y2 + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
                     if (self.vehicle_is_in_front(x1, y1, x2, y2, frame)):
                         distance_vehicle_in_front_m = distance_m
-        if show_lanes:
-            lane_overlay = self.visualize_lanes(frame)
-            frame = cv2.addWeighted(frame, 0.7, lane_overlay, 0.3, 0)
-
 
         frame_with_boxes_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         print(f"Inference + overlay time: {(time.time()-start_time)*1000:.2f} ms")
         return frame_with_boxes_bgr, distance_vehicle_in_front_m
 
-
     #TODO: check whether car is in front of the ego vehicle using Image Processing techniques.
     def vehicle_is_in_front(self,  x1, y1, x2, y2, frame=None):
-       """  if frame is None:
-            return False;
-
-        nwindows = 9
-        margin = 100
-        minpix = 50
-
-        # warp frame to birds-eye view
-        img_warped = self.laneDetection.get_perspective_matrices(frame)
-
-        # convert to grayscale such that lane pixels are white
-        img_gray = cv2.cvtColor(img_warped, cv2.COLOR_RGB2GRAY)
-        _, img_binary = cv2.threshold(img_gray, 220, 255, cv2.THRESH_BINARY)
-
-        # Extract lane feature pixels
-        nonzerox, nonzeroy, window_height = self.laneDetection.extract_features(img_binary, nwindows)
-
-        # Find left/right lane pixels
-        leftx, lefty, rightx, righty, _ = self.laneDetection.find_lane_pixels(
-            img_binary, nwindows, margin, minpix, nonzerox, nonzeroy, window_height
-        )
-
-        # Fit polynomials
-        out_img = self.laneDetection.fit_poly(img_binary, leftx, lefty, rightx, righty)
-
-        # Get polynomial coefficients for left and right lanes
-        left_fit = np.polyfit(lefty, leftx, 2) if len(leftx) > 0 else [0, 0, 0]
-        right_fit = np.polyfit(righty, rightx, 2) if len(rightx) > 0 else [0, 0, 0]
-
-        # Check if vehicle bounding box is inside the detected lane
-        ys = np.linspace(y1, y2, num=5)
-        left_xs = left_fit[0]*ys**2 + left_fit[1]*ys + left_fit[2]
-        right_xs = right_fit[0]*ys**2 + right_fit[1]*ys + right_fit[2]
-
-        for lx, rx in zip(left_xs, right_xs):
-            if x1 >= lx and x2 <= rx:
-                return True
-        return False """
-
         return True
