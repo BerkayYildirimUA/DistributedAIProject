@@ -205,4 +205,4 @@ class LaneDetector:
         valid_mask = mask[:, car_lane_idx]
         car_lane_points = torch.stack([x[:, car_lane_idx], y[:, car_lane_idx]], dim=1)[valid_mask]
 
-        return car_lane_points
+        return car_lane_points.cpu().numpy().astype(int)
