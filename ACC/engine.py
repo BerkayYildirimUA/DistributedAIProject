@@ -24,9 +24,10 @@ import weakref
 
 from ACC.MyAgtents.ProjectAgent import ProjectAgent
 from ACC.Sensors.carla_sensors import CollisionSensor, GnssSensor, LaneInvasionSensor
+from ACC.Utils.GForce_Class import GForceCalculator
 from ACC.Utils.implementations import CarlaStateSensor, SimpleAccAgent
 from ACC.Utils.utils import get_actor_display_name, find_weather_presets, get_actor_blueprints
-
+global gforceCal
 try:
     import pygame
     from pygame.locals import KMOD_CTRL
@@ -132,7 +133,7 @@ class World(object):
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
             self.modify_vehicle_physics(self.player)
 
-        if self._args.sync:
+        if self._args.sync or True:
             print("WE ARE SYNC")
             self.world.tick()
         else:
@@ -268,6 +269,14 @@ class HUD(object):
         collision = [x / max_col for x in collision]
         vehicles = world.world.get_actors().filter('vehicle.*')
 
+        speed = 3.6 * math.sqrt(vel.x ** 2 + vel.y ** 2 + vel.z ** 2)
+
+        global gforceCal
+        gforceCal.update_speed(speed)
+
+        g_forces = gforceCal.get_g_forces()
+        current_g_force = g_forces[-1] if g_forces else 0.0
+
         self._info_text = [
             'Server:  % 16.0f FPS' % self.server_fps,
             'Client:  % 16.0f FPS' % clock.get_fps(),
@@ -276,7 +285,8 @@ class HUD(object):
             'Map:     % 20s' % world.map.name.split('/')[-1],
             'Simulation time: % 12s' % datetime.timedelta(seconds=int(self.simulation_time)),
             '',
-            'Speed:   % 15.0f km/h' % (3.6 * math.sqrt(vel.x**2 + vel.y**2 + vel.z**2)),
+            'Speed:   % 15.0f km/h' % speed,
+            'G-FORCE: % 15.2f g' % current_g_force,
             u'Heading:% 16.0f\N{DEGREE SIGN} % 2s' % (transform.rotation.yaw, heading),
             'Location:% 20s' % ('(% 5.1f, % 5.1f)' % (transform.location.x, transform.location.y)),
             'GNSS:% 24s' % ('(% 2.6f, % 3.6f)' % (world.gnss_sensor.lat, world.gnss_sensor.lon)),
@@ -574,10 +584,10 @@ class Engine():
             client.load_world('Town04')
             sim_world = client.get_world()
 
-            if args.sync:
+            if args.sync or True:
                 settings = sim_world.get_settings()
                 settings.synchronous_mode = True
-                settings.fixed_delta_seconds = 0.05
+                settings.fixed_delta_seconds = 1/60
                 sim_world.apply_settings(settings)
 
                 self.traffic_manager.set_synchronous_mode(True)
@@ -623,7 +633,7 @@ class Engine():
 
             sensor = CarlaStateSensor(self.world.player, self.lead_vehicle)
             decision_agent = SimpleAccAgent(self.world.player, sensor)
-            self.agent = ProjectAgent(decision_agent, behavior=args.behavior)
+            self.agent = ProjectAgent(self.world.player, behavior=args.behavior, decision_agent=decision_agent)
 
             # MY CODE ---------------------------------------------------------------
             # Set the agent destination
@@ -645,11 +655,20 @@ class Engine():
         pygame.quit()
 
     def game_loop(self, args):
+        target_fps = 60
+        frame_duration = 1.0 / target_fps
+        chunk_size = 10
+
+
+        import time
+        frame_count = 0
+        chunk_start = time.perf_counter()
+
         try:
             clock = pygame.time.Clock()
             while True:
                 clock.tick()
-                if args.sync:
+                if args.sync or True:
                     self.world.world.tick()
                 else:
                     self.world.world.wait_for_tick()
@@ -668,6 +687,19 @@ class Engine():
                 #TODO: CHANGE CONTROL
                 nav_control = self.agent.run_step()
                 self.world.player.apply_control(nav_control)
+
+                frame_count += 1
+                if frame_count >= chunk_size:
+                    now = time.perf_counter()
+                    chunk_elapsed = now - chunk_start
+                    ideal_chunk_time = chunk_size * frame_duration
+
+                    drift = ideal_chunk_time - chunk_elapsed
+                    if drift > 0:
+                        time.sleep(drift)
+
+                    frame_count = 0
+                    chunk_start = time.perf_counter()
 
         finally:
             self.close()
@@ -759,4 +791,6 @@ def main():
 
 
 if __name__ == '__main__':
+    global gforceCal
+    gforceCal = GForceCalculator(1/60)
     main()
