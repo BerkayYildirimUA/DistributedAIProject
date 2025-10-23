@@ -108,8 +108,8 @@ class LaneDetector:
     # TODO: optimise, cant we filter earlier?
     def get_lanes(self, frame):
         scores= self.get_lane_scores(frame)
-        lanes = self.get_lane_coords(scores)
-        return self.filter_car_lane(lanes)
+        x,y,mask = self.get_lane_coords(scores)
+        return self.filter_car_lane(x,y,mask)
 
     # def get_lane_coords(self,scores):
     #     lanes = []
@@ -153,7 +153,7 @@ class LaneDetector:
 
     import torch
 
-    def get_lane_coords_vectorized(self, scores):
+    def get_lane_coords(self, scores):
         """
         Convert soft lane scores to pixel coordinates for all lanes using PyTorch tensors.
         scores: (num_rows, num_lanes) tensor
@@ -183,7 +183,7 @@ class LaneDetector:
 
         return x, y, mask
 
-    def filter_car_lane_vectorized(self, x, y, mask):
+    def filter_car_lane(self, x, y, mask):
         """
         Select the lane closest to the center of the frame (assume car is in middle lane).
         x, y: (num_rows, num_lanes)
