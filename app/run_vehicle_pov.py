@@ -31,7 +31,6 @@ try:
 
         # Overlay lanes
 
-        print(frame,frame.shape)
         lanes = lane_detector.get_lanes(frame)
 
         # Visualise
