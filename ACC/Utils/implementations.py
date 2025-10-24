@@ -49,7 +49,7 @@ class SimpleAccAgent(DecisionAgent):
         hand_break = False
 
         if data.speed < data.speed_limit and data.distance_to_lead > data.safe_following_distance:
-            temp_throttle = 1
+            temp_throttle = 0.6
             temp_break = 0
         else:
             temp_throttle = 0
@@ -59,6 +59,9 @@ class SimpleAccAgent(DecisionAgent):
             hand_break = True
             temp_throttle = 0
             temp_break = 1
+
+
+
 
         final_control = carla.VehicleControl(
             throttle=temp_throttle,
