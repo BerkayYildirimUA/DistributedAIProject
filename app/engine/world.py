@@ -22,7 +22,7 @@ class World:
         # Enable autopilot
         self.enable_autopilot_for_ego_vehicle()
         # Create cameras and attach to ego vehicle
-        self.create_ego_cameras()
+        self.create_ego_sensors()
         # Set spectator
         self.spectator = self.world.get_spectator()
 
@@ -72,26 +72,45 @@ class World:
                 if max_tries<=0:
                     raise Exception("Failed to spawn ego vehicle")
 
-    def create_ego_cameras(self):
-        camera_init_trans = carla.Transform(carla.Location(z=1.5), carla.Rotation(pitch=0, yaw=0, roll=0))
+    def create_ego_sensors(self):
+        sensor_location = carla.Location(x=1.5, z=1.5)
+        sensor_rotation = carla.Rotation(pitch=0, yaw=0, roll=0)
+        sensor_fov = "90"
+
+        camera_init_trans = carla.Transform(sensor_location, sensor_rotation)
         # We create the camera through a blueprint that defines its properties
         camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
         camera_bp.set_attribute("image_size_x", "640")
         camera_bp.set_attribute("image_size_y", "480")
         camera_bp.set_attribute("sensor_tick", "0.05")
+        camera_bp.set_attribute("fov", sensor_fov)
         # We spawn the camera and attach it to our ego vehicle
         self.rgb_camera = self.world.spawn_actor(camera_bp, camera_init_trans, attach_to=self.ego_vehicle)
         self.rgb_camera_queue = queue.Queue(maxsize=10)
         self.rgb_camera.listen(lambda image: self.rgb_camera_queue.put_nowait(image))
 
         # Depth camera setup
+        # TODO: change max depth value to a value found in real depth camera setups
         depth_bp = self.world.get_blueprint_library().find('sensor.camera.depth')
         depth_bp.set_attribute("image_size_x", "640")
         depth_bp.set_attribute("image_size_y", "480")
         depth_bp.set_attribute("sensor_tick", "0.05")
+        depth_bp.set_attribute("fov", sensor_fov)
         self.depth_camera = self.world.spawn_actor(depth_bp, camera_init_trans, attach_to=self.ego_vehicle)
         self.depth_camera_queue = queue.Queue(maxsize=10)
         self.depth_camera.listen(lambda image: self.depth_camera_queue.put_nowait(image))
+
+        # Radar setup
+        blueprint_library = world.get_blueprint_library()
+        radar_bp = blueprint_library.find('sensor.other.radar')
+        # TODO: change these parameters to values found in real radar setups
+        radar_bp.set_attribute('horizontal_fov', sensor_fov)  
+        radar_bp.set_attribute('vertical_fov', '20')    
+        radar_bp.set_attribute('range', '250')          
+        radar_transform = carla.Transform(sensor_location, sensor_rotation)
+        self.radar = self.world.spawn_actor(radar_bp, camera_init_trans, attach_to=self.ego_vehicle)
+        self.radar_queue = queue.Queue(maxsize=10)
+        self.radar_sensor.listen(lambda data: self.radar_queue.put_nowait(data))
 
     def enable_autopilot_for_ego_vehicle(self):
         traffic_manager = self.client.get_trafficmanager()
@@ -109,7 +128,7 @@ class World:
         self.spectator.set_transform(spectator_transform)
 
     def expose_queues(self):
-        return self.rgb_camera_queue, self.depth_camera_queue
+        return self.rgb_camera_queue, self.depth_camera_queue, self.radar_queue
 
     def cleanup(self):
         self.rgb_camera.stop()

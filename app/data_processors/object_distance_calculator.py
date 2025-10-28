@@ -1,7 +1,7 @@
 import numpy as np
 
 class ObjectDistanceCalculator:
-    def get_distances(self, object_boxes, depth_map=None):
+    def get_depth_camera_distances(self, object_boxes, depth_map=None):
         distance=[]
         for (x1, y1, x2, y2) in object_boxes:
             x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
@@ -19,3 +19,27 @@ class ObjectDistanceCalculator:
         if len(distance) != len(object_boxes):
             raise Exception("Object distance calculation failed: size mismatch between distances and found object boxes!")
         return distance
+
+    def get_radar_distances(self, object_boxes, radar_data, image_width, image_height):
+        distances = []
+    
+        # Convert radar detections to pixel-like x positions for approximate mapping
+        # No polar to cartesian conversion is needed because we can map the azimuth straight to an x coordinate through normalization
+
+        # Convert azimuth angle in the range of -pi/2 to pi/2 to normalized image coordinate in range of [0, image_width]
+        radar_points = []
+        for detection in radar_data:
+            x_norm = 0.5 * (1 + detection.azimuth / (np.pi / 2))
+            x_pixel = np.clip(x_norm * image_width, 0, image_width - 1)
+            radar_points.append((x, detection.depth))
+    
+        for (x1, y1, x2, y2) in object_boxes:
+            # Find radar points within the bounding box horizontal range
+            in_box_depths = [d for (rx, d) in radar_points if x1 <= rx <= x2]
+            if in_box_depths:
+                distances.append(min(in_box))
+            else:
+                distances.append(np.nan)
+
+        return distances
+

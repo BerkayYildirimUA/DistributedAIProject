@@ -4,14 +4,15 @@ import cv2
 import threading
 
 from engine.world import World
-from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory
+from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory,RadarMemory
 
 # Create carla world and memory buffers
 world = World()
 rgb_camera_memory = RGBCameraMemory().get_write_access()
 depht_camera_memory = DepthCameraMemory().get_write_access()
 vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
-rgb_camera_queue, depth_camera_queue = world.expose_queues()
+radar_memory = RadarMemory().get_write_access()
+rgb_camera_queue, depth_camera_queue, radar_queue = world.expose_queues()
 
 
 # Define transforms for handling camera data
@@ -32,8 +33,21 @@ def depth_callback(image):
     depth_meters = normalized_depth * 1000.0
     depht_camera_memory.write(depth_meters)
 
+# Radar callback
+def radar_callback(raw_data):
+    detections = np.array(
+        [[d.depth, d.velocity, d.azimuth, d.altitude] for d in radar_data],
+        dtype=np.float32
+    )
+    max_detections = 500
+    padded = np.zeros((max_detections, 4), dtype=np.float32)
+    n = min(len(detections), max_detections)
+    padded[:n, :] = detections[:n]
+    self.radar_memory.write(padded)
+
+
 # ---------------------------
-# Threaded image processing
+# Threaded data processing
 # ---------------------------
 
 def process_rgb_images():
@@ -51,12 +65,22 @@ def process_depth_images():
             depth_callback(depth_image)
         except queue.Empty:
             continue
+    
+def process_radar_data():
+    while True:
+        try:
+            raw_data = radar_queue.get(timeout=1.0)
+            radar_callback(raw_data)
+        except queue.Empty:
+            continue
 
 # Start threads
 rgb_thread = threading.Thread(target=process_rgb_images, daemon=True)
 depth_thread = threading.Thread(target=process_depth_images, daemon=True)
+radar_thread = threading.Thread(target=process_radar_data, daemon=True)
 rgb_thread.start()
 depth_thread.start()
+radar_thread.start()
 
 
 # Run the world

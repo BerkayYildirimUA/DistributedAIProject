@@ -3,13 +3,14 @@ import numpy as np
 
 from data_processors.object_detector import ObjectDetector
 from data_processors.object_distance_calculator import ObjectDistanceCalculator
-from memory.shared_memory import RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory
+from memory.shared_memory import RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, RadarMemory
 from engine.pov_visualiser import POVVisualiser
 
 # Attach to shared memory
 rgb_camera_memory = RGBCameraMemory().get_read_access()
 depth_camera_memory = DepthCameraMemory().get_read_access()
 vehicle_distance_memory = VehicleDistanceMemory().get_write_access()
+radar_memory = RadarMemory.get_read_access()
 
 object_detector = ObjectDetector()
 object_distance_calculator=ObjectDistanceCalculator()
@@ -19,13 +20,15 @@ try:
         # Convert to Torch tensor and normalize
         frame=rgb_camera_memory.read()
         depth_map = depth_camera_memory.read()
+        radar_data = radar_memroy.read()
         if np.count_nonzero(frame) == 0:
-            # No data yet, skip this iteration
+            # No data yet, skip this iteration  
             continue
         # Detect objects
         boxes, class_ids, scores =object_detector.get_objects(frame)
         # Get distance for each object
-        distances=object_distance_calculator.get_distances(boxes,depth_map)
+        #distances=object_distance_calculator.get_depth_camera_distances(boxes,depth_map)
+        distances = object_distance_calculator.get_radar_distances(boxes, radar_data, frame.width, frame.height)
 
         # Visualise
         visualiser= POVVisualiser(
