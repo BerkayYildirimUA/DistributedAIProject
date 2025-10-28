@@ -101,7 +101,7 @@ class World:
         self.depth_camera.listen(lambda image: self.depth_camera_queue.put_nowait(image))
 
         # Radar setup
-        blueprint_library = world.get_blueprint_library()
+        blueprint_library = self.world.get_blueprint_library()
         radar_bp = blueprint_library.find('sensor.other.radar')
         # TODO: change these parameters to values found in real radar setups
         radar_bp.set_attribute('horizontal_fov', sensor_fov)  
