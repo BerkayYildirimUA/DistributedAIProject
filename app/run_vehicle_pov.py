@@ -20,7 +20,7 @@ try:
         # Convert to Torch tensor and normalize
         frame=rgb_camera_memory.read()
         depth_map = depth_camera_memory.read()
-        radar_data = radar_memroy.read()
+        radar_data = radar_memory.read()
         if np.count_nonzero(frame) == 0:
             # No data yet, skip this iteration  
             continue
