@@ -49,7 +49,7 @@ class VehicleDistanceMemory(SharedMemory):
         dtype = np.float32
         super().__init__(filename,shape,dtype)
 
-class RadarMemory(SharedMemory)
+class RadarMemory(SharedMemory):
     def __init__(self):
         filename = "RADAR_MEMORY.dat"
         shape = (500, 4)
