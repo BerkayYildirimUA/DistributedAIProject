@@ -10,7 +10,7 @@ from engine.pov_visualiser import POVVisualiser
 rgb_camera_memory = RGBCameraMemory().get_read_access()
 depth_camera_memory = DepthCameraMemory().get_read_access()
 vehicle_distance_memory = VehicleDistanceMemory().get_write_access()
-radar_memory = RadarMemory.get_read_access()
+radar_memory = RadarMemory().get_read_access()
 
 object_detector = ObjectDetector()
 object_distance_calculator=ObjectDistanceCalculator()
