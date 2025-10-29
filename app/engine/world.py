@@ -76,7 +76,7 @@ class World:
     def create_ego_sensors(self):
         sensor_fov = constants.HOR_FOV_DEG
         image_height = constants.IMAGE_HEIGHT
-        image_width = consatnts.IMAGE_WIDTH
+        image_width = constants.IMAGE_WIDTH
         sensor_tick = constants.SENSOR_TICK
         sensor_yaw = constants.SENSOR_YAW
         sensor_roll = constants.SENSOR_ROLL
