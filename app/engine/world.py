@@ -94,7 +94,7 @@ class World:
         # We create the camera through a blueprint that defines its properties
         camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
         camera_bp.set_attribute("image_size_x", str(image_width))
-        camera_bp.set_attribute("image_size_y", str(image_height)")
+        camera_bp.set_attribute("image_size_y", str(image_height))
         camera_bp.set_attribute("sensor_tick", str(sensor_tick))
         camera_bp.set_attribute("fov", str(sensor_fov))
         # We spawn the camera and attach it to our ego vehicle
