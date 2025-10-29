@@ -39,7 +39,7 @@ class ObjectDistanceCalculator:
             # Find radar points within the bounding box horizontal range
             in_box_depths = [d for (rx, d) in radar_points if x1 <= rx <= x2]
             if in_box_depths:
-                distances.append(min(in_box))
+                distances.append(min(in_box_depths))
             else:
                 distances.append(np.nan)
 
