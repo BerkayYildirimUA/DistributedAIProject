@@ -110,7 +110,8 @@ class World:
         radar_transform = carla.Transform(sensor_location, sensor_rotation)
         self.radar = self.world.spawn_actor(radar_bp, camera_init_trans, attach_to=self.ego_vehicle)
         self.radar_queue = queue.Queue(maxsize=10)
-        self.radar.listen(lambda data: self.radar_queue.put_nowait(data))
+        # check if queue is full: yes --> pop oldest, push new one. no --> push. Ensures most recent radar data is in the queue
+        self.radar.listen(lambda data: (self.radar_queue.get_nowait(), self.radar_queue.put_nowait(data)) if self.radar_queue.full() else self.radar_queue.put_nowait(data))
 
     def enable_autopilot_for_ego_vehicle(self):
         traffic_manager = self.client.get_trafficmanager()

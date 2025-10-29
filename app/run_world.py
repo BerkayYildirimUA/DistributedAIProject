@@ -36,14 +36,14 @@ def depth_callback(image):
 # Radar callback
 def radar_callback(raw_data):
     detections = np.array(
-        [[d.depth, d.velocity, d.azimuth, d.altitude] for d in radar_data],
+        [[d.depth, d.velocity, d.azimuth, d.altitude] for d in raw_data],
         dtype=np.float32
     )
     max_detections = 500
     padded = np.zeros((max_detections, 4), dtype=np.float32)
     n = min(len(detections), max_detections)
     padded[:n, :] = detections[:n]
-    self.radar_memory.write(padded)
+    radar_memory.write(padded)
 
 
 # ---------------------------
