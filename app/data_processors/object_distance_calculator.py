@@ -66,8 +66,8 @@ class ObjectDistanceCalculator:
             ]
         
             if in_box_depths:
-                # Use the median depth of points within box
-                val = np.median(in_box_depths)
+                # Use the min depth of points within box
+                val = np.nanmin(in_box_depths)
                 self.last_valid_distances[i] = val
                 distances.append(val)
             else:
