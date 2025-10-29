@@ -46,7 +46,7 @@ class ObjectDistanceCalculator:
         
             # y_norm = (altitude + VFOV_RAD / 2) / VFOV_RAD # This would map bottom-up (test later if this is actually the case)
             # Corrected for image: [VFOV/2] (top) maps to [0], [-VFOV/2] (bottom) maps to [1]
-            y_norm = 1.0 - ((altitude + constants.CAM_VERT_FOV_RAD / 2) / constants.CAM_VERT_FOV_RAD)
+            y_norm = 1.0 - ((altitude + constants.VERT_FOV_RAD / 2) / constants.VERT_FOV_RAD)
             y_pixel = np.clip(y_norm * constants.IMAGE_HEIGHT, 0, constants.IMAGE_HEIGHT - 1)
 
             # Store the depth and the 2D projected pixel coordinates
