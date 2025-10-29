@@ -4,9 +4,6 @@ import constants
 class ObjectDistanceCalculator:
     def __init__(self):
         self.last_valid_distances = {}
-        self.HOR_FOV_RAD = np.deg2rad(constants.HOR_FOV_DEG)
-        self.ASPECT_RATIO = constants.IMAGE_HEIGHT / constants.IMAGE_WIDTH  
-        self.CAM_VERT_FOV_RAD = 2 * np.arctan(self.ASPECT_RATIO * np.tan(self.HOR_FOV_RAD / 2))
     
     def get_depth_camera_distances(self, object_boxes, depth_map=None):
         distance=[]
@@ -38,7 +35,7 @@ class ObjectDistanceCalculator:
 
             # Horizontal mapping: azimuth to x_pixel
             # Azimuth is in [-HFOV/2, HFOV/2]. We map it to [0, 1] normalized space.
-            x_norm = (azimuth + self.HOR_FOV_RAD / 2) / self.HOR_FOV_RAD
+            x_norm = (azimuth + constants.HOR_FOV_RAD / 2) / constants.HOR_FOV_RAD
             x_pixel = np.clip(x_norm * constants.IMAGE_WIDTH, 0, constants.IMAGE_WIDTH - 1)
 
             # Vertical mapping: altitude to y_pixel
@@ -49,7 +46,7 @@ class ObjectDistanceCalculator:
         
             # y_norm = (altitude + VFOV_RAD / 2) / VFOV_RAD # This would map bottom-up (test later if this is actually the case)
             # Corrected for image: [VFOV/2] (top) maps to [0], [-VFOV/2] (bottom) maps to [1]
-            y_norm = 1.0 - ((altitude + self.CAM_VERT_FOV_RAD / 2) / self.CAM_VERT_FOV_RAD)
+            y_norm = 1.0 - ((altitude + constants.CAM_VERT_FOV_RAD / 2) / constants.CAM_VERT_FOV_RAD)
             y_pixel = np.clip(y_norm * constants.IMAGE_HEIGHT, 0, constants.IMAGE_HEIGHT - 1)
 
             # Store the depth and the 2D projected pixel coordinates

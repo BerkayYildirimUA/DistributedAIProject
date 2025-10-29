@@ -1,3 +1,5 @@
+import numpy as np
+
 # Sensor constants 
 SENSOR_TICK = 0.05
 SENSOR_POS_X = 1.5
@@ -9,10 +11,13 @@ SENSOR_ROLL = 0
 # Camera sensor constants
 IMAGE_WIDTH = 640
 IMAGE_HEIGHT = 480
+IMAGE_ASPECT_RATIO = IMAGE_HEIGHT / IMAGE_WIDTH
 HOR_FOV_DEG = 90
+HOR_FOV_RAD = np.deg2rad(HOR_FOV_DEG)
+VERT_FOV_RAD = 2 * np.arctan(ASPECT_RATIO * np.tan(HOR_FOV_RAD / 2))
+VERT_FOV_DEG = np.rad2deg(VERT_FOV_RAD)
 
 # Radar sensor constants
-RADAR_VERT_FOV_DEG = 20
 RADAR_RANGE = 250
 RADAR_MAX_DETECTIONS = 500
 

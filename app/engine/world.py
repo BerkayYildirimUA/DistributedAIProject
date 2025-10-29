@@ -74,55 +74,42 @@ class World:
                     raise Exception("Failed to spawn ego vehicle")
 
     def create_ego_sensors(self):
-        sensor_fov = constants.HOR_FOV_DEG
-        image_height = constants.IMAGE_HEIGHT
-        image_width = constants.IMAGE_WIDTH
-        sensor_tick = constants.SENSOR_TICK
-        sensor_yaw = constants.SENSOR_YAW
-        sensor_roll = constants.SENSOR_ROLL
-        sensor_pitch = constants.SENSOR_PITCH
-        sensor_x = constants.SENSOR_POS_X
-        sensor_z = constants.SENSOR_POS_Z
-        queue_maxsize = constants.QUEUE_MAXSIZE
-        radar_vert_fov = constants.RADAR_VERT_FOV_DEG
-        radar_range = constants.RADAR_RANGE
-
-        sensor_location = carla.Location(x=sensor_x, z=sensor_z)
-        sensor_rotation = carla.Rotation(pitch=sensor_pitch, yaw=sensor_yaw, roll=sensor_roll)
-
+        sensor_location = carla.Location(x=constants.SENSOR_POS_X, z=constants.SENSOR_POS_Z)
+        sensor_rotation = carla.Rotation(pitch=constants.SENSOR_PITCH, yaw=constants.SENSOR_YAW, roll=constants.SENSOR_ROLL)
         camera_init_trans = carla.Transform(sensor_location, sensor_rotation)
+        
         # We create the camera through a blueprint that defines its properties
         camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
-        camera_bp.set_attribute("image_size_x", str(image_width))
-        camera_bp.set_attribute("image_size_y", str(image_height))
-        camera_bp.set_attribute("sensor_tick", str(sensor_tick))
-        camera_bp.set_attribute("fov", str(sensor_fov))
+        camera_bp.set_attribute("image_size_x", str(constants.IMAGE_WIDTH))
+        camera_bp.set_attribute("image_size_y", str(constants.IMAGE_HEIGHT))
+        camera_bp.set_attribute("sensor_tick", str(constants.SENSOR_TICK))
+        camera_bp.set_attribute("fov", str(constants.HOR_FOV_DEG))
         # We spawn the camera and attach it to our ego vehicle
         self.rgb_camera = self.world.spawn_actor(camera_bp, camera_init_trans, attach_to=self.ego_vehicle)
-        self.rgb_camera_queue = queue.Queue(maxsize=queue_maxsize)
+        self.rgb_camera_queue = queue.Queue(maxsize=constants.QUEUE_MAXSIZE)
         self.rgb_camera.listen(lambda image: self.rgb_camera_queue.put_nowait(image))
 
         # Depth camera setup
         # TODO: change max depth value to a value found in real depth camera setups
         depth_bp = self.world.get_blueprint_library().find('sensor.camera.depth')
-        depth_bp.set_attribute("image_size_x", str(image_width))
-        depth_bp.set_attribute("image_size_y", str(image_height))
-        depth_bp.set_attribute("sensor_tick", str(sensor_tick))
-        depth_bp.set_attribute("fov", str(sensor_fov))
+        depth_bp.set_attribute("image_size_x", str(constants.IMAGE_WIDTH))
+        depth_bp.set_attribute("image_size_y", str(constants.IMAGE_HEIGHT))
+        depth_bp.set_attribute("sensor_tick", str(constants.SENSOR_TICK))
+        depth_bp.set_attribute("fov", str(constants.HOR_FOV_DEG))
         self.depth_camera = self.world.spawn_actor(depth_bp, camera_init_trans, attach_to=self.ego_vehicle)
-        self.depth_camera_queue = queue.Queue(maxsize=queue_maxsize)
+        self.depth_camera_queue = queue.Queue(maxsize=constants.QUEUE_MAXSIZE)
         self.depth_camera.listen(lambda image: self.depth_camera_queue.put_nowait(image))
 
         # Radar setup
         blueprint_library = self.world.get_blueprint_library()
         radar_bp = blueprint_library.find('sensor.other.radar')
         # TODO: change these parameters to values found in real radar setups
-        radar_bp.set_attribute('horizontal_fov', str(sensor_fov))  
-        radar_bp.set_attribute('vertical_fov', str(radar_vert_fov))    
-        radar_bp.set_attribute('range', str(radar_range))         
+        radar_bp.set_attribute('horizontal_fov', str(constants.HOR_FOV_DEG))  
+        radar_bp.set_attribute('vertical_fov', str(constants.VERT_FOV_DEG))    
+        radar_bp.set_attribute('range', str(constants.RADAR_RANGE))         
         radar_transform = carla.Transform(sensor_location, sensor_rotation)
         self.radar = self.world.spawn_actor(radar_bp, radar_transform, attach_to=self.ego_vehicle)
-        self.radar_queue = queue.Queue(maxsize=10)
+        self.radar_queue = queue.Queue(maxsize=constants.QUEUE_MAXSIZE)
         # check if queue is full: yes --> pop oldest, push new one. no --> push. Ensures most recent radar data is in the queue
         self.radar.listen(lambda data: (self.radar_queue.get_nowait(), self.radar_queue.put_nowait(data)) if self.radar_queue.full() else self.radar_queue.put_nowait(data))
 
