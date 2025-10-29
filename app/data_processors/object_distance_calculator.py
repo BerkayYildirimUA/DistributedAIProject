@@ -38,7 +38,7 @@ class ObjectDistanceCalculator:
             x_pixel = np.clip(x_norm * image_width, 0, image_width - 1)
             radar_points.append((x_pixel, depth))
     
-        for i, (x1, y1, x2, y2) in object_boxes:
+        for i, (x1, y1, x2, y2) in enumerate(object_boxes):
             # Find radar points within the bounding box horizontal range
             in_box_depths = [d for (rx, d) in radar_points if x1 <= rx <= x2]
             if in_box_depths:
