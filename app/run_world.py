@@ -43,7 +43,7 @@ def radar_callback(raw_data):
     # Debug step
     print(f"First 3 Detections: {detections[:3]}")
     padded = np.zeros((constants.RADAR_MAX_DETECTIONS, 4), dtype=np.float32)
-    n = min(len(detections), max_detections)
+    n = min(len(detections), constants.RADAR_MAX_DETECTIONS)
     padded[:n, :] = detections[:n]
     radar_memory.write(padded)
 
