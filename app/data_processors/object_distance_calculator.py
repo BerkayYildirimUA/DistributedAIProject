@@ -33,9 +33,6 @@ class ObjectDistanceCalculator:
             azimuth = detection[2] # Horizontal angle (radians)
             altitude = detection[3] # Vertical angle (radians)
 
-            # Debug step
-            print(f"Azimuth: {azimuth:.2f}, Altitude: {altitude:.2f} -> X_pixel: {x_pixel:.2f}, Y_pixel: {y_pixel:.2f}, Depth: {depth:.2f}")
-
             # Horizontal mapping: azimuth to x_pixel
             # Azimuth is in [-HFOV/2, HFOV/2]. We map it to [0, 1] normalized space.
             x_norm = (azimuth + constants.HOR_FOV_RAD / 2) / constants.HOR_FOV_RAD
@@ -54,6 +51,9 @@ class ObjectDistanceCalculator:
 
             # Store the depth and the 2D projected pixel coordinates
             radar_points_with_pixels.append((x_pixel, y_pixel, depth))
+
+            # Debug step
+            print(f"Azimuth: {azimuth:.2f}, Altitude: {altitude:.2f} -> X_pixel: {x_pixel:.2f}, Y_pixel: {y_pixel:.2f}, Depth: {depth:.2f}")
     
         # Filter Radar Points within Bounding Boxes
         for i, (x1, y1, x2, y2) in enumerate(object_boxes):
