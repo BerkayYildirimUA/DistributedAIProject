@@ -34,7 +34,8 @@ class ObjectDistanceCalculator:
         for detection in radar_data:
             depth = detection[0]
             azimuth = detection[2]
-            x_norm = 0.5 * (1 + azimuth / (np.pi / 2))
+            hfov = np.deg2rad(float(sensor_fov)) # azimuth of CARLA radar is expressed in radians
+            x_norm = (azimuth + hfov / 2) / hfov
             x_pixel = np.clip(x_norm * image_width, 0, image_width - 1)
             radar_points.append((x_pixel, depth))
     
@@ -42,7 +43,7 @@ class ObjectDistanceCalculator:
             # Find radar points within the bounding box horizontal range
             in_box_depths = [d for (rx, d) in radar_points if x1 <= rx <= x2]
             if in_box_depths:
-                val = min(in_box_depths)
+                val = np.median(in_box_depths)
                 self.last_valid_distances[i] = val
                 distances.append(val)
             else:
