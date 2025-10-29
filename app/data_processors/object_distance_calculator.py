@@ -4,7 +4,30 @@ import constants
 class ObjectDistanceCalculator:
     def __init__(self):
         self.last_valid_distances = {}
-    
+        
+        # --- 1. Calculate Camera Intrinsics (K) ---
+        HFOV_RAD = constants.HOR_FOV_RAD
+        VFOV_RAD = constants.VERT_FOV_RAD
+        
+        self.fx = constants.IMAGE_WIDTH / (2.0 * np.tan(HFOV_RAD / 2.0))
+        self.fy = constants.IMAGE_HEIGHT / (2.0 * np.tan(VFOV_RAD / 2.0)) 
+        
+        self.cx = constants.IMAGE_WIDTH / 2.0
+        self.cy = constants.IMAGE_HEIGHT / 2.0
+        
+        # The 3x3 Intrinsic Matrix K
+        self.K = np.array([
+            [self.fx, 0.0, self.cx],
+            [0.0, self.fy, self.cy],
+            [0.0, 0.0, 1.0]
+        ])
+
+        # --- 2. Filtering Constants ---
+        # Used to remove ego-vehicle reflection (0.0m) and distant background
+        self.MIN_VALID_DEPTH = 3.0   
+        self.MAX_TARGET_DEPTH = 100.0 
+
+
     def get_depth_camera_distances(self, object_boxes, depth_map=None):
         distance=[]
         for (x1, y1, x2, y2) in object_boxes:
@@ -24,55 +47,59 @@ class ObjectDistanceCalculator:
             raise Exception("Object distance calculation failed: size mismatch between distances and found object boxes!")
         return distance
 
+
     def get_radar_distances(self, object_boxes, radar_data):
         distances = []
         radar_points_with_pixels = []
 
         for detection in radar_data:
-            depth = detection[0] # Distance (meters)
-            azimuth = detection[2] # Horizontal angle (radians)
-            altitude = detection[3] # Vertical angle (radians)
+            depth = detection[0]
+            azimuth = detection[2]
+            altitude = detection[3]
+            
+            # --- 3D Cartesian Conversion (Spherical to Ego-Vehicle Frame) ---
+            cos_alt = np.cos(altitude)
+            X = depth * cos_alt * np.cos(azimuth)  # Forward
+            Y = depth * cos_alt * np.sin(azimuth)  # Right
+            Z = depth * np.sin(altitude)           # Up
+            
+            # --- 3D to 2D Projection (Pinhole Model) ---
+            # Map Ego (X=Fwd, Y=Right, Z=Up) to Camera (X'=Right, Y'=Down, Z'=Fwd)
+            P_cam_ready = np.array([Y, -Z, X]) 
+            
+            # Skip points behind the sensor (Z' component must be positive)
+            if P_cam_ready[2] <= 0:
+                continue 
 
-            # Horizontal mapping: azimuth to x_pixel
-            # Azimuth is in [-HFOV/2, HFOV/2]. We map it to [0, 1] normalized space.
-            x_norm = (azimuth + constants.HOR_FOV_RAD / 2) / constants.HOR_FOV_RAD
-            x_pixel = np.clip(x_norm * constants.IMAGE_WIDTH, 0, constants.IMAGE_WIDTH - 1)
+            P_pixels_homogenous = self.K @ P_cam_ready.T
 
-            # Vertical mapping: altitude to y_pixel
-            # Altitude is in [-VFOV_cam/2, VFOV_cam/2].
-            # We map it to [0, 1] normalized space (top-to-bottom for positive y).
-            # CARLA images have y=0 at the top, y=image_height at the bottom.
-            # Positive altitude is up. We need to invert the mapping for the image.
-        
-            # y_norm = (altitude + constants.VERT_FOV_RAD / 2) / constants.VERT_FOV_RAD # This would map bottom-up (test later if this is actually the case)
-            # Corrected for image: [VFOV/2] (top) maps to [0], [-VFOV/2] (bottom) maps to [1]
-            y_norm = 1.0 - ((altitude + constants.VERT_FOV_RAD / 2) / constants.VERT_FOV_RAD)
-            y_pixel = np.clip(y_norm * constants.IMAGE_HEIGHT, 0, constants.IMAGE_HEIGHT - 1)
+            # Normalize by the Z component (Depth)
+            Z_cam = P_pixels_homogenous[2]
+            u = P_pixels_homogenous[0] / Z_cam 
+            v = P_pixels_homogenous[1] / Z_cam 
 
-            # Store the depth and the 2D projected pixel coordinates
+            x_pixel = np.clip(u, 0, constants.IMAGE_WIDTH - 1)
+            y_pixel = np.clip(v, 0, constants.IMAGE_HEIGHT - 1)
+
             radar_points_with_pixels.append((x_pixel, y_pixel, depth))
-
-            # Debug step
-            print(f"Azimuth: {azimuth:.2f}, Altitude: {altitude:.2f} -> X_pixel: {x_pixel:.2f}, Y_pixel: {y_pixel:.2f}, Depth: {depth:.2f}")
-    
+        
         # Filter Radar Points within Bounding Boxes
         for i, (x1, y1, x2, y2) in enumerate(object_boxes):
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-        
-            # Find radar points within the 2D bounding box
+            
+            # 2D Check AND Depth Filtering (removes ego-vehicle and background clutter)
             in_box_depths = [
                 d for (rx, ry, d) in radar_points_with_pixels 
-                if x1 <= rx <= x2 and y1 <= ry <= y2 # 2D Check
+                if x1 <= rx <= x2 and y1 <= ry <= y2 
+                and d > self.MIN_VALID_DEPTH and d < self.MAX_TARGET_DEPTH
             ]
-        
+            
             if in_box_depths:
-                # Use the min depth of points within box
+                # Use the minimum depth for robustness against volumetric clutter
                 val = np.nanmin(in_box_depths)
                 self.last_valid_distances[i] = val
                 distances.append(val)
             else:
-                # Keep last known value if available
                 distances.append(self.last_valid_distances.get(i, np.nan))
 
         return distances
-
