@@ -33,7 +33,7 @@ class ObjectDistanceCalculator:
             azimuth = detection[2]
             x_norm = 0.5 * (1 + azimuth / (np.pi / 2))
             x_pixel = np.clip(x_norm * image_width, 0, image_width - 1)
-            radar_points.append((x, depth))
+            radar_points.append((x_pixel, depth))
     
         for (x1, y1, x2, y2) in object_boxes:
             # Find radar points within the bounding box horizontal range
