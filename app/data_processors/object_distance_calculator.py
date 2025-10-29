@@ -1,6 +1,9 @@
 import numpy as np
 
 class ObjectDistanceCalculator:
+    def __init__(self):
+        self.last_valid_distances = {}
+    
     def get_depth_camera_distances(self, object_boxes, depth_map=None):
         distance=[]
         for (x1, y1, x2, y2) in object_boxes:
@@ -35,13 +38,16 @@ class ObjectDistanceCalculator:
             x_pixel = np.clip(x_norm * image_width, 0, image_width - 1)
             radar_points.append((x_pixel, depth))
     
-        for (x1, y1, x2, y2) in object_boxes:
+        for i, (x1, y1, x2, y2) in object_boxes:
             # Find radar points within the bounding box horizontal range
             in_box_depths = [d for (rx, d) in radar_points if x1 <= rx <= x2]
             if in_box_depths:
-                distances.append(min(in_box_depths))
+                val = min(in_box_depths)
+                self.last_valid_distances[i] = val
+                distances.append(val)
             else:
-                distances.append(np.nan)
+                # keep last known value if available
+                distances.append(self.last_valid_distances.get(i, np.nan))
 
         return distances
 

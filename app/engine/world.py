@@ -55,7 +55,7 @@ class World:
         spawn_points = self.world.get_map().get_spawn_points()
         # Spawn 50 vehicles randomly distributed throughout the map
         # for each spawn point, we choose a random vehicle from the blueprint library
-        for i in range(0, 25):
+        for i in range(0, 50):
             self.world.try_spawn_actor(random.choice(self.get_vehicle_bps()), random.choice(spawn_points))
 
     def create_and_spawn_ego_vehicle(self):
