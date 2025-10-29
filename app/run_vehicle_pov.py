@@ -19,7 +19,6 @@ try:
     while True:
         # Convert to Torch tensor and normalize
         frame=rgb_camera_memory.read()
-        frame_height, frame_width, frame_channels = frame.shape 
         depth_map = depth_camera_memory.read()
         radar_data = radar_memory.read()
         if np.count_nonzero(frame) == 0:
@@ -29,7 +28,7 @@ try:
         boxes, class_ids, scores =object_detector.get_objects(frame)
         # Get distance for each object
         #distances=object_distance_calculator.get_depth_camera_distances(boxes,depth_map)
-        distances = object_distance_calculator.get_radar_distances(boxes, radar_data, frame_width, frame_height)
+        distances = object_distance_calculator.get_radar_distances(boxes, radar_data)
 
         # Visualise
         visualiser= POVVisualiser(

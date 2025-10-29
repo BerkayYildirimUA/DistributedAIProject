@@ -2,6 +2,7 @@ import queue
 import numpy as np
 import cv2
 import threading
+import constants
 
 from engine.world import World
 from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory,RadarMemory
@@ -39,8 +40,7 @@ def radar_callback(raw_data):
         [[d.depth, d.velocity, d.azimuth, d.altitude] for d in raw_data],
         dtype=np.float32
     )
-    max_detections = 500
-    padded = np.zeros((max_detections, 4), dtype=np.float32)
+    padded = np.zeros((constants.RADAR_MAX_DETECTIONS, 4), dtype=np.float32)
     n = min(len(detections), max_detections)
     padded[:n, :] = detections[:n]
     radar_memory.write(padded)

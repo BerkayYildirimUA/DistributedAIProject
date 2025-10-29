@@ -1,0 +1,20 @@
+# Sensor constants 
+SENSOR_TICK = 0.05
+SENSOR_POS_X = 1.5
+SENSOR_POS_Z = 1.5
+SENSOR_PITCH = 0
+SENSOR_YAW = 0
+SENSOR_ROLL = 0
+
+# Camera sensor constants
+IMAGE_WIDTH = 640
+IMAGE_HEIGHT = 480
+HOR_FOV_DEG = 90
+
+# Radar sensor constants
+RADAR_VERT_FOV_DEG = 20
+RADAR_RANGE = 250
+RADAR_MAX_DETECTIONS = 500
+
+# Queue constants
+QUEUE_MAXSIZE = 10

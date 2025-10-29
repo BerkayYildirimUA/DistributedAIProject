@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import constants
 
 class _SharedMemory(np.memmap):
     def write(self,data):
@@ -31,14 +32,14 @@ class SharedMemory:
 class RGBCameraMemory(SharedMemory):
     def __init__(self):
         filename = "RGB_CAMERA_MEMORY.dat"
-        shape = (480, 640, 3)
+        shape = (constants.IMAGE_HEIGHT, constants.IMAGE_WIDTH, 3)
         dtype = np.uint8
         super().__init__(filename,shape,dtype)
 
 class DepthCameraMemory(SharedMemory):
     def __init__(self):
         filename = "DEPTH_CAMERA_MEMORY.dat"
-        shape = (480, 640)
+        shape = (constants.IMAGE_HEIGHT, constants.IMAGE_WIDTH)
         dtype = np.float32
         super().__init__(filename,shape,dtype)
 
@@ -52,7 +53,7 @@ class VehicleDistanceMemory(SharedMemory):
 class RadarMemory(SharedMemory):
     def __init__(self):
         filename = "RADAR_MEMORY.dat"
-        shape = (500, 4)
+        shape = (constants.RADAR_MAX_DETECTIONS, 4)
         dtype = np.float32
         super().__init__(filename, shape, dtype)
 
