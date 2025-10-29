@@ -6,7 +6,7 @@ class ObjectDistanceCalculator:
         self.last_valid_distances = {}
         self.HOR_FOV_RAD = np.deg2rad(constants.HOR_FOV_DEG)
         self.ASPECT_RATIO = constants.IMAGE_HEIGHT / constants.IMAGE_WIDTH  
-        self.CAM_VERT_FOV_RAD = 2 * np.arctan(ASPECT_RATIO * np.tan(HOR_FOV_RAD / 2))
+        self.CAM_VERT_FOV_RAD = 2 * np.arctan(self.ASPECT_RATIO * np.tan(HOR_FOV_RAD / 2))
     
     def get_depth_camera_distances(self, object_boxes, depth_map=None):
         distance=[]
@@ -30,7 +30,7 @@ class ObjectDistanceCalculator:
     def get_radar_distances(self, object_boxes, radar_data):
         distances = []
         radar_points_with_pixels = []
-        
+
         for detection in radar_data:
             depth = detection[0] # Distance (meters)
             azimuth = detection[2] # Horizontal angle (radians)
@@ -38,8 +38,8 @@ class ObjectDistanceCalculator:
 
             # Horizontal mapping: azimuth to x_pixel
             # Azimuth is in [-HFOV/2, HFOV/2]. We map it to [0, 1] normalized space.
-            x_norm = (azimuth + HFOV_RAD / 2) / HFOV_RAD
-            x_pixel = np.clip(x_norm * image_width, 0, image_width - 1)
+            x_norm = (azimuth + self.CAM_VERT_FOV_RAD / 2) / self.HOR_FOV_RAD
+            x_pixel = np.clip(x_norm * constants.IMAGE_WIDTH, 0, constants.IMAGE_WIDTH - 1)
 
             # Vertical mapping: altitude to y_pixel
             # Altitude is in [-VFOV_cam/2, VFOV_cam/2].
@@ -49,8 +49,8 @@ class ObjectDistanceCalculator:
         
             # y_norm = (altitude + VFOV_RAD / 2) / VFOV_RAD # This would map bottom-up (test later if this is actually the case)
             # Corrected for image: [VFOV/2] (top) maps to [0], [-VFOV/2] (bottom) maps to [1]
-            y_norm = 1.0 - ((altitude + VFOV_RAD / 2) / VFOV_RAD)
-            y_pixel = np.clip(y_norm * image_height, 0, image_height - 1)
+            y_norm = 1.0 - ((altitude + self.CAM_VERT_FOV_RAD / 2) / self.CAM_VERT_FOV_RAD)
+            y_pixel = np.clip(y_norm * constants.IMAGE_HEIGHT, 0, constants.IMAGE_HEIGHT - 1)
 
             # Store the depth and the 2D projected pixel coordinates
             radar_points_with_pixels.append((x_pixel, y_pixel, depth))
