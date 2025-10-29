@@ -38,7 +38,7 @@ class ObjectDistanceCalculator:
 
             # Horizontal mapping: azimuth to x_pixel
             # Azimuth is in [-HFOV/2, HFOV/2]. We map it to [0, 1] normalized space.
-            x_norm = (azimuth + self.CAM_VERT_FOV_RAD / 2) / self.HOR_FOV_RAD
+            x_norm = (azimuth + self.HOR_FOV_RAD / 2) / self.HOR_FOV_RAD
             x_pixel = np.clip(x_norm * constants.IMAGE_WIDTH, 0, constants.IMAGE_WIDTH - 1)
 
             # Vertical mapping: altitude to y_pixel
