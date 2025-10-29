@@ -33,6 +33,9 @@ class ObjectDistanceCalculator:
             azimuth = detection[2] # Horizontal angle (radians)
             altitude = detection[3] # Vertical angle (radians)
 
+            # Debug step
+            print(f"Azimuth: {azimuth:.2f}, Altitude: {altitude:.2f} -> X_pixel: {x_pixel:.2f}, Y_pixel: {y_pixel:.2f}, Depth: {depth:.2f}")
+
             # Horizontal mapping: azimuth to x_pixel
             # Azimuth is in [-HFOV/2, HFOV/2]. We map it to [0, 1] normalized space.
             x_norm = (azimuth + constants.HOR_FOV_RAD / 2) / constants.HOR_FOV_RAD
@@ -44,9 +47,9 @@ class ObjectDistanceCalculator:
             # CARLA images have y=0 at the top, y=image_height at the bottom.
             # Positive altitude is up. We need to invert the mapping for the image.
         
-            y_norm = (altitude + constants.VERT_FOV_RAD / 2) / constants.VERT_FOV_RAD # This would map bottom-up (test later if this is actually the case)
+            # y_norm = (altitude + constants.VERT_FOV_RAD / 2) / constants.VERT_FOV_RAD # This would map bottom-up (test later if this is actually the case)
             # Corrected for image: [VFOV/2] (top) maps to [0], [-VFOV/2] (bottom) maps to [1]
-            # y_norm = 1.0 - ((altitude + constants.VERT_FOV_RAD / 2) / constants.VERT_FOV_RAD)
+            y_norm = 1.0 - ((altitude + constants.VERT_FOV_RAD / 2) / constants.VERT_FOV_RAD)
             y_pixel = np.clip(y_norm * constants.IMAGE_HEIGHT, 0, constants.IMAGE_HEIGHT - 1)
 
             # Store the depth and the 2D projected pixel coordinates

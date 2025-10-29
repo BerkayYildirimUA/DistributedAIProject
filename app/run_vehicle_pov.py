@@ -28,6 +28,9 @@ try:
         boxes, class_ids, scores =object_detector.get_objects(frame)
         # Get distance for each object
         #distances=object_distance_calculator.get_depth_camera_distances(boxes,depth_map)
+
+        # Debugging step
+        print(f"Num Radar Detections: {len(radar_data)} with max depth: {np.max(radar_data[:, 0]) if len(radar_data)>0 else 'N/A'}")
         distances = object_distance_calculator.get_radar_distances(boxes, radar_data)
 
         # Visualise
