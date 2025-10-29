@@ -14,7 +14,7 @@ IMAGE_HEIGHT = 480
 IMAGE_ASPECT_RATIO = IMAGE_HEIGHT / IMAGE_WIDTH
 HOR_FOV_DEG = 90
 HOR_FOV_RAD = np.deg2rad(HOR_FOV_DEG)
-VERT_FOV_RAD = 2 * np.arctan(ASPECT_RATIO * np.tan(HOR_FOV_RAD / 2))
+VERT_FOV_RAD = 2 * np.arctan(IMAGE_ASPECT_RATIO * np.tan(HOR_FOV_RAD / 2))
 VERT_FOV_DEG = np.rad2deg(VERT_FOV_RAD)
 
 # Radar sensor constants
