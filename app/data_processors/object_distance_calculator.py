@@ -6,7 +6,7 @@ class ObjectDistanceCalculator:
         self.last_valid_distances = {}
         self.HOR_FOV_RAD = np.deg2rad(constants.HOR_FOV_DEG)
         self.ASPECT_RATIO = constants.IMAGE_HEIGHT / constants.IMAGE_WIDTH  
-        self.CAM_VERT_FOV_RAD = 2 * np.arctan(self.ASPECT_RATIO * np.tan(HOR_FOV_RAD / 2))
+        self.CAM_VERT_FOV_RAD = 2 * np.arctan(self.ASPECT_RATIO * np.tan(self.HOR_FOV_RAD / 2))
     
     def get_depth_camera_distances(self, object_boxes, depth_map=None):
         distance=[]
