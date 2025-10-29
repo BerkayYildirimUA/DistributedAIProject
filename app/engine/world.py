@@ -55,7 +55,7 @@ class World:
         spawn_points = self.world.get_map().get_spawn_points()
         # Spawn 50 vehicles randomly distributed throughout the map
         # for each spawn point, we choose a random vehicle from the blueprint library
-        for i in range(0, 50):
+        for i in range(0, 25):
             self.world.try_spawn_actor(random.choice(self.get_vehicle_bps()), random.choice(spawn_points))
 
     def create_and_spawn_ego_vehicle(self):
@@ -108,7 +108,7 @@ class World:
         radar_bp.set_attribute('vertical_fov', '20')    
         radar_bp.set_attribute('range', '250')          
         radar_transform = carla.Transform(sensor_location, sensor_rotation)
-        self.radar = self.world.spawn_actor(radar_bp, camera_init_trans, attach_to=self.ego_vehicle)
+        self.radar = self.world.spawn_actor(radar_bp, radar_transform, attach_to=self.ego_vehicle)
         self.radar_queue = queue.Queue(maxsize=10)
         # check if queue is full: yes --> pop oldest, push new one. no --> push. Ensures most recent radar data is in the queue
         self.radar.listen(lambda data: (self.radar_queue.get_nowait(), self.radar_queue.put_nowait(data)) if self.radar_queue.full() else self.radar_queue.put_nowait(data))
