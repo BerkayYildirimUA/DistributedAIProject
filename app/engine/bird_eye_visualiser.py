@@ -71,7 +71,7 @@ class BirdVisualiser:
         plt.axis('equal')
         plt.title("Simplified Bird’s-Eye View")
         plt.legend()
-        plt.show()
+        plt.show(block=True)
 
     def cleanup(self):
         plt.close('all')
