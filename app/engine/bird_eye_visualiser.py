@@ -1,3 +1,5 @@
+from time import sleep
+
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
@@ -72,6 +74,7 @@ class BirdVisualiser:
         plt.title("Simplified Bird’s-Eye View")
         plt.legend()
         plt.show(block=True)
+        sleep(5000)
 
     def cleanup(self):
         plt.close('all')
