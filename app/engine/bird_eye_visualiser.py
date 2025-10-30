@@ -26,7 +26,6 @@ class BirdVisualiser:
         # Compute transform
         self.M = cv2.getPerspectiveTransform(src, dst)
         self.class_colors=[
-            (0, 0, 0),
             (255, 0, 0),
             (0, 255, 0),
             (0, 0, 255),
@@ -52,7 +51,7 @@ class BirdVisualiser:
         for i,box in enumerate(boxes):
             if class_ids[i].item() in [0,1,2,3,5]:
                 print("IN")
-                object_middle_points.append([(box[2]+box[0])/2,(box[3]+box[1])/2])
+                object_middle_points.append([((box[2]+box[0])/2).item(),((box[3]+box[1])/2).item()])
                 colors.append(self.class_colors[class_ids[i].item()])
         print(object_middle_points,colors)
         return object_middle_points,colors
