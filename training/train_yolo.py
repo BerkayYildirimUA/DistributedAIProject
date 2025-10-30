@@ -41,3 +41,39 @@ if __name__=='__main__':
         exist_ok=True,
         freeze=freeze_backbone
     )
+
+
+
+# from ultralytics import YOLO
+#
+# model = YOLO("runs/detect/train_all_640_s/weights/best.pt")
+#
+# model.train(
+#     data="data.yaml",
+#     imgsz=704,           # iets kleiner dan 736 → nog minder mem, grotere batch
+#     batch=-1,
+#     epochs=15,
+#     patience=7,
+#     amp=True,
+#     optimizer="AdamW",
+#     lr0=0.001,
+#     # >>> RAM sparen:
+#     cache='disk',        # i.p.v. 'ram'
+#     workers=0,           # Windows-stabiel (geen spawn-kopieën)
+#     pin_memory=False,    # werkt in recente versies; zo niet gewoon weglaten
+#     # >>> Geen zware aug voor finetune:
+#     mosaic=0.0,
+#     copy_paste=0.0,
+#     mixup=0.0,
+#     close_mosaic=0,      # irrelevant als mosaic=0, maar voorkomt reinit
+#     rect=True,           # sneller, minder padding (shuffle=False is normaal)
+#     plots=False,
+#     val=False,
+#     freeze=10,
+#     project="runs/detect",
+#     name="finetune_704_noram",
+#     exist_ok=True,
+# )
+#
+# # Valideer één keer achteraf:
+# YOLO("runs/detect/finetune_704_noram/weights/best.pt").val(data="data.yaml", imgsz=704)
