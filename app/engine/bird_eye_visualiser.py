@@ -33,7 +33,7 @@ class BirdVisualiser:
         pts = np.array(pts, dtype='float32').reshape(-1, 1,2)
         print(pts.shape)
         print(pts)
-        warped = cv2.perspectiveTransform(pts, self.M)[0]
+        warped = cv2.perspectiveTransform(pts, self.M).reshape(-1, 2)
         return warped
 
     def get_object_coords_and_colors(self,boxes,class_ids):
