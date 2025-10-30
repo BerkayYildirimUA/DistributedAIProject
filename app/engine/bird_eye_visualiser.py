@@ -28,7 +28,7 @@ class BirdVisualiser:
     # Helper function to warp points
     def warp_points(self,pts):
 
-        pts = np.array([pts], dtype='float32')
+        pts = np.array(pts, dtype='float32').reshape(-1, 1,2)
         print(pts.shape)
         warped = cv2.perspectiveTransform(pts, self.M)[0]
         return warped
