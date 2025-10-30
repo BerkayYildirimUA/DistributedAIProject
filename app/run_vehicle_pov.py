@@ -46,12 +46,12 @@ try:
         visualiser.show()
 
         # Dummy video frames data
-        video_frames_data = (
+        video_frames_data = [(
                 boxes,  # boxes
                 class_ids,  # class_ids
                 lanes[0],  # lane left
                 lanes[1]  # lane right
-            )
+            )]
 
 
         vis = BirdVisualiser()
