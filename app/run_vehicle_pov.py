@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+from app.engine.bird_eye_visualiser import BirdVisualiser
 from data_processors.lane_detector import LaneDetector
 from data_processors.object_detector import ObjectDetector
 from data_processors.object_distance_calculator import ObjectDistanceCalculator
@@ -15,6 +16,7 @@ vehicle_distance_memory = VehicleDistanceMemory().get_write_access()
 object_detector = ObjectDetector()
 object_distance_calculator=ObjectDistanceCalculator()
 lane_detector=LaneDetector()
+bird_eye_visualiser=BirdVisualiser()
 try:
     import time
     while True:
@@ -42,6 +44,9 @@ try:
             distances,
             lanes)
         visualiser.show()
+
+
+        bird_eye_visualiser.show(boxes,class_ids,lanes[0],lanes[1])
 
 finally:
     cv2.destroyAllWindows()

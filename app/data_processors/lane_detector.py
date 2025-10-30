@@ -116,20 +116,6 @@ class LaneDetector:
         # return torch.stack((x,y), dim=0).cpu().numpy()
         return self.filter_car_lanes(lanes)
 
-    # def get_lane_coords(self,scores):
-    #     lanes = []
-    #
-    #     # For each lane
-    #     for i in range(scores.shape[1]):
-    #         # Get row
-    #         if torch.count_nonzero(scores[:, i]) > 2:
-    #             # Convert scores to pixels
-    #             for k in range(scores.shape[0]):
-    #                 if scores[k, i] > 0:
-    #                     ppp = (int(scores[k, i] * self.scaling_x) - 1,
-    #                            int(self.frame_h * (self.row_anchors[self.cls_num_per_lane - 1 - k] / self.model_input_height)) - 1)
-    #                     lanes.append(ppp)
-    #     return lanes
 
     def get_lane_coords(self, scores):
         lanes = []
@@ -151,7 +137,7 @@ class LaneDetector:
         return lanes
     def interpolate_lane(self,lane):
         x = np.array([x for x,_ in lane])
-        y = np.array([y for x,_ in lane])
+        y = np.array([y for _,y in lane])
         coeffs = np.polyfit(y, x, 3)
         poly = np.poly1d(coeffs)
 
@@ -159,6 +145,7 @@ class LaneDetector:
         y_smooth = np.linspace(y.min(), y.max(), 300)
         x_smooth = poly(y_smooth)
         return [(x,y) for x,y in zip(x_smooth,y_smooth)]
+
     def filter_car_lane(self,lanes):
         frame_center = self.frame_w / 2
         best_lane = min(lanes, key=lambda lane: abs(
