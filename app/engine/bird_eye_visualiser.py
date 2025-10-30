@@ -30,7 +30,7 @@ class BirdVisualiser:
         if len(pts) == 0:
             return []
         print(pts)
-        pts = np.array(pts, dtype='float32').reshape(-1,2)
+        pts = np.array(pts, dtype='float32').reshape(-1, 1,2)
         print(pts.shape)
         print(pts)
         warped = cv2.perspectiveTransform(pts, self.M)[0]
@@ -48,6 +48,7 @@ class BirdVisualiser:
         # Warp everything
         lane_l = self.warp_points(lane_l)
         lane_r = self.warp_points(lane_r)
+        print(lane_l, lane_r)
         objects,colors =self.get_object_coords_and_colors(boxes,class_ids)
         objects = self.warp_points(objects)
         lane_colors=["k"]*len(lane_l)+["k"]*len(lane_r)
