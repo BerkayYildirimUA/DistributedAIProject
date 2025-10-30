@@ -70,7 +70,7 @@ class BirdVisualiser:
         for co,color in zip(coords,colors):
             x,y=co[0],co[1]
             self.ax.scatter(x, y, color=color)
-
+        self.fig.canvas.draw()
         plt.pause(0.05)
 
     def cleanup(self):
