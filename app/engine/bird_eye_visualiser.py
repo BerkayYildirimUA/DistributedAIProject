@@ -53,7 +53,8 @@ class BirdVisualiser:
             if class_ids[i].item() in [0,1,2,3,5]:
                 print("IN")
                 object_middle_points.append([(box[2]+box[0])/2,(box[3]+box[1])/2])
-                colors.append(self.class_colors[class_ids[i]])
+                colors.append(self.class_colors[class_ids[i].item()])
+        print(object_middle_points,colors)
         return object_middle_points,colors
 
     def generate_new_coords_with_colors(self,boxes,class_ids,lanes):
