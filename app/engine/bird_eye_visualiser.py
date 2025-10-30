@@ -3,7 +3,7 @@ from time import sleep
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
-# plt.ion()  # turn on interactive mode
+from matplotlib.animation import FuncAnimation
 
 
 class BirdVisualiser:
@@ -27,7 +27,6 @@ class BirdVisualiser:
         # Compute transform
         self.M = cv2.getPerspectiveTransform(src, dst)
         self.class_colors=["r","g","b","c","y","m"]
-        plt.ion()
 
         self.fig, self.ax = plt.subplots(figsize=(6, 8))
         self.ax.invert_yaxis()
@@ -66,12 +65,14 @@ class BirdVisualiser:
     def show(self,boxes,class_ids,lane_l,lane_r):
         coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lane_l,lane_r)
 
+        self.ax.clear()
+
         # Draw objects
         for co,color in zip(coords,colors):
             x,y=co[0],co[1]
             self.ax.scatter(x, y, color=color)
         self.fig.canvas.draw()
-        plt.pause(0.05)
+        # plt.pause(0.05)
 
     def cleanup(self):
         plt.close('all')
