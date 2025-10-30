@@ -54,17 +54,16 @@ class BirdVisualiser:
                 object_middle_points.append(([(box[2]+box[0])/2,(box[3]+box[1])/2]))
                 colors.append(self.class_colors[class_ids[i]])
         return object_middle_points,colors
-    def generate_new_coords_with_colors(self,boxes,class_ids,lane_l,lane_r):
+    def generate_new_coords_with_colors(self,boxes,class_ids,lanes):
         # Warp everything
-        lane_l = self.warp_points(lane_l)
-        lane_r = self.warp_points(lane_r)
+        lanes = self.warp_points(lanes)
         objects,colors =self.get_object_coords_and_colors(boxes,class_ids)
         objects = self.warp_points(objects)
-        lane_colors=[(0,0,0)]*len(lane_l)+[(0,0,0)]*len(lane_r)
-        return [*lane_l,*lane_r,*objects],[*colors,*lane_colors]
+        lane_colors=[(0,0,0)]*len(lanes)
+        return [*lanes,*objects],[*colors,*lane_colors]
 
-    def show(self,boxes,class_ids,lane_l,lane_r):
-        coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lane_l,lane_r)
+    def show(self,boxes,class_ids,lanes):
+        coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lanes)
         print(coords,colors)
         for co, color in zip(coords, colors):
             x,y=int(co[0]),int(co[1])

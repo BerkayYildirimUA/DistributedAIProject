@@ -47,7 +47,7 @@ try:
 
 
         if len(lanes) > 0:
-            bird_eye_visualiser.show(boxes,class_ids,lanes[0],lanes[1])
+            bird_eye_visualiser.show(boxes,class_ids,lanes)
 
 finally:
     cv2.destroyAllWindows()
