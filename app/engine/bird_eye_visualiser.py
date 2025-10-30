@@ -3,7 +3,7 @@ from time import sleep
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
-plt.ion()  # turn on interactive mode
+# plt.ion()  # turn on interactive mode
 
 
 class BirdVisualiser:
