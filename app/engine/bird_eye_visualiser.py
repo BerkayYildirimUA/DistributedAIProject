@@ -3,6 +3,7 @@ from time import sleep
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
+plt.ion()  # turn on interactive mode
 
 
 class BirdVisualiser:
@@ -26,6 +27,7 @@ class BirdVisualiser:
         # Compute transform
         self.M = cv2.getPerspectiveTransform(src, dst)
         self.class_colors=["r","g","b","c","y","m"]
+        self.fig, self.ax = plt.subplots(figsize=(6, 8))
 
     # Helper function to warp points
     def warp_points(self,pts):
@@ -59,7 +61,7 @@ class BirdVisualiser:
 
     def show(self,boxes,class_ids,lane_l,lane_r):
         coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lane_l,lane_r)
-        plt.figure(figsize=(6, 8))
+
 
         # Draw objects
         for co,color in zip(coords,colors):
@@ -68,13 +70,13 @@ class BirdVisualiser:
             print("xx",x)
             print("yy",y)
             plt.scatter(x, y, color=color)
-
+        self.ax.cla()
         plt.gca().invert_yaxis()  # so forward is upward
         plt.axis('equal')
         plt.title("Simplified Bird’s-Eye View")
         plt.legend()
         plt.show(block=True)
-        sleep(5000)
+        plt.pause(0.05)
 
     def cleanup(self):
         plt.close('all')
