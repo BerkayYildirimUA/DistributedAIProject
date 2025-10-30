@@ -59,7 +59,8 @@ class BirdVisualiser:
         plt.figure(figsize=(6, 8))
 
         # Draw objects
-        for (x, y),color in zip(coords,colors):
+        for co,color in zip(coords,colors):
+            x,y=co[0],co[1]
             plt.scatter(x, y, color)
 
         plt.gca().invert_yaxis()  # so forward is upward
