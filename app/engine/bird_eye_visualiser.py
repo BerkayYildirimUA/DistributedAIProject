@@ -26,7 +26,7 @@ class BirdVisualiser:
         # Compute transform
         self.M = cv2.getPerspectiveTransform(src, dst)
         self.class_colors=[
-            (255, 255, 255),
+            (0, 0, 0),
             (255, 0, 0),
             (0, 255, 0),
             (0, 0, 255),
@@ -36,7 +36,7 @@ class BirdVisualiser:
         ]
         self.window_name="Bird EYE"
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        self.bird_img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+        self.bird_img = np.ones((self.height, self.width, 3), dtype=np.uint8)*255
 
     # Helper function to warp points
     def warp_points(self,pts):
@@ -60,15 +60,15 @@ class BirdVisualiser:
         lane_r = self.warp_points(lane_r)
         objects,colors =self.get_object_coords_and_colors(boxes,class_ids)
         objects = self.warp_points(objects)
-        lane_colors=[(255,255,255)]*len(lane_l)+[(255,255,255)]*len(lane_r)
+        lane_colors=[(0,0,0)]*len(lane_l)+[(0,0,0)]*len(lane_r)
         return [*lane_l,*lane_r,*objects],[*colors,*lane_colors]
 
     def show(self,boxes,class_ids,lane_l,lane_r):
         coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lane_l,lane_r)
         print(coords,colors)
-        # for co, color in zip(coords, colors):
-        #     x,y=int(co[0]),int(co[1])
-        #     cv2.circle(self.bird_img,(x,y), 5,color, 2)
+        for co, color in zip(coords, colors):
+            x,y=int(co[0]),int(co[1])
+            cv2.circle(self.bird_img,(x,y), 5,color, 2)
         cv2.imshow(self.window_name, self.bird_img)
         cv2.waitKey(1)
     def cleanup(self):
