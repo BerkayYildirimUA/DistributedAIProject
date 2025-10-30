@@ -34,6 +34,7 @@ class BirdVisualiser:
         print(pts.shape)
         print(pts)
         warped = cv2.perspectiveTransform(pts, self.M)[0].reshape(-1, 2)
+        print("wrapped",warped)
         return warped
 
     def get_object_coords_and_colors(self,boxes,class_ids):
@@ -60,6 +61,7 @@ class BirdVisualiser:
 
         # Draw objects
         for co,color in zip(coords,colors):
+            print("co",co)
             x,y=co[0],co[1]
             plt.scatter(x, y, color)
 
