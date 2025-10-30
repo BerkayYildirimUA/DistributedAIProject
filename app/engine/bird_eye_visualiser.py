@@ -84,36 +84,34 @@
 #     def cleanup(self):
 #         plt.close('all')
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 import cv2
 import numpy as np
 
+
 class BirdVisualiser:
     def __init__(self):
-        # Perspective transform (front view → bird’s-eye view)
+        # Perspective transform (front → bird’s-eye)
         src = np.float32([[450, 400], [850, 400], [1000, 700], [300, 700]])
         dst = np.float32([[400, 0], [800, 0], [800, 600], [400, 600]])
         self.M = cv2.getPerspectiveTransform(src, dst)
         self.class_colors = ["r", "g", "b", "c", "y", "m"]
 
-        # Create figure & axes once
+        # Create figure once
         self.fig, self.ax = plt.subplots(figsize=(6, 8))
         self.ax.invert_yaxis()
         self.ax.axis('equal')
         self.ax.set_title("Simplified Bird’s-Eye View")
+        plt.ion()  # enable interactive mode
 
-        # Prepare scatter object (initially empty)
+        # Scatter object for updating points
         self.scatter = self.ax.scatter([], [])
 
-    # Warp points to bird’s-eye view
     def warp_points(self, pts):
         if len(pts) == 0:
             return np.empty((0, 2), dtype=np.float32)
         pts = np.array(pts, dtype=np.float32).reshape(-1, 1, 2)
-        warped = cv2.perspectiveTransform(pts, self.M).reshape(-1, 2)
-        return warped
+        return cv2.perspectiveTransform(pts, self.M).reshape(-1, 2)
 
-    # Compute object centers
     def get_object_coords_and_colors(self, boxes, class_ids):
         centers, colors = [], []
         for i, box in enumerate(boxes):
@@ -124,7 +122,6 @@ class BirdVisualiser:
                 colors.append(self.class_colors[class_ids[i]])
         return centers, colors
 
-    # Warp lanes and objects, get colors
     def generate_new_coords_with_colors(self, boxes, class_ids, lane_l, lane_r):
         lane_l_warp = self.warp_points(lane_l)
         lane_r_warp = self.warp_points(lane_r)
@@ -135,32 +132,22 @@ class BirdVisualiser:
         all_colors = lane_colors + obj_colors
         return all_coords, all_colors
 
-    # Update function for FuncAnimation
-    def update(self, frame_data):
-        """
-        frame_data = (boxes, class_ids, lane_l, lane_r)
-        """
-        boxes, class_ids, lane_l, lane_r = frame_data
+    def show(self, boxes, class_ids, lane_l, lane_r):
         coords, colors = self.generate_new_coords_with_colors(boxes, class_ids, lane_l, lane_r)
+
+        # Update scatter in-place
         if len(coords) > 0:
             self.scatter.set_offsets(coords)
             self.scatter.set_color(colors)
-        return self.scatter,
+        else:
+            self.scatter.set_offsets([])
 
-    # Run animation
-    def animate(self, frames_data, interval=50):
-        """
-        frames_data: list of tuples (boxes, class_ids, lane_l, lane_r)
-        interval: ms between frames
-        """
-        ani = animation.FuncAnimation(
-            self.fig,
-            self.update,
-            frames=frames_data,
-            interval=interval,
-            blit=True,
-            repeat=False
-        )
-        plt.show()
+        self.ax.relim()
+        self.ax.autoscale_view()
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()  # ensures update is visible
+
+    def cleanup(self):
+        plt.close('all')
 
 

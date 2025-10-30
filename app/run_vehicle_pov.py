@@ -45,19 +45,9 @@ try:
             lanes)
         visualiser.show()
 
-        # Dummy video frames data
-        video_frames_data = [(
-                boxes,  # boxes
-                class_ids,  # class_ids
-                lanes[0],  # lane left
-                lanes[1]  # lane right
-            )]
 
-
-        vis = BirdVisualiser()
-        vis.animate(video_frames_data, interval=100)  # 100ms per frame (~10 FPS)
-
-        # bird_eye_visualiser.show(boxes,class_ids,lanes[0],lanes[1])
+        if len(lanes) > 0:
+            bird_eye_visualiser.show(boxes,class_ids,lanes[0],lanes[1])
 
 finally:
     cv2.destroyAllWindows()
