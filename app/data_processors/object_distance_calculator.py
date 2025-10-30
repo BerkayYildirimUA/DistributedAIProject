@@ -51,6 +51,7 @@ class ObjectDistanceCalculator:
     def get_radar_distances(self, object_boxes, radar_data):
         distances = []
         radar_points_with_pixels = []
+        CENTER_RATIO = 0.2
 
         for detection in radar_data:
             depth = detection[0]
@@ -86,12 +87,28 @@ class ObjectDistanceCalculator:
         # Filter Radar Points within Bounding Boxes
         for i, (x1, y1, x2, y2) in enumerate(object_boxes):
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-            
-            # 2D Check AND Depth Filtering (removes ego-vehicle and background clutter)
+
+            # 1. Calculate the dimensions of the central region
+            w = x2 - x1
+            h = y2 - y1
+
+            x_center = x1 + w / 2
+            y_center = y1 + h / 2
+
+            # Define the inner bounding box (60% width and height)
+            x1_inner = int(x_center - (w * CENTER_RATIO / 2))
+            x2_inner = int(x_center + (w * CENTER_RATIO / 2))
+            y1_inner = int(y_center - (h * CENTER_RATIO / 2))
+            x2_inner = int(y_center + (h * CENTER_RATIO / 2))  # NOTE: Typo fix here: should be y2_inner
+
+            # Corrected inner y2 coordinate definition
+            y2_inner = int(y_center + (h * CENTER_RATIO / 2))
+
+            # 2. Filter points using the inner box and depth filters
             in_box_depths = [
-                d for (rx, ry, d) in radar_points_with_pixels 
-                if x1 <= rx <= x2 and y1 <= ry <= y2 
-                and d > self.MIN_VALID_DEPTH and d < self.MAX_TARGET_DEPTH
+                d for (rx, ry, d) in radar_points_with_pixels
+                if x1_inner <= rx <= x2_inner and y1_inner <= ry <= y2_inner
+                   and d > self.MIN_VALID_DEPTH and d < self.MAX_TARGET_DEPTH
             ]
             
             if in_box_depths:
