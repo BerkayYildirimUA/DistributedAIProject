@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from app.engine.bird_eye_visualiser import BirdVisualiser
+from engine.bird_eye_visualiser import BirdVisualiser
 from data_processors.lane_detector import LaneDetector
 from data_processors.object_detector import ObjectDetector
 from data_processors.object_distance_calculator import ObjectDistanceCalculator
