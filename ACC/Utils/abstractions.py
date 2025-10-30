@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import List
 import carla
 
 @dataclass
 class VehicleState:
     speed: float
     speed_limit: float
-    distance_to_lead: float #car in front of the Ego
+    distances: List[float] #car in front of the Ego
     safe_following_distance: float
 
 

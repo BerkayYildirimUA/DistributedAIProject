@@ -2,20 +2,31 @@ import argparse
 import logging
 import traceback
 
+import carla
+from carla import BlueprintLibrary
+
+from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
-from ACC.Utils.implementations import CarlaStateSensor, SimpleAccAgent
+from ACC.Utils.implementations import CarlaLeadStateSensor, SimpleAccAgent, CarlaWorldStateSensor
 from ACC.Engine.engine import Engine
 
 def main_loop(args):
-    engine = Engine(args)
+    scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
+                     map_name=args.map, number_of_npc=args.num_npcs)
+    engine = Engine(args, scene)
 
     try:
         engine.connect_to_worlds()
+
         if not engine.setup():
             raise RuntimeError("Engine setup failed. Exiting.")
 
         # sensor and agent Setup (Real World)
-        sensor_real = CarlaStateSensor(engine.ego.real, engine.lead.real)
+        if engine.lead is not None:
+            sensor_real = LeadCarlaStateSensor(engine.ego.real, engine.lead.real)
+        else:
+            sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+
         decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
 
 
@@ -30,7 +41,8 @@ def main_loop(args):
 
 
             # apply goal
-            engine.tm_mirror.set_path(engine.ego.mirror, [engine.lead.mirror.get_location()])
+            if engine.lead is not None:
+                engine.tm_mirror.set_path(engine.ego.mirror, [engine.lead.mirror.get_location()])
 
             # synchronization real npc with mirror npcs
             engine.synchronization_real_npc_with_mirror_npcs()

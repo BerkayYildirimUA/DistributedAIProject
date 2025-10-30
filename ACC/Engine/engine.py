@@ -2,6 +2,7 @@ import logging
 import random
 import traceback
 from typing import Optional, List
+from ACC.Engine.scenario import Scenario
 
 import carla
 from ACC.Engine.duo_classes import DuoActor, DuoClient, DuoWorld
@@ -9,7 +10,7 @@ from ACC.Engine.duo_classes import DuoActor, DuoClient, DuoWorld
 
 class Engine():
 
-    def __init__(self, args):
+    def __init__(self, args, scenario : Optional[Scenario] = None):
         # client stuff
         self.host = args.host
         self.real_port = args.real_port
@@ -19,8 +20,8 @@ class Engine():
         self.mirror_traffic_manager_port = args.tm_mirror_port
 
         # world settings
-        self.map_name = args.map
-        self.delta_seconds = args.delta_seconds
+        self.map_name = scenario.map if scenario is not None else args.map
+        self.delta_seconds = scenario.delta_seconds if scenario is not None else args.delta_seconds
 
         # scenario
         self.duo_client: Optional[DuoClient] = None
@@ -32,10 +33,13 @@ class Engine():
         self.spectator: Optional[carla.Actor] = None
 
         # Actrors
-        self.num_npcs = args.num_npcs
+        self.num_npcs = scenario.number_of_npc if scenario is not None else args.num_npcs
         self.ego: Optional[DuoActor] = None
         self.lead: Optional[DuoActor] = None
         self.npcs: List[DuoActor] = []
+
+        self.scenario = scenario
+
 
     def connect_to_worlds(self):
         client_real = None
@@ -125,6 +129,13 @@ class Engine():
             f"Successfully spawned actor pair: Real ID {real_actor.id}, Mirror ID {mirror_actor.id} ({blueprint.id})")
         return DuoActor(real_actor, mirror_actor)
 
+    def set_scenario(self, scenario : Scenario):
+        self.delta_seconds = scenario.delta_seconds
+        self.map_name = scenario.map
+        self.num_npcs = scenario.number_of_npc
+        self.scenario = scenario
+
+
     def setup(self):
         """
         setup the world
@@ -172,24 +183,31 @@ class Engine():
             ego_spawn_point_index = 100 if 100 < len(available_spawn_points) else random.randrange(
                 len(available_spawn_points))
             ego_spawn_point = available_spawn_points.pop(ego_spawn_point_index)
-            ego_bp_candidates = self.blueprints_vehicles.filter('vehicle.tesla.model3')
-            if not ego_bp_candidates: raise RuntimeError("Tesla Model3 blueprint not found.")
-            ego_bp = random.choice(ego_bp_candidates)
+
+            filter = self.scenario.ego_car_bp_name if self.scenario is not None else 'vehicle.tesla.model3'
+            if filter == "random":
+                filter = 'vehicle.*.*'
+
+            ego_bp = random.choice(self.blueprints_vehicles.filter(filter))
             self.ego = self.spawn_actor_pair(ego_bp, ego_spawn_point)
             if not self.ego: raise RuntimeError("Failed to spawn EGO pair.")
             logging.info(f"Spawned EGO pair: Real ID {self.ego.real.id}, Mirror ID {self.ego.mirror.id}")
 
             # --- LEAD ---
-            lead_transform = carla.Transform(
-                ego_spawn_point.location + ego_spawn_point.get_forward_vector() * 15.0,
-                ego_spawn_point.rotation
-            )
-            lead_bp_candidates = self.blueprints_vehicles.filter("*.mitsubishi.fusorosa")
-            if not lead_bp_candidates: raise RuntimeError("Mitsubishi Fusorosa blueprint not found.")
-            lead_bp = lead_bp_candidates[0]
-            self.lead = self.spawn_actor_pair(lead_bp, lead_transform)
-            if not self.lead: raise RuntimeError("Failed to spawn LEAD pair.")
-            logging.info(f"Spawned LEAD pair: Real ID {self.lead.real.id}, Mirror ID {self.lead.mirror.id}")
+            if self.scenario.lead_car_bp_name is not "":
+                lead_transform = carla.Transform(
+                    ego_spawn_point.location + ego_spawn_point.get_forward_vector() * 15.0,
+                    ego_spawn_point.rotation
+                )
+
+                filter = self.scenario.ego_car_bp_name if self.scenario is not None else 'vehicle.mitsubishi.fusorosa'
+                if filter == "random":
+                    filter = 'vehicle.*.*'
+
+                lead_bp = random.choice(self.blueprints_vehicles.filter(filter))
+                self.lead = self.spawn_actor_pair(lead_bp, lead_transform)
+                if not self.lead: raise RuntimeError("Failed to spawn LEAD pair.")
+                logging.info(f"Spawned LEAD pair: Real ID {self.lead.real.id}, Mirror ID {self.lead.mirror.id}")
 
             # --- NPCs ---
             logging.info(f"Attempting to spawn {self.num_npcs} NPC pairs...")
