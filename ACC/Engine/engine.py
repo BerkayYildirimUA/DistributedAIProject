@@ -146,10 +146,11 @@ class Engine():
 
             # Setup Traffic Manager (Mirror World)
             logging.info(f"Setting up Traffic Manager in Mirror world on port {self.mirror_traffic_manager_port}")
-            self.tm_mirror = self.duo_client.mirror.get_trafficmanager(self.mirror_traffic_manager_port)
+            self.tm_mirror : carla.TrafficManager = self.duo_client.mirror.get_trafficmanager(self.mirror_traffic_manager_port)
             self.tm_mirror.set_synchronous_mode(True)
             self.duo_world.get_mirror_world().tick()
             logging.info("Mirror TM set to synchronous mode.")
+
 
             # Get Blueprints and Spawn Points
             logging.info("Getting blueprints and spawn points...")
