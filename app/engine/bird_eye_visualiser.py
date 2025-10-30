@@ -2,8 +2,6 @@ import matplotlib.pyplot as plt
 import cv2
 import numpy as np
 
-from app.run_vehicle_pov import class_ids
-
 
 class BirdVisualiser:
     def __init__(self):
