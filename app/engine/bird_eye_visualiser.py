@@ -66,9 +66,9 @@ class BirdVisualiser:
     def show(self,boxes,class_ids,lane_l,lane_r):
         coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lane_l,lane_r)
         print(coords,colors)
-        for co, color in zip(coords, colors):
-            x,y=int(co[0]),int(co[1])
-            cv2.circle(self.bird_img,(x,y), 5,color, 2)
+        # for co, color in zip(coords, colors):
+        #     x,y=int(co[0]),int(co[1])
+        #     cv2.circle(self.bird_img,(x,y), 5,color, 2)
         cv2.imshow(self.window_name, self.bird_img)
         cv2.waitKey(1)
     def cleanup(self):
