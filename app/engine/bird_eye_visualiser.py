@@ -55,8 +55,8 @@ class BirdVisualiser:
         for i,box in enumerate(boxes):
             if class_ids[i].item() in [0,1,2,3,5]:
                 print("IN")
-                object_middle_points.append([((box[2]+box[0])/2).item(),((box[3]+box[1])/2).item()])
-                colors.append(self.class_colors[class_ids[i].item()])
+                object_middle_points.append([int((box[2]+box[0])/2),int((box[3]+box[1])/2)])
+                colors.append(self.class_colors[int(class_ids[i])])
         print(object_middle_points,colors)
         return object_middle_points,colors
 
@@ -73,7 +73,10 @@ class BirdVisualiser:
         bird_img=self.bird_img_default.copy()
         for co, color in zip(coords, colors):
             x,y=int(co[0]),int(co[1])
-            cv2.circle(bird_img,(x,y), 5,color, 2)
+            if color != (255,255,255):
+                cv2.circle(bird_img,(x,y), 20,color, -1)
+            cv2.circle(bird_img,(x,y), 5,color, -1)
+
         cv2.imshow(self.window_name, bird_img)
         cv2.waitKey(1)
     def cleanup(self):
