@@ -28,7 +28,9 @@ class BirdVisualiser:
         self.M = cv2.getPerspectiveTransform(src, dst)
         self.class_colors=["r","g","b","c","y","m"]
         self.fig, self.ax = plt.subplots(figsize=(6, 8))
-
+        self.ax.invert_yaxis()
+        self.ax.axis('equal')
+        self.ax.set_title("Simplified Bird’s-Eye View")
     # Helper function to warp points
     def warp_points(self,pts):
         if len(pts) == 0:
@@ -61,12 +63,6 @@ class BirdVisualiser:
 
     def show(self,boxes,class_ids,lane_l,lane_r):
         coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lane_l,lane_r)
-
-        # Clear axes first
-        self.ax.cla()
-        self.ax.invert_yaxis()
-        self.ax.axis('equal')
-        self.ax.set_title("Simplified Bird’s-Eye View")
 
         # Draw objects
         for co,color in zip(coords,colors):
