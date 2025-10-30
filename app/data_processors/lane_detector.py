@@ -2,8 +2,12 @@ import torch
 import numpy as np
 import torchvision.transforms as transforms
 from PIL import Image
+from torchvision.ops.misc import interpolate
+
 from .model.model import parsingNet
 import torch.nn.functional as F
+import numpy as np
+
 
 class LaneDetector:
     def __init__(self, model_path='./data_processors/model/tusimple_18.pth'):
@@ -145,7 +149,16 @@ class LaneDetector:
             if lane_pts:
                 lanes.append(lane_pts)
         return lanes
+    def interpolate_lane(self,lane):
+        x = np.array([x for x,_ in lane])
+        y = np.array([y for x,_ in lane])
+        coeffs = np.polyfit(y, x, 3)
+        poly = np.poly1d(coeffs)
 
+        # Generate smooth curve
+        y_smooth = np.linspace(y.min(), y.max(), 300)
+        x_smooth = poly(y_smooth)
+        return [(x,y) for x,y in zip(x_smooth,y_smooth)]
     def filter_car_lane(self,lanes):
         frame_center = self.frame_w / 2
         best_lane = min(lanes, key=lambda lane: abs(
@@ -177,62 +190,8 @@ class LaneDetector:
             if right_lanes else []
 
         # Flatten coordinates into a single list
-        best_coords = best_left + best_right
+        best_coords = self.interpolate_lane(best_left) + self.interpolate_lane(best_right)
 
         return best_coords
 
-    # import torch
-    #
-    # def get_lane_coords(self, scores):
-    #     """
-    #     Convert soft lane scores to pixel coordinates for all lanes using PyTorch tensors.
-    #     scores: (num_rows, num_lanes) tensor
-    #     Returns:
-    #         x: (num_rows, num_lanes)
-    #         y: (num_rows, num_lanes)
-    #         mask: boolean mask where lane exists
-    #     """
-    #     num_rows, num_lanes = scores.shape
-    #
-    #     # Mask of valid lane points
-    #     mask = scores > 0
-    #
-    #     # X coordinates in pixels
-    #     x = scores * self.frame_w / self.model_input_width
-    #
-    #     # Y coordinates in pixels
-    #     row_anchors_tensor = torch.tensor(self.row_anchors, device=scores.device, dtype=torch.float)
-    #     y_indices = torch.arange(self.cls_num_per_lane - 1, self.cls_num_per_lane - 1 - num_rows, -1,
-    #                              device=scores.device)
-    #     y = self.frame_h * row_anchors_tensor[y_indices][:, None] / self.model_input_height
-    #     y = y.expand(-1, num_lanes)
-    #
-    #     # Apply mask
-    #     x = x * mask.float()
-    #     y = y * mask.float()
-    #
-    #     return x, y, mask
-    #
-    # def filter_car_lane(self, x, y, mask):
-    #     """
-    #     Select the lane closest to the center of the frame (assume car is in middle lane).
-    #     x, y: (num_rows, num_lanes)
-    #     mask: same shape, bool
-    #     Returns:
-    #         car_lane_points: (num_valid_points, 2) tensor
-    #     """
-    #     frame_center = self.frame_w / 2
-    #
-    #     # Compute mean x per lane (avoid division by zero)
-    #     lane_sum = (x * mask.float()).sum(0)  # sum over rows
-    #     lane_count = mask.sum(0).clamp(min=1)  # number of valid points per lane
-    #     lane_avg_x = lane_sum / lane_count
-    #
-    #     # Choose lane closest to frame center
-    #     car_lane_idx = torch.argmin(torch.abs(lane_avg_x - frame_center))
-    #
-    #     # Extract valid points for this lane
-    #     valid_mask = mask[:, car_lane_idx]
-    #     car_lane_points = torch.stack([x[:, car_lane_idx], y[:, car_lane_idx]], dim=1)[valid_mask]
-    #
-    #     return car_lane_points.cpu().numpy().astype(int)
+
