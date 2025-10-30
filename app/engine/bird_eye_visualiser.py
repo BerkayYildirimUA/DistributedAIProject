@@ -27,6 +27,8 @@ class BirdVisualiser:
         # Compute transform
         self.M = cv2.getPerspectiveTransform(src, dst)
         self.class_colors=["r","g","b","c","y","m"]
+        plt.ion()
+
         self.fig, self.ax = plt.subplots(figsize=(6, 8))
         self.ax.invert_yaxis()
         self.ax.axis('equal')
