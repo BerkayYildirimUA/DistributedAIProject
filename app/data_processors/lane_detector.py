@@ -144,7 +144,7 @@ class LaneDetector:
         # Generate smooth curve
         y_smooth = np.linspace(y.min(), y.max(), 300)
         x_smooth = poly(y_smooth)
-        return [(x.item(),y.item()) for x,y in zip(x_smooth,y_smooth)]
+        return [(int(x.item()),int(y.item())) for x,y in zip(x_smooth,y_smooth)]
 
     def filter_car_lane(self,lanes):
         frame_center = self.frame_w / 2
