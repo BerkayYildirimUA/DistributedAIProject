@@ -16,7 +16,7 @@ vehicle_distance_memory = VehicleDistanceMemory().get_write_access()
 object_detector = ObjectDetector()
 object_distance_calculator=ObjectDistanceCalculator()
 lane_detector=LaneDetector()
-bird_eye_visualiser=BirdVisualiser()
+bird_eye_visualiser=BirdVisualiser(640,480)
 try:
     import time
     while True:
