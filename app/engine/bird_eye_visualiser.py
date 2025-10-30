@@ -36,7 +36,7 @@ class BirdVisualiser:
         ]
         self.window_name="Bird EYE"
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        self.bird_img = np.ones((self.height, self.width, 3), dtype=np.uint8)
+        self.bird_img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
 
     # Helper function to warp points
     def warp_points(self,pts):
