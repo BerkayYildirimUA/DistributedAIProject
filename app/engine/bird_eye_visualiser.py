@@ -62,20 +62,17 @@ class BirdVisualiser:
     def show(self,boxes,class_ids,lane_l,lane_r):
         coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lane_l,lane_r)
 
+        # Clear axes first
+        self.ax.cla()
+        self.ax.invert_yaxis()
+        self.ax.axis('equal')
+        self.ax.set_title("Simplified Bird’s-Eye View")
 
         # Draw objects
         for co,color in zip(coords,colors):
-            print("co",co)
             x,y=co[0],co[1]
-            print("xx",x)
-            print("yy",y)
-            plt.scatter(x, y, color=color)
-        self.ax.cla()
-        plt.gca().invert_yaxis()  # so forward is upward
-        plt.axis('equal')
-        plt.title("Simplified Bird’s-Eye View")
-        plt.legend()
-        # plt.show()
+            self.ax.scatter(x, y, color=color)
+
         plt.pause(0.05)
 
     def cleanup(self):
