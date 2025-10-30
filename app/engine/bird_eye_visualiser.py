@@ -73,7 +73,7 @@ class BirdVisualiser:
         bird_img=self.bird_img_default.copy()
         for co, color in zip(coords, colors):
             x,y=int(co[0]),int(co[1])
-            if color != (255,255,255):
+            if color != (0,0,0):
                 cv2.circle(bird_img,(x,y), 20,color, -1)
             cv2.circle(bird_img,(x,y), 5,color, -1)
 
