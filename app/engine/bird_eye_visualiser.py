@@ -42,7 +42,7 @@ class BirdVisualiser:
         pts = np.array(pts, dtype='float32').reshape(-1, 1,2)
         print(pts.shape)
         print(pts)
-        warped = cv2.perspectiveTransform(pts, self.M).reshape(-1, 2)
+        warped = cv2.perspectiveTransform(pts, self.M)[0].reshape(-1, 2)
         print("wrapped",warped)
         return warped
 
