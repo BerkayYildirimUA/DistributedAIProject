@@ -7,7 +7,9 @@ from matplotlib.animation import FuncAnimation
 
 
 class BirdVisualiser:
-    def __init__(self):
+    def __init__(self,width,height):
+        self.width = width
+        self.height = height
 
         # Define a perspective transform matrix (manually chosen)
         # src: trapezoid in front-view; dst: rectangle for top view
@@ -26,13 +28,18 @@ class BirdVisualiser:
         ])
         # Compute transform
         self.M = cv2.getPerspectiveTransform(src, dst)
-        self.class_colors=["r","g","b","c","y","m"]
-
-        self.fig, self.ax = plt.subplots(figsize=(6, 8))
-        self.ax.invert_yaxis()
-        self.ax.axis('equal')
-        self.ax.set_title("Simplified Bird’s-Eye View")
-        plt.ion()  # interactive mode
+        self.class_colors=[
+            (255, 255, 255),
+            (255, 0, 0),
+            (0, 255, 0),
+            (0, 0, 255),
+            (128, 0, 0),
+            (0, 128, 0),
+            (0, 0, 128)
+        ]
+        self.window_name="Bird EYE"
+        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        self.bird_img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
 
     # Helper function to warp points
     def warp_points(self,pts):
@@ -65,22 +72,12 @@ class BirdVisualiser:
         return [*lane_l,*lane_r,*objects],[*colors,*lane_colors]
 
     def show(self,boxes,class_ids,lane_l,lane_r):
-        print(lane_l)
         coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lane_l,lane_r)
-        print(coords)
-        self.ax.clear()
-        self.ax.cla()  # clear previous points
-        self.ax.invert_yaxis()
-        self.ax.axis('equal')
-        self.ax.set_title("Simplified Bird’s-Eye View")
-        self.fig.canvas.flush_events()  # make sure update is visible
 
-        # Draw objects
-        for co,color in zip(coords,colors):
-            x,y=co[0],co[1]
-            self.ax.scatter(x, y, color=color)
-        self.fig.canvas.draw()
-        # plt.pause(0.05)
-
+        for co, color in zip(coords, colors):
+            x,y=int(co[0]),int(co[1])
+            cv2.circle(self.bird_img,(x,y), 1,(255, 255, 255), 2)
+        cv2.imshow(self.window_name, self.bird_img)
+        cv2.waitKey(1)
     def cleanup(self):
-        plt.close('all')
+        cv2.destroyAllWindows()
