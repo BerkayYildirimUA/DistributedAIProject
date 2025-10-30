@@ -53,7 +53,7 @@ class BirdVisualiser:
         objects,colors =self.get_object_coords_and_colors(boxes,class_ids)
         objects = self.warp_points(objects)
         lane_colors=["k"]*len(lane_l)+["k"]*len(lane_r)
-        return [lane_l,lane_r,objects],[colors,lane_colors]
+        return [*lane_l,*lane_r,*objects],[*colors,*lane_colors]
 
     def show(self,boxes,class_ids,lane_l,lane_r):
         coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lane_l,lane_r)
