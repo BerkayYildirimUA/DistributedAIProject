@@ -36,7 +36,7 @@ class BirdVisualiser:
         ]
         self.window_name="Bird EYE"
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        self.bird_img = np.ones((self.height, self.width, 3), dtype=np.uint8)*255
+        self.bird_img_default = np.ones((self.height, self.width, 3), dtype=np.uint8)*255
 
     # Helper function to warp points
     def warp_points(self,pts):
@@ -64,11 +64,11 @@ class BirdVisualiser:
 
     def show(self,boxes,class_ids,lanes):
         coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lanes)
-        print(coords,colors)
+        bird_img=self.bird_img_default
         for co, color in zip(coords, colors):
             x,y=int(co[0]),int(co[1])
-            cv2.circle(self.bird_img,(x,y), 5,color, 2)
-        cv2.imshow(self.window_name, self.bird_img)
+            cv2.circle(bird_img,(x,y), 5,color, 2)
+        cv2.imshow(self.window_name, bird_img)
         cv2.waitKey(1)
     def cleanup(self):
         cv2.destroyAllWindows()
