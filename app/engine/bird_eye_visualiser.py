@@ -5,23 +5,27 @@ import numpy as np
 
 class BirdVisualiser:
     def __init__(self,width,height):
-        self.width = width
-        self.height = height
-
+        self.w = width
+        self.h = height
+        self.top_y = 0.65
+        self.bottom_y = 1.00
+        self.left_top_x = 0.25
+        self.right_top_x = 0.75
+        self.left_bottom_x = 0.00
+        self.right_bottom_x = 1.0
         # Define a perspective transform matrix (manually chosen)
         # src: trapezoid in front-view; dst: rectangle for top view
         src = np.float32([
-            [450, 400],  # top-left
-            [850, 400],  # top-right
-            [1000, 700],  # bottom-right
-            [300, 700]  # bottom-left
+            (self.w * self.left_top_x, self.h * self.top_y),
+            (self.w * self.right_top_x, self.h * self.top_y),
+            (self.w * self.right_bottom_x, self.h * self.bottom_y),
+            (self.w * self.left_bottom_x, self.h * self.bottom_y)
         ])
-
         dst = np.float32([
-            [400, 0],
-            [800, 0],
-            [800, 600],
-            [400, 600]
+            (self.w * 0.25, 0),
+            (self.w * 0.75, 0),
+            (self.w * 0.75, self.h),
+            (self.w * 0.25, self.h)
         ])
         # Compute transform
         self.M = cv2.getPerspectiveTransform(src, dst)
@@ -35,7 +39,7 @@ class BirdVisualiser:
         ]
         self.window_name="Bird EYE"
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        self.bird_img_default = np.ones((self.height, self.width, 3), dtype=np.uint8)*255
+        self.bird_img_default = np.ones((self.h, self.w, 3), dtype=np.uint8)*255
 
     # Helper function to warp points
     def warp_points(self,pts):
