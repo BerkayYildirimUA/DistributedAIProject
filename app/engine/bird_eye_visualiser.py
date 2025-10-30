@@ -1,9 +1,6 @@
-from time import sleep
 
-import matplotlib.pyplot as plt
 import cv2
 import numpy as np
-from matplotlib.animation import FuncAnimation
 
 
 class BirdVisualiser:
@@ -63,7 +60,7 @@ class BirdVisualiser:
         lane_r = self.warp_points(lane_r)
         objects,colors =self.get_object_coords_and_colors(boxes,class_ids)
         objects = self.warp_points(objects)
-        lane_colors=["k"]*len(lane_l)+["k"]*len(lane_r)
+        lane_colors=[(255,255,255)]*len(lane_l)+[(255,255,255)]*len(lane_r)
         return [*lane_l,*lane_r,*objects],[*colors,*lane_colors]
 
     def show(self,boxes,class_ids,lane_l,lane_r):
