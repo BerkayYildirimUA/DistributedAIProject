@@ -27,6 +27,8 @@ class BirdVisualiser:
 
     # Helper function to warp points
     def warp_points(self,pts):
+        if len(pts) == 0:
+            return []
         print(pts)
         pts = np.array(pts, dtype='float32').reshape(-1, 1,2)
         print(pts.shape)
