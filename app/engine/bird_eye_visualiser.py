@@ -32,6 +32,8 @@ class BirdVisualiser:
         self.ax.invert_yaxis()
         self.ax.axis('equal')
         self.ax.set_title("Simplified Bird’s-Eye View")
+        plt.ion()  # interactive mode
+
     # Helper function to warp points
     def warp_points(self,pts):
         if len(pts) == 0:
@@ -40,7 +42,7 @@ class BirdVisualiser:
         pts = np.array(pts, dtype='float32').reshape(-1, 1,2)
         print(pts.shape)
         print(pts)
-        warped = cv2.perspectiveTransform(pts, self.M)[0].reshape(-1, 2)
+        warped = cv2.perspectiveTransform(pts, self.M).reshape(-1, 2)
         print("wrapped",warped)
         return warped
 
@@ -49,7 +51,7 @@ class BirdVisualiser:
         colors=[]
         for i,box in enumerate(boxes):
             if class_ids[i] in [0,1,2,3,5]:
-                object_middle_points.append(([(box[2]-box[0])/2,(box[3]-box[1])/2]))
+                object_middle_points.append(([(box[2]+box[0])/2,(box[3]+box[1])/2]))
                 colors.append(self.class_colors[class_ids[i]])
         return object_middle_points,colors
     def generate_new_coords_with_colors(self,boxes,class_ids,lane_l,lane_r):
@@ -66,6 +68,11 @@ class BirdVisualiser:
         coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lane_l,lane_r)
 
         self.ax.clear()
+        self.ax.cla()  # clear previous points
+        self.ax.invert_yaxis()
+        self.ax.axis('equal')
+        self.ax.set_title("Simplified Bird’s-Eye View")
+        self.fig.canvas.flush_events()  # make sure update is visible
 
         # Draw objects
         for co,color in zip(coords,colors):
