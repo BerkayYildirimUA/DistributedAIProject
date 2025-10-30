@@ -25,9 +25,7 @@ class POVVisualiser:
         return frame_with_boxes_bgr
 
     def add_trajectory_overlay(self, frame):
-        colors = [(0, 255, 0), (0, 200, 255), (255, 0, 0), (0, 128, 255)]
         for i, lane in enumerate(self.lanes):
-            print(lane)
             cv2.circle(frame, lane, 5, (0, 255, 0), -1)
 
             # color = colors[i % len(colors)]

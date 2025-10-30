@@ -136,6 +136,8 @@ class LaneDetector:
                 lanes.append(lane_pts)
         return lanes
     def interpolate_lane(self,lane):
+        if len(lane) < 2:
+            return lane
         x = np.array([x for x,_ in lane])
         y = np.array([y for _,y in lane])
         coeffs = np.polyfit(y, x, 3)
