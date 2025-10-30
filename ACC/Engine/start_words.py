@@ -1,10 +1,11 @@
 import os
+import signal
 import subprocess
 import time
 import logging
 from typing import Optional, List, Dict, Tuple
 import carla
-
+import psutil
 
 class CarlaServerManager:
 
@@ -97,6 +98,20 @@ class CarlaServerManager:
             logging.warning(f"Unexpected error checking connection to port {port}: {e}")
             return False
 
+
+    def _kill_process_tree(self, proc):
+        if not proc or proc.poll() is not None:
+            return
+        try:
+            parent = psutil.Process(proc.pid)
+            for child in parent.children(recursive=True):
+                child.kill()
+            parent.kill()
+        except psutil.NoSuchProcess:
+            pass
+        except Exception as e:
+            logging.error(f"Error killing process tree (PID: {proc.pid}): {e}")
+
     def terminate_servers(self):
         """Terminates any running CARLA server processes managed by this instance."""
         logging.info("Attempting to terminate CARLA server processes...")
@@ -108,15 +123,18 @@ class CarlaServerManager:
         for name, process in processes_to_terminate:
             if process and process.poll() is None: # Check if process exists and is running
                 logging.info(f"Terminating {name} server (PID: {process.pid})...")
-                process.kill()
                 try:
-                    process.kill()
+                    self._kill_process_tree(process)
                 except Exception as e:
                      logging.error(f"Error during {name} server termination (PID: {process.pid}): {e}")
+
+
 
         # Reset process variables
         self.real_server_process = None
         self.mirror_server_process = None
+
         logging.info("Server termination attempts complete.")
+
 
 
