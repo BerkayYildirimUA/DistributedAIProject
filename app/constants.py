@@ -19,7 +19,7 @@ VERT_FOV_DEG = np.rad2deg(VERT_FOV_RAD)
 
 # Radar sensor constants
 RADAR_RANGE = 250
-RADAR_MAX_DETECTIONS = 500
+RADAR_MAX_DETECTIONS = 1000
 
 # Queue constants
 QUEUE_MAXSIZE = 10
