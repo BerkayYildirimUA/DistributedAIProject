@@ -28,7 +28,7 @@ class ObjectDistanceCalculator:
             [0.0, 0.0, 1.0]
         ])
 
-        # --- 2. Filtering Constants ---
+        # Filtering Constants
         # Used to remove ego-vehicle reflection (0.0m) and distant background
         self.MIN_VALID_DEPTH = 3.0   
         self.MAX_TARGET_DEPTH = 100.0 
@@ -54,7 +54,7 @@ class ObjectDistanceCalculator:
         return distance
 
     def get_radar_distances(self, object_boxes, radar_data):
-        CENTER_RATIO = 0.35
+        CENTER_RATIO = 0.70
         distances = []
 
         if len(radar_data) == 0 or len(object_boxes) == 0:
@@ -128,6 +128,8 @@ class ObjectDistanceCalculator:
                 (d_in_box > self.MIN_VALID_DEPTH) &
                 (d_in_box < self.MAX_TARGET_DEPTH)
                 ]
+
+            print("Depths in shrunk box: ", len(d_in_box))
             if len(d_in_box) == 0:
                 distances.append(self.last_valid_distances.get(i, np.nan))
                 continue
@@ -138,6 +140,7 @@ class ObjectDistanceCalculator:
             if len(d_in_box) > 6:
                 db = DBSCAN(eps=0.5, min_samples=2).fit(d_in_box.reshape(-1, 1))  # allow 0.5m distance between points
                 labels = db.labels_
+                print("number of clusters from DB scan: ", len(labels))
                 valid_clusters = [d_in_box[labels == l] for l in set(labels) if l != -1]
                 if valid_clusters:
                     # TODO: test both options, see which one performs best
