@@ -1,5 +1,10 @@
 import numpy as np
 import constants
+from scipy.spatial import cKDTree
+from sklearn.cluster import DBSCAN
+from scipy.spatial import cKDTree
+import numpy as np
+
 
 class ObjectDistanceCalculator:
     def __init__(self):
@@ -9,13 +14,14 @@ class ObjectDistanceCalculator:
         HFOV_RAD = constants.HOR_FOV_RAD
         VFOV_RAD = constants.VERT_FOV_RAD
         
-        self.fx = constants.IMAGE_WIDTH / (2.0 * np.tan(HFOV_RAD / 2.0))
-        self.fy = constants.IMAGE_HEIGHT / (2.0 * np.tan(VFOV_RAD / 2.0)) 
+        self.fx = constants.IMAGE_WIDTH / (2.0 * np.tan(HFOV_RAD / 2.0)) # focal length in pixels x
+        self.fy = constants.IMAGE_HEIGHT / (2.0 * np.tan(VFOV_RAD / 2.0)) # focal length in pixels y
         
-        self.cx = constants.IMAGE_WIDTH / 2.0
-        self.cy = constants.IMAGE_HEIGHT / 2.0
+        self.cx = constants.IMAGE_WIDTH / 2.0 # optical center x
+        self.cy = constants.IMAGE_HEIGHT / 2.0 # optical center y
         
         # The 3x3 Intrinsic Matrix K
+        # Encodes how 3D points map to pixel coordinates
         self.K = np.array([
             [self.fx, 0.0, self.cx],
             [0.0, self.fy, self.cy],
@@ -47,76 +53,106 @@ class ObjectDistanceCalculator:
             raise Exception("Object distance calculation failed: size mismatch between distances and found object boxes!")
         return distance
 
-
     def get_radar_distances(self, object_boxes, radar_data):
-        distances = []
-        radar_points_with_pixels = []
         CENTER_RATIO = 0.35
+        distances = []
 
-        for detection in radar_data:
-            depth = detection[0]
-            azimuth = detection[2]
-            altitude = detection[3]
+        if len(radar_data) == 0 or len(object_boxes) == 0:
+            return [np.nan] * len(object_boxes)
 
-            # --- 3D Cartesian Conversion (Spherical to Ego-Vehicle Frame) ---
-            cos_alt = np.cos(altitude)
-            X = depth * cos_alt * np.cos(azimuth)  # Forward
-            Y = depth * cos_alt * np.sin(azimuth)  # Right
-            Z = depth * np.sin(altitude)           # Up
+        # --- Convert radar data to Cartesian coordinates ---
+        radar_data = np.array(radar_data)
+        depths = radar_data[:, 0]
+        azimuths = radar_data[:, 2]
+        altitudes = radar_data[:, 3]
 
-            # --- 3D to 2D Projection (Pinhole Model) ---
-            # Map Ego (X=Fwd, Y=Right, Z=Up) to Camera (X'=Right, Y'=Down, Z'=Fwd)
-            P_cam_ready = np.array([Y, -Z, X])
+        cos_alt = np.cos(altitudes)
+        X = depths * cos_alt * np.cos(azimuths)
+        Y = depths * cos_alt * np.sin(azimuths)
+        Z = depths * np.sin(altitudes)
 
-            # Skip points behind the sensor (Z' component must be positive)
-            if P_cam_ready[2] <= 0:
+        # --- Convert to camera frame ---
+        # Bring 3D radar coordinates into the same coordinate convention as the camera
+        P_cam = np.stack([Y, -Z, X], axis=1)
+
+        # Only keep points in front of camera
+        # third dimension (zero indexed) represents depth, should be greater than 0
+        valid_mask = P_cam[:, 2] > 0
+        P_cam = P_cam[valid_mask]
+        depths = depths[valid_mask]
+
+        # --- Project to image plane ---
+        # Pinhole camera model: maps 3D camera coordinates to 2D image pixels
+        pixels_h = (self.K @ P_cam.T).T  # matrix multiplication
+
+        # converts homogeneous coordinates to true pixel coordinates
+        u = pixels_h[:, 0] / pixels_h[:, 2]
+        v = pixels_h[:, 1] / pixels_h[:, 2]
+
+        # Keep only pixels within frame
+        # Some projected radar points might fall outside the camera's visible area
+        mask = (
+                (u >= 0) & (u < constants.IMAGE_WIDTH) &
+                (v >= 0) & (v < constants.IMAGE_HEIGHT)
+        )
+        u, v, depths = u[mask], v[mask], depths[mask]
+
+        # --- Build KD-tree for fast spatial lookup ---
+        # creates a spatial index over all projected radar pixels with coordinates (u, v)
+        pixel_tree = cKDTree(np.stack([u, v], axis=1))
+
+        # --- For each bounding box, query nearby radar points ---
+        for i, (x1, y1, x2, y2) in enumerate(object_boxes):
+            w, h = x2 - x1, y2 - y1
+            cx, cy = x1 + w / 2, y1 + h / 2
+
+            x1_inner = cx - (w * CENTER_RATIO / 2)
+            x2_inner = cx + (w * CENTER_RATIO / 2)
+            y1_inner = cy - (h * CENTER_RATIO / 2)
+            y2_inner = cy + (h * CENTER_RATIO / 2)
+
+            # Find points roughly inside box (fast KD-tree range query)
+            box_center = np.array([(x1_inner + x2_inner) / 2, (y1_inner + y2_inner) / 2])
+            box_radius = max((x2_inner - x1_inner), (y2_inner - y1_inner)) / 2
+            idxs = pixel_tree.query_ball_point(box_center, box_radius)
+
+            if not idxs:
+                distances.append(self.last_valid_distances.get(i, np.nan))
                 continue
 
-            P_pixels_homogenous = self.K @ P_cam_ready.T
-
-            # Normalize by the Z component (Depth)
-            Z_cam = P_pixels_homogenous[2]
-            u = P_pixels_homogenous[0] / Z_cam
-            v = P_pixels_homogenous[1] / Z_cam
-
-            x_pixel = np.clip(u, 0, constants.IMAGE_WIDTH - 1)
-            y_pixel = np.clip(v, 0, constants.IMAGE_HEIGHT - 1)
-
-            radar_points_with_pixels.append((x_pixel, y_pixel, depth))
-
-            # Filter Radar Points within Bounding Boxes
-            for i, (x1, y1, x2, y2) in enumerate(object_boxes):
-                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-
-                # 1. Calculate the dimensions and center of the original box
-                w = x2 - x1
-                h = y2 - y1
-
-                x_center = x1 + w / 2
-                y_center = y1 + h / 2
-
-                # 2. Define the inner bounding box coordinates
-                # Horizontal (x)
-                x1_inner = int(x_center - (w * CENTER_RATIO / 2))
-                x2_inner = int(x_center + (w * CENTER_RATIO / 2))
-
-                # Vertical (y)
-                y1_inner = int(y_center - (h * CENTER_RATIO / 2))
-                y2_inner = int(y_center + (h * CENTER_RATIO / 2))
-
-                # 3. Filter points using the inner box and depth filters
-                in_box_depths = [
-                    d for (rx, ry, d) in radar_points_with_pixels
-                    if x1_inner <= rx <= x2_inner and y1_inner <= ry <= y2_inner
-                       and d > self.MIN_VALID_DEPTH and d < self.MAX_TARGET_DEPTH
+            d_in_box = depths[idxs]
+            d_in_box = d_in_box[
+                (d_in_box > self.MIN_VALID_DEPTH) &
+                (d_in_box < self.MAX_TARGET_DEPTH)
                 ]
+            if len(d_in_box) == 0:
+                distances.append(self.last_valid_distances.get(i, np.nan))
+                continue
 
-                if in_box_depths:
-                    # Use the minimum depth for robustness against volumetric clutter
-                    val = np.nanmin(in_box_depths)
-                    self.last_valid_distances[i] = val
-                    distances.append(val)
+            # --- Clustering ---
+            # use DBSCAN to cluster the distances. Some distances will be part of the detected vehicle, some
+            # distances will be part of distant surfaces that are coincidentally within the bounding box.
+            if len(d_in_box) > 6:
+                db = DBSCAN(eps=0.5, min_samples=2).fit(d_in_box.reshape(-1, 1))  # allow 0.5m distance between points
+                labels = db.labels_
+                valid_clusters = [d_in_box[labels == l] for l in set(labels) if l != -1]
+                if valid_clusters:
+                    # TODO: test both options, see which one performs best
+                    # First option
+                    # cluster_means = [np.mean(c) for c in valid_clusters]
+                    # val = cluster_means[np.argmin(cluster_means)]
+
+                    # Second option
+                    largest_cluster = max(valid_clusters, key=len)
+                    val = np.median(largest_cluster)
                 else:
-                    distances.append(self.last_valid_distances.get(i, np.nan))
+                    val = np.median(d_in_box)
+
+                self.last_valid_distances[i] = val
+                distances.append(val)
 
         return distances
+
+
+
+

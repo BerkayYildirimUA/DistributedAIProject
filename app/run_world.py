@@ -5,13 +5,14 @@ import threading
 import constants
 
 from engine.world import World
+from engine.world_simplified import World
 from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory,RadarMemory
 
 # Create carla world and memory buffers
 world = World()
 rgb_camera_memory = RGBCameraMemory().get_write_access()
 depht_camera_memory = DepthCameraMemory().get_write_access()
-vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
+#vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
 radar_memory = RadarMemory().get_write_access()
 rgb_camera_queue, depth_camera_queue, radar_queue = world.expose_queues()
 
@@ -95,8 +96,8 @@ try:
             print(f"Tick failed {e}")
 
         # TODO: feed this distance data into the reinforcement module to calculate acceleration
-        distance_vehicle_in_front_m = vehicle_distance_memory[0,0]
-        print(f"Distance to vehicle in front: {distance_vehicle_in_front_m}m")
+        #distance_vehicle_in_front_m = vehicle_distance_memory[0,0]
+        # print(f"Distance to vehicle in front: {distance_vehicle_in_front_m}m")
 except KeyboardInterrupt:
     print("Closing simulation!")
 finally:
