@@ -106,6 +106,7 @@ class ObjectDistanceCalculator:
         # --- For each bounding box, query nearby radar points ---
         print("Bounding boxes:", len(object_boxes))
         for i, (x1, y1, x2, y2) in enumerate(object_boxes):
+            print("Bounding box code enumerate")
             w, h = x2 - x1, y2 - y1
             cx, cy = x1 + w / 2, y1 + h / 2
 
