@@ -7,32 +7,6 @@ import numpy as np
 
 
 class ObjectDistanceCalculator:
-    def __init__(self):
-        self.last_valid_distances = {}
-        
-        # --- 1. Calculate Camera Intrinsics (K) ---
-        HFOV_RAD = constants.HOR_FOV_RAD
-        VFOV_RAD = constants.VERT_FOV_RAD
-        
-        self.fx = constants.IMAGE_WIDTH / (2.0 * np.tan(HFOV_RAD / 2.0)) # focal length in pixels x
-        self.fy = constants.IMAGE_HEIGHT / (2.0 * np.tan(VFOV_RAD / 2.0)) # focal length in pixels y
-        
-        self.cx = constants.IMAGE_WIDTH / 2.0 # optical center x
-        self.cy = constants.IMAGE_HEIGHT / 2.0 # optical center y
-        
-        # The 3x3 Intrinsic Matrix K
-        # Encodes how 3D points map to pixel coordinates
-        self.K = np.array([
-            [self.fx, 0.0, self.cx],
-            [0.0, self.fy, self.cy],
-            [0.0, 0.0, 1.0]
-        ])
-
-        # Filtering Constants
-        # Used to remove ego-vehicle reflection (0.0m) and distant background
-        self.MIN_VALID_DEPTH = 3.0   
-        self.MAX_TARGET_DEPTH = 100.0 
-
 
     def get_depth_camera_distances(self, object_boxes, depth_map=None):
         distance=[]
@@ -60,9 +34,9 @@ class ObjectDistanceCalculator:
         # Project radar points to 2D camera frame
         radar_points_2d = []
         for detection in radar_data:
-            azimuth = detection.azimuth
-            altitude = detection.altitude
-            depth = detection.depth
+            depth = detection[0]
+            azimuth = detection[2]
+            altitude = detection[3]
 
             # Convert spherical to Cartesian coordinates
             x = depth * np.cos(altitude) * np.cos(azimuth)
