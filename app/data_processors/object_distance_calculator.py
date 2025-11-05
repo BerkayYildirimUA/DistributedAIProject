@@ -54,126 +54,59 @@ class ObjectDistanceCalculator:
         return distance
 
     def get_radar_distances(self, object_boxes, radar_data):
-        CENTER_RATIO = 0.70
+
         distances = []
 
-        if len(radar_data) == 0 or len(object_boxes) == 0:
-            return [np.nan] * len(object_boxes)
+        # Project radar points to 2D camera frame
+        radar_points_2d = []
+        for detection in radar_data:
+            azimuth = detection.azimuth
+            altitude = detection.altitude
+            depth = detection.depth
 
-        # --- Convert radar data to Cartesian coordinates ---
-        radar_data = np.array(radar_data)
-        depths = radar_data[:, 0]
-        azimuths = radar_data[:, 2]
-        altitudes = radar_data[:, 3]
+            # Convert spherical to Cartesian coordinates
+            x = depth * np.cos(altitude) * np.cos(azimuth)
+            y = depth * np.cos(altitude) * np.sin(azimuth)
+            z = depth * np.sin(altitude)
 
-        cos_alt = np.cos(altitudes)
-        X = depths * cos_alt * np.cos(azimuths)
-        Y = depths * cos_alt * np.sin(azimuths)
-        Z = depths * np.sin(altitudes)
+            # Project to 2D using camera intrinsics (assumed available)
+            point_3d = np.array([x, y, z, 1.0])
+            point_camera = constants.RADAR_TO_CAMERA_TRANSFORM @ point_3d
+            point_2d = constants.CAMERA_INTRINSICS @ point_camera[:3]
 
-        # --- Convert to camera frame ---
-        # Bring 3D radar coordinates into the same coordinate convention as the camera
-        P_cam = np.stack([Y, -Z, X], axis=1)
+            u = point_2d[0] / point_2d[2]
+            v = point_2d[1] / point_2d[2]
 
-        # Only keep points in front of camera
-        # third dimension (zero indexed) represents depth, should be greater than 0
-        valid_mask = P_cam[:, 2] > 0
-        print("Points in front of camera:", np.sum(valid_mask))
-        P_cam = P_cam[valid_mask]
-        depths = depths[valid_mask]
+            radar_points_2d.append((u, v, depth))
 
-        Z_cam = P_cam[:, 2]  # Depth (X component from radar)
-        fx, fy, cx, cy = self.fx, self.fy, self.cx, self.cy
-
-        u_test = P_cam[:, 0] / Z_cam * fx + cx
-        v_test = P_cam[:, 1] / Z_cam * fy + cy
-
-
-        # --- Project to image plane ---
-        # Pinhole camera model: maps 3D camera coordinates to 2D image pixels
-        pixels_h = (self.K @ P_cam.T).T  # matrix multiplication
-
-        # converts homogeneous coordinates to true pixel coordinates
-        u = pixels_h[:, 0] / pixels_h[:, 2]
-        v = pixels_h[:, 1] / pixels_h[:, 2]
-
-        # debug step
-        u, v = u_test, v_test
-
-        print("u range:", np.min(u), np.max(u))
-        print("v range:", np.min(v), np.max(v))
-        print("depths:", np.min(depths), np.max(depths))
-
-        # Keep only pixels within frame
-        # Some projected radar points might fall outside the camera's visible area
-        mask = (
-                (u >= 0) & (u < constants.IMAGE_WIDTH) &
-                (v >= 0) & (v < constants.IMAGE_HEIGHT)
-        )
-        print("Points inside image:", np.sum(mask))
-        u, v, depths = u[mask], v[mask], depths[mask]
-
-        # --- For each bounding box, query nearby radar points ---
-        print("Bounding boxes:", len(object_boxes))
-        for i, (x1, y1, x2, y2) in enumerate(object_boxes):
+        # For each bounding box, find radar points inside and cluster their depths
+        for (x1, y1, x2, y2) in object_boxes:
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
-            # Calculate the dimensions and center of the original box
-            w = x2 - x1
-            h = y2 - y1
-            x_center, y_center = x1 + w / 2, y1 + h / 2
+            # Filter radar points inside the bounding box
+            box_points = [depth for (u, v, depth) in radar_points_2d if x1 <= u <= x2 and y1 <= v <= y2]
 
-            # Define the inner bounding box coordinates (Central Cluster Filter)
-            x1_inner = int(x_center - (w * CENTER_RATIO / 2))
-            x2_inner = int(x_center + (w * CENTER_RATIO / 2))
-            y1_inner = int(y_center - (h * CENTER_RATIO / 2))
-            y2_inner = int(y_center + (h * CENTER_RATIO / 2))
-
-            # Filter points using the inner box and depth filters (Simple Indexing)
-
-            # Create a boolean mask for points inside the inner rectangle
-            inner_mask = (u >= x1_inner) & (u <= x2_inner) & \
-                         (v >= y1_inner) & (v <= y2_inner)
-
-            # Apply the inner mask to the depths
-            d_in_box = depths[inner_mask]
-
-            # Apply the depth filters
-            d_in_box = d_in_box[
-                (d_in_box > self.MIN_VALID_DEPTH) &
-                (d_in_box < self.MAX_TARGET_DEPTH)
-            ]
-
-            # print("Depths in shrunk box: ", len(d_in_box)) # Use this for debugging
-
-            if len(d_in_box) == 0:
-                distances.append(self.last_valid_distances.get(i, np.nan))
+            if not box_points:
+                distances.append(None)
                 continue
 
-            # Clustering
-            # use DBSCAN to cluster the distances. Some distances will be part of the detected vehicle, some
-            # distances will be part of distant surfaces that are coincidentally within the bounding box.
-            if len(d_in_box) > 1:
-                db = DBSCAN(eps=0.5, min_samples=2).fit(d_in_box.reshape(-1, 1))  # allow 0.5m distance between points
-                labels = db.labels_
-                print("number of clusters from DB scan: ", len(labels))
-                valid_clusters = [d_in_box[labels == l] for l in set(labels) if l != -1]
-                if valid_clusters:
-                    # TODO: test both options, see which one performs best
-                    # First option
-                    cluster_means = [np.mean(c) for c in valid_clusters]
-                    val = cluster_means[np.argmin(cluster_means)]
+            # Cluster depths using DBSCAN
+            X = np.array(box_points).reshape(-1, 1)
+            clustering = DBSCAN(eps=2.0, min_samples=3).fit(X)
 
-                    # Second option
-                    #largest_cluster = max(valid_clusters, key=len)
-                    #val = np.median(largest_cluster)
-                else:
-                    val = np.median(d_in_box)
+            labels = clustering.labels_
+            if len(set(labels)) <= 1:
+                distances.append(np.mean(box_points))
+                continue
 
-                self.last_valid_distances[i] = val
-                distances.append(val)
+            # Find largest cluster
+            unique_labels, counts = np.unique(labels[labels != -1], return_counts=True)
+            largest_cluster_label = unique_labels[np.argmax(counts)]
+            cluster_points = X[labels == largest_cluster_label]
 
-        print("Distances calculated:", len(distances))
+            # Use mean depth of largest cluster
+            distances.append(float(np.mean(cluster_points)))
+
         return distances
 
 
