@@ -153,7 +153,7 @@ class ObjectDistanceCalculator:
             # Clustering
             # use DBSCAN to cluster the distances. Some distances will be part of the detected vehicle, some
             # distances will be part of distant surfaces that are coincidentally within the bounding box.
-            if len(d_in_box) > 6:
+            if len(d_in_box) > 1:
                 db = DBSCAN(eps=0.5, min_samples=2).fit(d_in_box.reshape(-1, 1))  # allow 0.5m distance between points
                 labels = db.labels_
                 print("number of clusters from DB scan: ", len(labels))
