@@ -36,18 +36,29 @@ class ObjectDistanceCalculator:
         # Extrinsics: defines the transform between radar and camera frames
         # --> These are defined in the constants
 
+        print("---DEBUG---")
+
         distances = []
         radar_np = np.array(radar_data)
+        print(f"Radar raw shape: {radar_np.shape}")
+        print(f"Sample radar row: {radar_np[0] if len(radar_np) > 0 else 'Empty!'}")
 
         # According to how raw_data is stored in the shared memory
         depth = radar_np[:, 0]
         azimuth = radar_np[:, 2]
         altitude = radar_np[:, 3]
 
+        print(f"Depth range: min={depth.min():.2f}, max={depth.max():.2f}")
+        print(f"Azimuth range: min={np.rad2deg(azimuth.min()):.2f}°, max={np.rad2deg(azimuth.max()):.2f}°")
+        print(f"Altitude range: min={np.rad2deg(altitude.min()):.2f}°, max={np.rad2deg(altitude.max()):.2f}°")
+
         # Cartesian coordinates in the radar frame
         x_r = depth * np.cos(altitude) * np.cos(azimuth)
         y_r = depth * np.cos(altitude) * np.sin(azimuth)
         z_r = depth * np.sin(altitude)
+
+        print(f"Radar XYZ mean: ({x_r.mean():.2f}, {y_r.mean():.2f}, {z_r.mean():.2f})")
+        print(f"Radar XYZ ranges: X[{x_r.min():.2f}, {x_r.max():.2f}], Y[{y_r.min():.2f}, {y_r.max():.2f}], Z[{z_r.min():.2f}, {z_r.max():.2f}]")
 
         # Convert radar 3D points to homogeneous coordinates
         points_radar = np.vstack((x_r, y_r, z_r, np.ones_like(x_r)))
@@ -59,27 +70,37 @@ class ObjectDistanceCalculator:
         X_c = points_cam[0, :]
         Y_c = points_cam[1, :]
         Z_c = points_cam[2, :]
+        valid = Z_c > 0
+        print(f"[DEBUG] Valid points in front of camera: {np.count_nonzero(valid)} / {len(Z_c)}")
 
         # Calculate pixel coordinates in the camera image for each valid radar point
-        points_2d_hom = constants.K @ np.vstack((X_c / Z_c, Y_c / Z_c, np.ones_like(Z_c)))
+        points_2d_hom = constants.K @ np.vstack((X_c[valid] / Z_c[valid], Y_c[valid] / Z_c[valid], np.ones_like(Z_c[valid])))
         u = points_2d_hom[0, :]
         v = points_2d_hom[1, :]
 
-        object_boxes_px = []
-        for (x1, y1, x2, y2) in object_boxes:
+        print(f"Projected pixel range: u[{u.min():.1f}, {u.max():.1f}], v[{v.min():.1f}, {v.max():.1f}]")
+        print(f"Image size: {constants.IMAGE_WIDTH}x{constants.IMAGE_HEIGHT}")
+
+        for i, (x1, y1, x2, y2) in enumerate(object_boxes):
             x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
 
             # Check if radar point (u[i], v[i]) lies inside box
             mask = (u >= x1) & (u <= x2) & (v >= y1) & (v <= y2)
 
-            depths_in_box = Z_c[mask]
+            depths_in_box = Z_c[valid][mask]
+            print(f"Box {i}: ({x1},{y1})→({x2},{y2}), radar points inside={len(depths_in_box)}")
 
             if len(depths_in_box) > 0:
                 distance = np.median(depths_in_box)
+                print(f"median distance: {distance:.2f} m")
             else:
                 distance = np.nan
+                print(f"no radar points matched")
 
             distances.append(distance)
+
+        print("---END DEBUG---")
+
         return distances
 
 
