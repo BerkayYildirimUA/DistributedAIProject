@@ -161,12 +161,12 @@ class ObjectDistanceCalculator:
                 if valid_clusters:
                     # TODO: test both options, see which one performs best
                     # First option
-                    # cluster_means = [np.mean(c) for c in valid_clusters]
-                    # val = cluster_means[np.argmin(cluster_means)]
+                    cluster_means = [np.mean(c) for c in valid_clusters]
+                    val = cluster_means[np.argmin(cluster_means)]
 
                     # Second option
-                    largest_cluster = max(valid_clusters, key=len)
-                    val = np.median(largest_cluster)
+                    #largest_cluster = max(valid_clusters, key=len)
+                    #val = np.median(largest_cluster)
                 else:
                     val = np.median(d_in_box)
 
