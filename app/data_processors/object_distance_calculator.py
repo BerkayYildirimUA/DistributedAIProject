@@ -74,6 +74,7 @@ class ObjectDistanceCalculator:
         # --- Convert to camera frame ---
         # Bring 3D radar coordinates into the same coordinate convention as the camera
         P_cam = np.stack([Y, -Z, X], axis=1)
+        P_cam = np.stack([X, -Z, Y], axis=1)  # Test different mapping
 
         # Only keep points in front of camera
         # third dimension (zero indexed) represents depth, should be greater than 0
