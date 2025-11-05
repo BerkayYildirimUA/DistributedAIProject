@@ -61,7 +61,7 @@ class ObjectDistanceCalculator:
             box_points = [depth for (u, v, depth) in radar_points_2d if x1 <= u <= x2 and y1 <= v <= y2]
 
             if not box_points:
-                distances.append(None)
+                distances.append(np.nan)
                 continue
 
             # Cluster depths using DBSCAN
