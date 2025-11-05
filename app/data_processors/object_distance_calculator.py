@@ -78,6 +78,7 @@ class ObjectDistanceCalculator:
         # Only keep points in front of camera
         # third dimension (zero indexed) represents depth, should be greater than 0
         valid_mask = P_cam[:, 2] > 0
+        print("Points in front of camera:", np.sum(valid_mask))
         P_cam = P_cam[valid_mask]
         depths = depths[valid_mask]
 
@@ -95,6 +96,7 @@ class ObjectDistanceCalculator:
                 (u >= 0) & (u < constants.IMAGE_WIDTH) &
                 (v >= 0) & (v < constants.IMAGE_HEIGHT)
         )
+        print("Points inside image:", np.sum(mask))
         u, v, depths = u[mask], v[mask], depths[mask]
 
         # --- Build KD-tree for fast spatial lookup ---
@@ -102,6 +104,7 @@ class ObjectDistanceCalculator:
         pixel_tree = cKDTree(np.stack([u, v], axis=1))
 
         # --- For each bounding box, query nearby radar points ---
+        print("Bounding boxes:", len(object_boxes))
         for i, (x1, y1, x2, y2) in enumerate(object_boxes):
             w, h = x2 - x1, y2 - y1
             cx, cy = x1 + w / 2, y1 + h / 2
@@ -151,6 +154,7 @@ class ObjectDistanceCalculator:
                 self.last_valid_distances[i] = val
                 distances.append(val)
 
+        print("Distances calculated:", len(distances))
         return distances
 
 

@@ -5,7 +5,6 @@ import threading
 import constants
 
 from engine.world import World
-from engine.world_simplified import World
 from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory,RadarMemory
 
 # Create carla world and memory buffers
