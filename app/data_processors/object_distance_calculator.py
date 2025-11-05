@@ -74,7 +74,6 @@ class ObjectDistanceCalculator:
         # --- Convert to camera frame ---
         # Bring 3D radar coordinates into the same coordinate convention as the camera
         P_cam = np.stack([Y, -Z, X], axis=1)
-        P_cam = np.stack([X, -Z, Y], axis=1)  # Test different mapping
 
         # Only keep points in front of camera
         # third dimension (zero indexed) represents depth, should be greater than 0
@@ -114,45 +113,44 @@ class ObjectDistanceCalculator:
         print("Points inside image:", np.sum(mask))
         u, v, depths = u[mask], v[mask], depths[mask]
 
-        # --- Build KD-tree for fast spatial lookup ---
-        # creates a spatial index over all projected radar pixels with coordinates (u, v)
-        pixel_tree = cKDTree(np.stack([u, v], axis=1))
-
         # --- For each bounding box, query nearby radar points ---
         print("Bounding boxes:", len(object_boxes))
         for i, (x1, y1, x2, y2) in enumerate(object_boxes):
-            print("Bounding box code enumerate")
-            w, h = x2 - x1, y2 - y1
-            cx, cy = x1 + w / 2, y1 + h / 2
+            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
-            x1_inner = cx - (w * CENTER_RATIO / 2)
-            x2_inner = cx + (w * CENTER_RATIO / 2)
-            y1_inner = cy - (h * CENTER_RATIO / 2)
-            y2_inner = cy + (h * CENTER_RATIO / 2)
+            # Calculate the dimensions and center of the original box
+            w = x2 - x1
+            h = y2 - y1
+            x_center, y_center = x1 + w / 2, y1 + h / 2
 
-            # Find points roughly inside box (fast KD-tree range query)
-            box_center = np.array([(x1 + x2) / 2, (y1 + y2) / 2])
-            box_radius = max((x2 - x1), (y2 - y1)) / 2
-            idxs = pixel_tree.query_ball_point(box_center, box_radius)
+            # Define the inner bounding box coordinates (Central Cluster Filter)
+            x1_inner = int(x_center - (w * CENTER_RATIO / 2))
+            x2_inner = int(x_center + (w * CENTER_RATIO / 2))
+            y1_inner = int(y_center - (h * CENTER_RATIO / 2))
+            y2_inner = int(y_center + (h * CENTER_RATIO / 2))
 
+            # Filter points using the inner box and depth filters (Simple Indexing)
 
-            if not idxs:
-                distances.append(self.last_valid_distances.get(i, np.nan))
-                print("No indexes of KD-Tree within bounding box")
-                continue
+            # Create a boolean mask for points inside the inner rectangle
+            inner_mask = (u >= x1_inner) & (u <= x2_inner) & \
+                         (v >= y1_inner) & (v <= y2_inner)
 
-            d_in_box = depths[idxs]
+            # Apply the inner mask to the depths
+            d_in_box = depths[inner_mask]
+
+            # Apply the depth filters
             d_in_box = d_in_box[
                 (d_in_box > self.MIN_VALID_DEPTH) &
                 (d_in_box < self.MAX_TARGET_DEPTH)
-                ]
+            ]
 
-            print("Depths in shrunk box: ", len(d_in_box))
+            # print("Depths in shrunk box: ", len(d_in_box)) # Use this for debugging
+
             if len(d_in_box) == 0:
                 distances.append(self.last_valid_distances.get(i, np.nan))
                 continue
 
-            # --- Clustering ---
+            # Clustering
             # use DBSCAN to cluster the distances. Some distances will be part of the detected vehicle, some
             # distances will be part of distant surfaces that are coincidentally within the bounding box.
             if len(d_in_box) > 6:
