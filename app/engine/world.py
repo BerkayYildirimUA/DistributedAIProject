@@ -113,8 +113,8 @@ class World:
         # check if queue is full: yes --> pop oldest, push new one. no --> push. Ensures most recent radar data is in the queue
         self.radar.listen(lambda data: (self.radar_queue.get_nowait(), self.radar_queue.put_nowait(data)) if self.radar_queue.full() else self.radar_queue.put_nowait(data))
 
-        print("camera FOV: ", camera_bp.get_attribute("fov"))
-        print("Radar FOV: ", radar_bp.get_attribute("horizontal_fov"))
+        print("Camera Transform:", self.rgb_camera.get_transform())
+        print("Radar Transform:", self.radar.get_transform())
 
     def enable_autopilot_for_ego_vehicle(self):
         traffic_manager = self.client.get_trafficmanager()
