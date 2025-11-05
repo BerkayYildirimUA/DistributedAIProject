@@ -117,7 +117,7 @@ class ObjectDistanceCalculator:
 
             # Find points roughly inside box (fast KD-tree range query)
             box_center = np.array([(x1 + x2) / 2, (y1 + y2) / 2])
-            box_radius = max((x2 - x1), (y2_inner - y1)) / 2
+            box_radius = max((x2 - x1), (y2 - y1)) / 2
             idxs = pixel_tree.query_ball_point(box_center, box_radius)
 
             if not idxs:
