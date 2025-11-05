@@ -90,6 +90,10 @@ class ObjectDistanceCalculator:
         u = pixels_h[:, 0] / pixels_h[:, 2]
         v = pixels_h[:, 1] / pixels_h[:, 2]
 
+        print("u range:", np.min(u), np.max(u))
+        print("v range:", np.min(v), np.max(v))
+        print("depths:", np.min(depths), np.max(depths))
+
         # Keep only pixels within frame
         # Some projected radar points might fall outside the camera's visible area
         mask = (
