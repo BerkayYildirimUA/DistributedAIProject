@@ -120,6 +120,7 @@ class ObjectDistanceCalculator:
             box_radius = max((x2 - x1), (y2 - y1)) / 2
             idxs = pixel_tree.query_ball_point(box_center, box_radius)
 
+
             if not idxs:
                 distances.append(self.last_valid_distances.get(i, np.nan))
                 print("No indexes of KD-Tree within bounding box")
