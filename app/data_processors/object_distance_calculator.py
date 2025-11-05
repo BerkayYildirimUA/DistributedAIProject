@@ -82,6 +82,13 @@ class ObjectDistanceCalculator:
         P_cam = P_cam[valid_mask]
         depths = depths[valid_mask]
 
+        Z_cam = P_cam[:, 2]  # Depth (X component from radar)
+        fx, fy, cx, cy = self.fx, self.fy, self.cx, self.cy
+
+        u_test = P_cam[:, 0] / Z_cam * fx + cx
+        v_test = P_cam[:, 1] / Z_cam * fy + cy
+
+
         # --- Project to image plane ---
         # Pinhole camera model: maps 3D camera coordinates to 2D image pixels
         pixels_h = (self.K @ P_cam.T).T  # matrix multiplication
@@ -89,6 +96,9 @@ class ObjectDistanceCalculator:
         # converts homogeneous coordinates to true pixel coordinates
         u = pixels_h[:, 0] / pixels_h[:, 2]
         v = pixels_h[:, 1] / pixels_h[:, 2]
+
+        # debug step
+        u, v = u_test, v_test
 
         print("u range:", np.min(u), np.max(u))
         print("v range:", np.min(v), np.max(v))
