@@ -57,4 +57,11 @@ class RadarMemory(SharedMemory):
         dtype = np.float32
         super().__init__(filename, shape, dtype)
 
+class CameraCalibrationMemory(SharedMemory):
+    def __init__(self):
+        filename = "CAMERA_CALIBRATION_MEMORY.dat"
+        shape = (2, 4, 4)  # store two 4x4 matrices; the intrinsic will just use the top-left 3x3
+        dtype = np.float32
+        super().__init__(filename, shape, dtype)
+
 

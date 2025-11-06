@@ -3,9 +3,12 @@ import numpy as np
 import cv2
 import threading
 import constants
+import carla
+import math
+
 
 from engine.world import World
-from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory,RadarMemory
+from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory,RadarMemory,CameraCalibrationMemory
 
 # Create carla world and memory buffers
 world = World()
@@ -13,8 +16,13 @@ rgb_camera_memory = RGBCameraMemory().get_write_access()
 depht_camera_memory = DepthCameraMemory().get_write_access()
 #vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
 radar_memory = RadarMemory().get_write_access()
+camera_calibration_memory = CameraCalibrationMemory().get_write_access()
 rgb_camera_queue, depth_camera_queue, radar_queue = world.expose_queues()
-
+K, P = world.calculate_camera_intrinsic_extrinsic()
+cam_mats = np.zeros((2, 4, 4), dtype=np.float32)
+cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
+cam_mats[1, :, :] = P  # extrinsic
+camera_calibration_memory.write(cam_mats)
 
 # Define transforms for handling camera data
 def camera_callback(image):
@@ -36,16 +44,29 @@ def depth_callback(image):
 
 # Radar callback
 def radar_callback(raw_data):
-    detections = np.array(
-        [[d.depth, d.velocity, d.azimuth, d.altitude] for d in raw_data],
-        dtype=np.float32
-    )
-    # Debug step
-    padded = np.zeros((constants.RADAR_MAX_DETECTIONS, 4), dtype=np.float32)
-    n = min(len(detections), constants.RADAR_MAX_DETECTIONS)
-    padded[:n, :] = detections[:n]
-    radar_memory.write(padded)
+    current_rot = raw_data.transform.rotation
+    points = np.zeros((constants.RADAR_MAX_DETECTIONS, 4), dtype=np.float32)
+    for i, detect in enumerate(raw_data):
+        if i >= constants.RADAR_MAX_DETECTIONS:
+            break
 
+        azi = math.degrees(detect.azimuth)
+        alt = math.degrees(detect.altitude)
+        # The 0.25 adjusts a bit the distance so the dots can
+        # be properly seen
+        fw_vec = carla.Vector3D(x=detect.depth - 0.25)
+        carla.Transform(
+            carla.Location(),
+            carla.Rotation(
+                pitch=current_rot.pitch + alt,
+                yaw=current_rot.yaw + azi,
+                roll=current_rot.roll)).transform(fw_vec)
+
+        world_vec = raw_data.transform.transform(fw_vec)  # rotate + translate to world
+        world_location = raw_data.transform.location + world_vec # (x_world, y_world, z_world) 3D point
+        points[i] = (world_location.x, world_location.y, world_location.z, detect.depth)
+
+    radar_memory.write(points)
 
 # ---------------------------
 # Threaded data processing

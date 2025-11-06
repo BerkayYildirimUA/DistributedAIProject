@@ -2,6 +2,8 @@ import queue
 import random
 import carla
 import constants
+import math
+import numpy as np
 
 class World:
     def __init__(self):
@@ -133,6 +135,20 @@ class World:
 
     def expose_queues(self):
         return self.rgb_camera_queue, self.depth_camera_queue, self.radar_queue
+
+    def calculate_camera_intrinsic_extrinsic(self):
+        # Calculate camera intrinsic matrix K
+        focal = constants.IMAGE_WIDTH / (2.0 * math.tan(constants.HOR_FOV_DEG * math.pi / 360.0))
+        K = np.identity(3)
+        K[0, 0] = K[1, 1] = focal
+        K[0, 2] = constants.IMAGE_WIDTH / 2.0
+        K[1, 2] = constants.IMAGE_HEIGHT / 2.0
+
+        # Calculate camera extrinsic matrix
+        P = np.array(self.rgb_camera.get_transform().get_inverse_matrix())
+
+        return [K, P]
+
 
     def cleanup(self):
         self.rgb_camera.stop()
