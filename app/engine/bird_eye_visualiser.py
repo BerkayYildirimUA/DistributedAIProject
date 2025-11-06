@@ -71,6 +71,9 @@ class BirdVisualiser:
         objects = self.warp_points(objects)
         print("warped",objects)
         lane_colors=[(0,0,0)]*len(lanes)
+        if len(objects)==0:
+            objects=[]
+            colors=[]
         return lanes+objects,lane_colors+colors
 
     def show(self,boxes,class_ids,lanes):
