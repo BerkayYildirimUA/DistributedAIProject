@@ -4,7 +4,7 @@ import traceback
 from typing import Optional, List
 
 import carla
-from ACC.Engine.duo_classes import DuoActor, DuoClient, DuoWorld
+from Engine.duo_classes import DuoActor, DuoClient, DuoWorld
 
 
 class Engine():

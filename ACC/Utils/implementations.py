@@ -1,7 +1,7 @@
 import carla
 from carla import Vector3D
 
-from ACC.Utils.abstractions import StateSensor, DecisionAgent, UI, VehicleState
+from Utils.abstractions import StateSensor, DecisionAgent, UI, VehicleState
 
 
 class CarlaStateSensor(StateSensor):

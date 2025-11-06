@@ -6,10 +6,10 @@ import pygame
 
 import hud_display
 
-from ACC.Engine.start_words import CarlaServerManager
-from ACC.Utils.implementations import CarlaStateSensor, SimpleAccAgent
-from ACC.Engine.engine import Engine
-from ACC.hud_display import HUD
+from Engine.start_words import CarlaServerManager
+from Utils.implementations import CarlaStateSensor, SimpleAccAgent
+from Engine.engine import Engine
+from hud_display import HUD
 
 def main_loop(args):
     engine = Engine(args)
