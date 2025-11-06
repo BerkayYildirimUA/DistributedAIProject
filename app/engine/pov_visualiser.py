@@ -37,8 +37,9 @@ class POVVisualiser:
             # cv2.polylines(frame, [np.array(lane, dtype=np.int32)], False, color, 4)
         return frame
     def add_radar_points(self,frame):
+        print(self.radar)
         for i,(u, v,vel) in enumerate(self.radar):
-            cv2.circle(frame, [int(u),int(v)], 3, (0, 255, 255), -1)
+            cv2.circle(frame, [int(u),int(v)], 3, (255, 0, 0), -1)
 
         return frame
     def show(self):
