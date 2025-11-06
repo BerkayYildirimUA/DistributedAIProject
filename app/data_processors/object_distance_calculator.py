@@ -22,7 +22,7 @@ class ObjectDistanceCalculator:
             raise Exception("Object distance calculation failed: size mismatch between distances and found object boxes!")
         return distance
 
-    def get_radar_distances(object_boxes, radar_points_world, K, P, img_w, img_h,
+    def get_radar_distances(self, object_boxes, radar_points_world, K, P, img_w, img_h,
                             box_pad=2.0, robust_pct=0.3, mode='z'):
 
         boxes = np.asarray(object_boxes, dtype=np.float64).reshape(-1, 4)
