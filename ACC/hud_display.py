@@ -4,9 +4,25 @@
 import datetime
 import math
 import os
-
 import pygame
+import carla
 
+class FadingText(object):
+    """Placeholder for FadingText class found in CARLA examples."""
+    def __init__(self, font, dim, pos): pass
+    def tick(self, world, clock): pass
+    def set_text(self, text, color=(255, 255, 255), seconds=2.0): pass
+    def render(self, display): pass
+
+class HelpText(object):
+    """Placeholder for HelpText class found in CARLA examples."""
+    def __init__(self, font, width, height): pass
+    def render(self, display): pass
+
+def get_actor_display_name(actor, truncate=0):
+    """Function to get actor display name, commonly found in CARLA examples."""
+    name = ' '.join(actor.type_id.replace('_', '.').title().split('.')[1:])
+    return (name[:truncate-1] + u'\u2026') if truncate > 0 and len(name) > truncate else name
 
 class HUD(object):
     """Class for HUD text"""
