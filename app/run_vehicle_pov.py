@@ -34,7 +34,7 @@ try:
         distances=object_distance_calculator.get_distances(boxes,depth_map)
 
         # Lanes
-        lanes_a,lanes_b = lane_detector.get_lanes(frame,int_degree=1)
+        lanes_a,lanes_b = lane_detector.get_lanes(frame,int_degree=3)
         # Intersection with lane
         is_intersected=intersection_detector.is_intersecting_list(lanes_a,lanes_b,boxes)
 

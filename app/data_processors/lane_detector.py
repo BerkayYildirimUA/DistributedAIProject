@@ -144,7 +144,9 @@ class LaneDetector:
         poly = np.poly1d(coeffs)
 
         # Generate smooth curve
-        y_smooth = np.linspace(y.min(), y.max(), 300)
+        y_min=0
+        y_max=0.8*self.frame_h
+        y_smooth = np.linspace(y_min, y_max, 100)
         x_smooth = poly(y_smooth)
         return [(int(x.item()),int(y.item())) for x,y in zip(x_smooth,y_smooth)]
 
