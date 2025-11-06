@@ -91,28 +91,28 @@ class RadarSensor(object):
             return
 
         # Camera transform
-            # Build camera world->camera matrix
+        # Build camera world->camera matrix
         cam_world_matrix = carla_transform_to_matrix(self._camera.get_transform())
         world_2_camera = np.linalg.inv(cam_world_matrix)
 
         radar_transform = radar_data.transform
+        min_depth = 1.0  # minimum distance to consider points
 
         for detect in radar_data:
-            # Convert polar radar coordinates to Cartesian in radar frame
-            fw_vec = carla.Vector3D(
-                x=detect.depth * math.cos(detect.altitude) * math.cos(detect.azimuth),
-                y=detect.depth * math.cos(detect.altitude) * math.sin(detect.azimuth),
-                z=detect.depth * math.sin(detect.altitude)
-            )
+            # Convert polar to Cartesian coordinates (flatten to ground plane)
+            x = detect.depth * math.cos(detect.altitude) * math.cos(detect.azimuth)
+            y = detect.depth * math.cos(detect.altitude) * math.sin(detect.azimuth)
+            z = 0.0  # flatten to ground plane
+            if x < min_depth:
+                continue  # skip points too close
 
-            # Radar location in world coordinates
-            world_loc = radar_transform.location + fw_vec
+            world_loc = radar_transform.location + carla.Vector3D(x, y, z)
             world_point = np.array([world_loc.x, world_loc.y, world_loc.z, 1.0])
 
             # Transform to camera coordinates
             camera_point = world_2_camera @ world_point
 
-            # Keep points in front of the camera
+            # Skip points behind camera
             if camera_point[2] <= 0:
                 continue
 
@@ -122,6 +122,7 @@ class RadarSensor(object):
 
             if 0 <= u < self.img_w and 0 <= v < self.img_h:
                 data.append([u, v, detect.velocity])
+
         max_points = 500
         num_points = len(data)
 
