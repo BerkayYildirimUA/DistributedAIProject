@@ -320,6 +320,7 @@ class World:
 
     def create_ego_cameras(self):
         camera_init_trans = carla.Transform(carla.Location(z=1.5,x=1.5), carla.Rotation(pitch=0, yaw=0, roll=0))
+        self.camera_transform=camera_init_trans
         # We create the camera through a blueprint that defines its properties
         camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
         camera_bp.set_attribute("image_size_x", "640")
@@ -355,7 +356,7 @@ class World:
         self.spectator.set_transform(spectator_transform)
 
     def add_radar(self):
-        self.radar_sensor=RadarSensor(self.ego_vehicle,self.rgb_camera)
+        self.radar_sensor=RadarSensor(self.ego_vehicle,self.rgb_camera,self.camera_transform)
 
     def expose_queues(self):
         return self.rgb_camera_queue, self.depth_camera_queue
