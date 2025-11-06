@@ -32,7 +32,8 @@ class CarlaWorldStateSensor(StateSensor):
         smallest_dist = 400
         dists = []
         for dist, vehicle in sorted(vehicles):
-            if smallest_dist > dist:
+            dot = vehicle.get_transform().get_forward_vector() * ego_transform # to see if the car is pointing the same way as the ego
+            if smallest_dist > dist and dot > 0.8:
                 smallest_dist = dist
             dists.append(dist)
 
@@ -42,7 +43,7 @@ class CarlaWorldStateSensor(StateSensor):
         else:
             self.counter += 1
 
-        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=360, distances=dists, safe_following_distance=safe_distance)
+        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=360, distances=dists, safe_following_distance=safe_distance, hasCrashed=False)
 
 class CarlaLeadStateSensor(StateSensor):
 
@@ -70,7 +71,7 @@ class CarlaLeadStateSensor(StateSensor):
         else:
             self.counter += 1
 
-        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=360, distances=[distance], safe_following_distance=safe_distance)
+        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=360, distances=[distance], safe_following_distance=safe_distance, hasCrashed=False)
 
 class SimpleAccAgent(DecisionAgent):
 

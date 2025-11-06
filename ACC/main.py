@@ -23,7 +23,7 @@ def main_loop(args):
 
         # sensor and agent Setup (Real World)
         if engine.lead is not None:
-            sensor_real = LeadCarlaStateSensor(engine.ego.real, engine.lead.real)
+            sensor_real = CarlaLeadStateSensor(engine.ego.real, engine.lead.real)
         else:
             sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
 
@@ -62,6 +62,25 @@ def main_loop(args):
         traceback.print_exc()
     finally:
         engine.cleanup()
+
+from ACC.Training.Env import CarlaEnv
+def train_loop(args):
+    scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
+                     map_name=args.map, number_of_npc=args.num_npcs)
+    env = CarlaEnv(args, scene)
+
+    episode_over = False
+    total_reward = 0
+
+    while not episode_over:
+        action = env.action_space.sample()
+        observation, reward, terminated, truncated, info = env.step(action)
+        total_reward += reward
+        episode_over = terminated or truncated
+
+    print(f"Episode finished! Total reward: {total_reward}")
+    env.close()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CARLA ACC Dual Simulation (Mirror TM Only)')
@@ -103,6 +122,10 @@ if __name__ == '__main__':
     parser.add_argument('--width', default=1280, type=int, help='Camera image width (default: 1280)')
     parser.add_argument('--height', default=720, type=int, help='Camera image height (default: 720)')
 
+    #training
+    parser.add_argument('--do_train', default=False, type=bool, help='Train an RL agent or just run the sim')
+
+
     args = parser.parse_args()
 
 
@@ -122,7 +145,13 @@ if __name__ == '__main__':
         logging.info("Servers launched successfully. Starting main simulation loop...")
         print("-" * 30)
 
-        main_loop(args)
+
+
+        if not args.do_train:
+            print("skipppppp")
+            #main_loop(args)
+        train_loop(args)
+
 
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}")

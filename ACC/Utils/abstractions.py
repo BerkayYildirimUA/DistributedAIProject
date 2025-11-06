@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List
 import carla
+from enum import Enum
 
 @dataclass
 class VehicleState:
@@ -9,7 +10,11 @@ class VehicleState:
     speed_limit: float
     distances: List[float] #car in front of the Ego
     safe_following_distance: float
+    hasCrashed: bool
 
+class ActionsEnum(Enum):
+    brake = 1
+    throttle = 2
 
 class StateSensor(ABC):
     """Class that returns the state of the world. Could be made to use sensors data in the future, but for now just calc via carla's build in methods"""
