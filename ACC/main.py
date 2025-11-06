@@ -2,12 +2,18 @@ import argparse
 import logging
 import traceback
 
+import pygame
+
+import hud_display
+
 from ACC.Engine.start_words import CarlaServerManager
 from ACC.Utils.implementations import CarlaStateSensor, SimpleAccAgent
 from ACC.Engine.engine import Engine
+from ACC.hud_display import HUD
 
 def main_loop(args):
     engine = Engine(args)
+    client_clock = pygame.time.Clock()  # ADDED: Client-side clock for FPS tracking
 
     try:
         engine.connect_to_worlds()
@@ -18,9 +24,20 @@ def main_loop(args):
         sensor_real = CarlaStateSensor(engine.ego.real, engine.lead.real)
         decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
 
+        #Initialize Pygame HUD Display
+        pygame.init() #initialize pygame modules
+        display = pygame.display.set_mode((args.width, args.height))
+        hud = HUD(args.width, args.height) #HUD initialization
+
 
 
         while True:
+            # Clock tick MUST come first for accurate FPS reading
+            client_clock.tick(60)
+
+            # This tick provides the main timestamp (assuming the Engine handles this)
+            timestamp = engine.real_world.tick() #Work on this again.....Check what GPT gives
+
             mirror_frame, _ = engine.duo_world.tick()
 
             # apply control
@@ -40,6 +57,12 @@ def main_loop(args):
 
             # spectator
             engine.update_spectator()
+
+            # Render all components
+            display.fill((0, 0, 0))  # Clear the screen (assuming black background)
+
+            hud.render(display)  # Render the HUD on the Pygame surface
+            pygame.display.flip()  # Update the screen
 
 
     except KeyboardInterrupt:
