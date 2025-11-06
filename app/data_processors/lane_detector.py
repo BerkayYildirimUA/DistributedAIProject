@@ -180,6 +180,7 @@ class LaneDetector:
 
         # Flatten coordinates into a single list
         best_coords = self.interpolate_lane(best_left) + self.interpolate_lane(best_right)
+        best_coords=best_left+best_right
         return best_coords
 
 
