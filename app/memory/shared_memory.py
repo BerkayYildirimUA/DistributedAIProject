@@ -52,4 +52,21 @@ class VehicleDistanceMemory(SharedMemory):
         dtype = np.float32
         super().__init__(filename,shape,dtype)
 
+class VehicleStateMemory(SharedMemory):
+    def __init__(self):
+        filename = "VEHICLE_STATE_MEMORY.dat"
+        shape = (2,)           # [speed_ms, steer_rad]
+        dtype = np.float32
+        super().__init__(filename, shape, dtype)
 
+class LaneTubeMemory(SharedMemory):
+    def __init__(self, max_pts: int = 256):
+        """
+        shape = (2, max_pts, 2)
+        [0] = left polyline, [1] = right polyline
+        punten genormaliseerd: x/=img_w, y/=img_h; lege posities = (-1, -1)
+        """
+        filename = "LANE_TUBE_MEMORY.dat"
+        shape = (2, max_pts, 2)
+        dtype = np.float32
+        super().__init__(filename, shape, dtype)

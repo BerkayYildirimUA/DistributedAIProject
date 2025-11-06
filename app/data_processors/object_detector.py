@@ -8,7 +8,7 @@ class ObjectDetector:
     def __init__(self, use_tracking = True):
         # Initialize model
         print("CUDA:", torch.cuda.is_available())
-        self.model = YOLO("resources/last5.pt")
+        self.model = YOLO("resources/best6.pt")
         self.classes = ["Vehicle", "Motor", "Bike","traffic light","traffic sign","pedestrian"]
         # TODO: create model with smaller input size
         self.input_size = 640

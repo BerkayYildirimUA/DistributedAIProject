@@ -7,8 +7,8 @@ import sys
 import argparse
 
 from engine.world import World
-from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory
-
+from memory.shared_memory import RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory
+import math
 
 
 # Define transforms for handling camera data
@@ -53,15 +53,9 @@ def process_depth_images():
 
 if __name__ == "__main__":
 
-    #parse arguments
-    parser = argparse.ArgumentParser(description="Run CARLA simulation bridge and optionally launch another script.")
-    parser.add_argument(
-        '--interpreter',
-        metavar='PATH',
-        type=str,
-        help='Path to the Python interpreter for the second script (e.g., run_vehicle_pov.py). Defaults to the current interpreter.'
-    )
-    args = parser.parse_args()
+    vehicle_state_memory = VehicleStateMemory().get_write_access()
+    MAX_STEER_RAD = math.radians(60)  # ruwe schatting
+
 
     # Create carla world and memory buffers
     world = World()
@@ -76,48 +70,24 @@ if __name__ == "__main__":
     rgb_thread.start()
     depth_thread.start()
 
-    if args.interpreter:
-        other_python_interpreter = args.interpreter # Use the modern interpreter
-        print(f"Using provided interpreter: {other_python_interpreter}")
-    else:
-        other_python_interpreter = sys.executable  # Use the current interpreter
-        print(f"Using current interpreter: {other_python_interpreter}")
-
-    script_to_run = "run_vehicle_pov.py"
-
-    tick_counter = 0
-    process_launched = False
-    pov_process = None
-
     try:
         while True:
             try:
                 world.tick()
-                if tick_counter < 25:
-                    tick_counter += 1
+                # --- we get the state of the vehicle and put into shared memory ---
+                vel = world.ego_vehicle.get_velocity()                          # get the velocity from our car in CARLA
+                speed_ms = float((vel.x ** 2 + vel.y ** 2 + vel.z ** 2) ** 0.5) # calculate the speed
+
+                ctrl = world.ego_vehicle.get_control()                          # get the control applied in the last tick
+                # ctrl.steer in [-1,1] => schaal naar rad
+                steer_rad = -float(ctrl.steer) * MAX_STEER_RAD                  # calculating the steer angle
+
+                vehicle_state_memory.write(np.array([speed_ms, steer_rad], dtype=np.float32))
+                # --------------------------------------
+
             except RuntimeError as e:
                 print(f"Tick failed {e}")
 
-            # --- Subprocess Launch ---
-            if not process_launched and tick_counter >= 20:
-                print(f"\n[Tick {tick_counter}] Reached 20 ticks. Launching '{script_to_run}'...")
-                try:
-                    pov_process = subprocess.Popen(
-                        [other_python_interpreter, script_to_run],
-                        stdout=sys.stdout,
-                        stderr=sys.stderr
-                    )
-                    print(f"Launched process with PID: {pov_process.pid}")
-                    process_launched = True  # Set flag so it doesn't run again
-                except FileNotFoundError:
-                    print(f"ERROR: Could not find the interpreter '{other_python_interpreter}'")
-                    print("Please check the path and try again.")
-                    break  # Exit main loop
-                except Exception as e:
-                    print(f"Failed to launch process: {e}")
-                    break  # Exit main loop
-                print("--------------------------------------------------\n")
-            # --- End Launch ---
 
             # TODO: feed this distance data into the reinforcement module to calculate acceleration
             distance_vehicle_in_front_m = vehicle_distance_memory[0, 0]
@@ -126,16 +96,7 @@ if __name__ == "__main__":
         print("Closing simulation!")
     finally:
         world.cleanup()
-        if pov_process and pov_process.poll() is None:  # Check if process exists and is running
-            print(f"Terminating subprocess PID: {pov_process.pid}...")
-            pov_process.terminate()
-            try:
-                pov_process.wait(timeout=5)  # Wait a bit for graceful termination
-                print("Subprocess terminated.")
-            except subprocess.TimeoutExpired:
-                print("Subprocess did not terminate gracefully, killing.")
-                pov_process.kill()
-                print("Subprocess killed.")
+
         print("Cleanup complete.")
 
 

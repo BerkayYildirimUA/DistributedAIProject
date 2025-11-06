@@ -297,8 +297,8 @@ class World:
             except Exception:
                 pass
 
-        # finally ego vehicle
-        try:
-            self.ego_vehicle.destroy()
-        except Exception:
-            pass
+        # # finally ego vehicle
+        # try:
+        #     self.ego_vehicle.destroy()
+        # except Exception:
+        #     pass
