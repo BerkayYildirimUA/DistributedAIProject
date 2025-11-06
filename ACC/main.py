@@ -35,9 +35,6 @@ def main_loop(args):
             # Clock tick MUST come first for accurate FPS reading
             client_clock.tick(60)
 
-            # This tick provides the main timestamp (assuming the Engine handles this)
-            timestamp = engine.real_world.tick() #Work on this again.....Check what GPT gives
-
             mirror_frame, _ = engine.duo_world.tick()
 
             # apply control
