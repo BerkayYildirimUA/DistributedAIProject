@@ -6,7 +6,33 @@ import carla
 import numpy as np
 
 from memory.shared_memory import RadarMemory
+def carla_transform_to_matrix(transform: carla.Transform):
+    """Convert CARLA Transform to a 4x4 numpy matrix"""
+    rotation = transform.rotation
+    location = transform.location
+    pitch = math.radians(rotation.pitch)
+    yaw = math.radians(rotation.yaw)
+    roll = math.radians(rotation.roll)
 
+    cp = math.cos(pitch)
+    sp = math.sin(pitch)
+    cy = math.cos(yaw)
+    sy = math.sin(yaw)
+    cr = math.cos(roll)
+    sr = math.sin(roll)
+
+    # Rotation matrix (CARLA uses ZYX order)
+    R = np.array([
+        [cy*cp, cy*sp*sr - sy*cr, cy*sp*cr + sy*sr],
+        [sy*cp, sy*sp*sr + cy*cr, sy*sp*cr - cy*sr],
+        [-sp, cp*sr, cp*cr]
+    ])
+
+    # Compose 4x4 matrix
+    M = np.eye(4)
+    M[0:3,0:3] = R
+    M[0:3,3] = np.array([location.x, location.y, location.z])
+    return M
 
 class RadarSensor(object):
     def __init__(self, parent_actor, camera_actor):
@@ -65,46 +91,37 @@ class RadarSensor(object):
             return
 
         # Camera transform
-        cam_transform = self._camera.get_transform()
-        world_2_camera = np.linalg.inv(np.array(cam_transform.get_matrix()))
+            # Build camera world->camera matrix
+        cam_world_matrix = carla_transform_to_matrix(self._camera.get_transform())
+        world_2_camera = np.linalg.inv(cam_world_matrix)
 
         radar_transform = radar_data.transform
-        current_rot = radar_transform.rotation
 
         for detect in radar_data:
-            print(detect)
-            azi = math.degrees(detect.azimuth)
-            alt = math.degrees(detect.altitude)
+            # Convert polar radar coordinates to Cartesian in radar frame
+            fw_vec = carla.Vector3D(
+                x=detect.depth * math.cos(detect.altitude) * math.cos(detect.azimuth),
+                y=detect.depth * math.cos(detect.altitude) * math.sin(detect.azimuth),
+                z=detect.depth * math.sin(detect.altitude)
+            )
 
-            fw_vec = carla.Vector3D(x=detect.depth)
-            carla.Transform(
-                carla.Location(),
-                carla.Rotation(
-                    pitch=current_rot.pitch + alt,
-                    yaw=current_rot.yaw + azi,
-                    roll=current_rot.roll
-                )
-            ).transform(fw_vec)
-
+            # Radar location in world coordinates
             world_loc = radar_transform.location + fw_vec
             world_point = np.array([world_loc.x, world_loc.y, world_loc.z, 1.0])
-            camera_point = np.dot(world_2_camera, world_point)
 
-            # Only consider points in front of the camera
+            # Transform to camera coordinates
+            camera_point = world_2_camera @ world_point
+
+            # Keep points in front of the camera
             if camera_point[2] <= 0:
-                print("behond")
                 continue
 
             # Project to 2D
-            pixel = np.dot(self.K, [
-                camera_point[0] / camera_point[2],
-                camera_point[1] / camera_point[2],
-                1
-            ])
+            pixel = self.K @ (camera_point[:3] / camera_point[2])
             u, v = int(pixel[0]), int(pixel[1])
 
             if 0 <= u < self.img_w and 0 <= v < self.img_h:
-                data.append([u,v,detect.velocity])
+                data.append([u, v, detect.velocity])
         max_points = 500
         num_points = len(data)
 
