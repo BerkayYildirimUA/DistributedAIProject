@@ -38,7 +38,7 @@ class POVVisualiser:
         return frame
     def add_radar_points(self,frame):
         for i,(u, v,vel) in enumerate(self.radar):
-            cv2.circle(frame, [u,v], 3, (0, 255, 255), -1)
+            cv2.circle(frame, [int(u),int(v)], 3, (0, 255, 255), -1)
 
         return frame
     def show(self):
