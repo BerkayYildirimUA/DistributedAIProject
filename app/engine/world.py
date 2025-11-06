@@ -108,15 +108,17 @@ class World:
         # TODO: change these parameters to values found in real radar setups
         radar_bp.set_attribute('horizontal_fov', str(constants.HOR_FOV_DEG))  
         radar_bp.set_attribute('vertical_fov', str(constants.VERT_FOV_DEG))    
-        radar_bp.set_attribute('range', str(constants.RADAR_RANGE))         
+        radar_bp.set_attribute('range', str(constants.RADAR_RANGE))
+        radar_bp.set_attribute('points_per_second', '30000')
+        radar_bp.set_attribute('sensor_tick', str(constants.SENSOR_TICK))
         radar_transform = carla.Transform(sensor_location, sensor_rotation)
         self.radar = self.world.spawn_actor(radar_bp, radar_transform, attach_to=self.ego_vehicle)
         self.radar_queue = queue.Queue(maxsize=constants.QUEUE_MAXSIZE)
         # check if queue is full: yes --> pop oldest, push new one. no --> push. Ensures most recent radar data is in the queue
         self.radar.listen(lambda data: (self.radar_queue.get_nowait(), self.radar_queue.put_nowait(data)) if self.radar_queue.full() else self.radar_queue.put_nowait(data))
 
-        print("Camera Transform:", self.rgb_camera.get_transform())
-        print("Radar Transform:", self.radar.get_transform())
+        print("Camera attrs:", self.rgb_camera.attributes)
+        print("Radar attrs:", self.radar.attributes)
 
     def enable_autopilot_for_ego_vehicle(self):
         traffic_manager = self.client.get_trafficmanager()

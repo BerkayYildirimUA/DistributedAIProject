@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import constants
 
 from data_processors.object_detector import ObjectDetector
 from data_processors.object_distance_calculator import ObjectDistanceCalculator
@@ -39,7 +40,7 @@ try:
         #distances=object_distance_calculator.get_depth_camera_distances(boxes,depth_map)
 
         # Debugging step
-        distances = object_distance_calculator.get_radar_distances(boxes, radar_data, K, P)
+        distances = object_distance_calculator.get_radar_distances(boxes, radar_data, K, P, constants.IMAGE_WIDTH, constants.IMAGE_HEIGHT)
 
         # Visualise
         visualiser= POVVisualiser(

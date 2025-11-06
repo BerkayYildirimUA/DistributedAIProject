@@ -1,7 +1,5 @@
 import numpy as np
-import constants
 from sklearn.cluster import DBSCAN
-import numpy as np
 
 
 class ObjectDistanceCalculator:
@@ -24,54 +22,59 @@ class ObjectDistanceCalculator:
             raise Exception("Object distance calculation failed: size mismatch between distances and found object boxes!")
         return distance
 
-    def get_radar_distances(self, object_boxes, radar_data, K, P):
-        print(f"[DEBUG] Starting get_radar_distances with {len(object_boxes)} boxes and {len(radar_data)} radar points.")
+    def get_radar_distances(self, object_boxes, radar_xyz_world, K, T_cam_world, img_w, img_h):
+
+        if radar_xyz_world.size == 0:
+            return [float('nan')] * len(object_boxes)
+
+        # 1) World -> camera (Unreal camera frame)
+        Pw = np.hstack([radar_xyz_world, np.ones((radar_xyz_world.shape[0], 1))])  # (N,4)
+        Pc_unreal_h = (T_cam_world @ Pw.T).T
+        Pc_unreal = Pc_unreal_h[:, :3]
+
+        # 2) Unreal camera -> CV camera (x right, y down, z forward)
+        R_ue2cv = np.array([[0, 1, 0],
+                            [0, 0, -1],
+                            [1, 0, 0]], dtype=float)
+        Pc = (R_ue2cv @ Pc_unreal.T).T  # (N,3)
+
+        # 3) Keep points in front of camera (z>0 in CV frame)
+        z = Pc[:, 2]
+        in_front = z > 0
+        Pc = Pc[in_front]
+        z = z[in_front]
+        if Pc.shape[0] == 0:
+            return [float('nan')] * len(object_boxes)
+
+        # 4) Project to pixels
+        uvw = (K @ Pc.T).T  # (N,3)
+        u = uvw[:, 0] / uvw[:, 2]
+        v = uvw[:, 1] / uvw[:, 2]
+
+        # 5) Keep points inside the image
+        in_img = (u >= 0) & (u < img_w) & (v >= 0) & (v < img_h)
+        u, v, z = u[in_img], v[in_img], z[in_img]
+        if u.size == 0:
+            return [float('nan')] * len(object_boxes)
 
         distances = []
-        radar_data = radar_data[np.any(radar_data != 0, axis=1)]
-        print(f"[DEBUG] Filtered radar points: {len(radar_data)} nonzero entries")
+        for (x1, y1, x2, y2) in np.asarray(object_boxes):
+            # Optional: pad boxes slightly to be robust to small calibration errors
+            pad = 2.0
+            x1p, y1p, x2p, y2p = x1 - pad, y1 - pad, x2 + pad, y2 + pad
 
-        # Prepare homogeneous world coordinates
-        points_world = np.hstack([radar_data[:, :3], np.ones((radar_data.shape[0], 1))])  # (N,4)
-
-        # World --> camera
-        points_cam = (P @ points_world.T).T  # (N,4)
-
-        # Only keep points in front of camera (z > 0)
-        in_front = points_cam[:, 2] > 0
-        points_cam = points_cam[in_front]
-        print(f"[DEBUG] Points in front of camera: {len(points_cam)}")
-
-        # Fourth dimension represent depths (can also be calculated using euclidian distance, maybe try later)
-        depths = radar_data[in_front, 3]
-
-        # Camera --> image (project to pixels)
-        pixels = (K @ points_cam[:, :3].T).T  # (N,3)
-        u = pixels[:, 0] / pixels[:, 2]
-        v = pixels[:, 1] / pixels[:, 2]
-
-        # Combine projected pixel coordinates and their respective depth
-        projected = np.vstack([u, v, depths]).T  # (N,3)
-
-        object_boxes = np.array(object_boxes)
-        for i, (x1, y1, x2, y2) in enumerate(object_boxes):
-            inside_mask = (projected[:, 0] >= x1) & (projected[:, 0] <= x2) & \
-                          (projected[:, 1] >= y1) & (projected[:, 1] <= y2)
-
-
-            inside_points = projected[inside_mask]
-            num_inside = np.count_nonzero(inside_points)
-            print(f"[DEBUG] Box {i}: ({x1},{y1})-({x2},{y2}), radar points inside: {num_inside}")
-
-            if inside_points.shape[0] == 0:
-                distances.append(0.0)
+            mask = (u >= x1p) & (u <= x2p) & (v >= y1p) & (v <= y2p)
+            if not np.any(mask):
+                distances.append(float('nan'))  # better than 0.0 to mean "no data"
             else:
-                # Option 1: mean depth of all points inside box
-                # Option 2: cluster using scikit-learn DBScan and choose mean of largest cluster
-                # testing this first
-                distances.append(float(np.mean(inside_points[:, 2])))
+                z_box = z[mask]
+                # robust choice: median of the closest 30% depths (guards against background points)
+                k = max(1, int(0.3 * z_box.size))
+                idx = np.argpartition(z_box, k - 1)[:k]
+                distances.append(float(np.median(z_box[idx])))
 
         return distances
+
 
 
 

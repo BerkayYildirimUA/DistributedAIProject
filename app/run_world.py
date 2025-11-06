@@ -61,19 +61,15 @@ def radar_callback(raw_data):
 
         azi = math.degrees(detect.azimuth)
         alt = math.degrees(detect.altitude)
-        # The 0.25 adjusts a bit the distance so the dots can
-        # be properly seen
-        fw_vec = carla.Vector3D(x=detect.depth - 0.25)
-        carla.Transform(
-            carla.Location(),
-            carla.Rotation(
-                pitch=current_rot.pitch + alt,
-                yaw=current_rot.yaw + azi,
-                roll=current_rot.roll)).transform(fw_vec)
 
-        world_vec = raw_data.transform.transform(fw_vec)  # rotate + translate to world
-        world_location = raw_data.transform.location + world_vec # (x_world, y_world, z_world) 3D point
-        points[i] = (world_location.x, world_location.y, world_location.z, detect.depth)
+        fw_vec = carla.Vector3D(x=detect.depth)  # do not subtract 0.25 for geometry
+        # rotate by detection angles only, still in radar-local frame
+        local = carla.Transform(carla.Location(),
+                                carla.Rotation(pitch=alt, yaw=azi, roll=0.0)
+                                ).transform(fw_vec)
+        # now apply the radar's full transform once (rotation + translation) to get world
+        world_point = raw_data.transform.transform(local)  # <-- final world XYZ
+        points[i] = (world_point.x, world_point.y, world_point.z, detect.depth)
 
     radar_memory.write(points)
     print(f"[RADAR CALLBACK] Wrote {np.count_nonzero(points[:, 3])} nonzero radar points to memory")
