@@ -56,7 +56,6 @@ class BirdVisualiser:
             class_id=class_ids[i].item()
             if class_id in [0,1,2,3,5]:
                 print("IN")
-
                 (x1, y1, x2, y2)=box
                 x_middle=(x1+x2)/2
                 y_middle=(y1+y2)/2
@@ -71,7 +70,7 @@ class BirdVisualiser:
         objects,colors =self.get_object_coords_and_colors(boxes,class_ids)
         objects = self.warp_points(objects)
         lane_colors=[(0,0,0)]*len(lanes)
-        return [*lanes,*objects],[*colors,*lane_colors]
+        return lanes+objects,lane_colors+colors
 
     def show(self,boxes,class_ids,lanes):
         coords, colors = self.generate_new_coords_with_colors(boxes,class_ids,lanes)
