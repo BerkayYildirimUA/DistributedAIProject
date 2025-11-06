@@ -32,6 +32,7 @@ class RadarSensor(object):
 
     @staticmethod
     def _Radar_callback(weak_self, radar_data):
+        print(f"Radar detected {len(radar_data)} points")
         self = weak_self()
         if not self:
             return
@@ -62,8 +63,8 @@ class RadarSensor(object):
             b = int(abs(clamp(- 1.0, 0.0, - 1.0 - norm_velocity)) * 255.0)
             self.debug.draw_point(
                 radar_data.transform.location + fw_vec,
-                size=0.075,
-                life_time=0.06,
+                size=0.05,
+                life_time=1.0,
                 persistent_lines=False,
                 color=carla.Color(r, g, b))
 
@@ -100,6 +101,7 @@ class World:
 
     def create_world(self):
         self.client = carla.Client('localhost', self.port)
+        self.world = self.client.load_world(self.world_name)
         self.client.set_timeout(self.timeout)
         self.world = self.client.get_world()
 
@@ -107,7 +109,6 @@ class World:
         settings.synchronous_mode = True
         settings.fixed_delta_seconds = self.delta
         self.world.apply_settings(settings)
-        self.world = self.client.load_world(self.world_name)
 
 
     def get_vehicle_bps(self):
@@ -176,7 +177,8 @@ class World:
         self.spectator.set_transform(spectator_transform)
 
     def add_radar(self):
-        radar_sensor=RadarSensor(self.ego_vehicle)
+        self.radar_sensor=RadarSensor(self.ego_vehicle)
+
     def expose_queues(self):
         return self.rgb_camera_queue, self.depth_camera_queue
 
