@@ -3,12 +3,13 @@ import numpy as np
 
 
 class POVVisualiser:
-    def __init__(self,class_names,frame, boxes,class_ids,scores,distances,is_intersected,lanes):
+    def __init__(self,class_names,frame, boxes,class_ids,scores,distances,is_intersected,radar,lanes):
         self.boxes = boxes
         self.class_ids = class_ids
         self.scores = scores
         self.distances = distances
         self.lanes = lanes
+        self.radar = radar
         self.is_intersected=is_intersected
         self.class_names = class_names
         self.frame = frame
@@ -35,11 +36,16 @@ class POVVisualiser:
             # color = colors[i % len(colors)]
             # cv2.polylines(frame, [np.array(lane, dtype=np.int32)], False, color, 4)
         return frame
+    def add_radar_points(self,frame):
+        for u, v,vel in enumerate(self.radar):
+            cv2.circle(frame, [u,v], 3, (0, 255, 255), -1)
 
+        return frame
     def show(self):
         frame_with_boxes_bgr=self.add_object_and_distance_overlay(self.frame)
         frame_with_trajectory_bgr=self.add_trajectory_overlay(frame_with_boxes_bgr)
-        cv2.imshow("Ego Vehicle POV", frame_with_trajectory_bgr)
+        frame_with_radar = self.add_radar_points(frame_with_trajectory_bgr)
+        cv2.imshow("Ego Vehicle POV", frame_with_radar)
         cv2.waitKey(1)
 
     def cleanup(self):

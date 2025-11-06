@@ -2,71 +2,168 @@ import math
 import queue
 import random
 import weakref
-
 import carla
+import numpy as np
+
+from memory.shared_memory import RadarMemory
+
 
 class RadarSensor(object):
-    def __init__(self, parent_actor):
+    def __init__(self, parent_actor, camera_actor):
         self.sensor = None
         self._parent = parent_actor
-        bound_x = 0.5 + self._parent.bounding_box.extent.x
-        bound_y = 0.5 + self._parent.bounding_box.extent.y
-        bound_z = 0.5 + self._parent.bounding_box.extent.z
-
-        self.velocity_range = 7.5 # m/s
+        self._camera = camera_actor
+        self.velocity_range = 7.5  # m/s
         world = self._parent.get_world()
-        self.debug = world.debug
+
+        self.radar_memory = RadarMemory().get_write_access()
+
         bp = world.get_blueprint_library().find('sensor.other.radar')
-        bp.set_attribute('horizontal_fov', str(35))
-        bp.set_attribute('vertical_fov', str(20))
+        bp.set_attribute('horizontal_fov', '35')
+        bp.set_attribute('vertical_fov', '20')
+        bp.set_attribute('range', '50')
+
         self.sensor = world.spawn_actor(
             bp,
-            carla.Transform(
-                carla.Location(x=bound_x + 0.05, z=bound_z+0.05),
-                carla.Rotation(pitch=5)),
-            attach_to=self._parent)
-        # We need a weak reference to self to avoid circular reference.
+            carla.Transform(carla.Location(x=2.0, z=1.0), carla.Rotation(pitch=5)),
+            attach_to=self._parent
+        )
+
+        # Build camera intrinsics
+        image_w = int(self._camera.attributes['image_size_x'])
+        image_h = int(self._camera.attributes['image_size_y'])
+        fov = float(self._camera.attributes['fov'])
+        focal = image_w / (2.0 * math.tan(fov * math.pi / 360.0))
+        self.K = np.identity(3)
+        self.K[0, 0] = self.K[1, 1] = focal
+        self.K[0, 2] = image_w / 2.0
+        self.K[1, 2] = image_h / 2.0
+        self.img_w, self.img_h = image_w, image_h
+
         weak_self = weakref.ref(self)
-        self.sensor.listen(
-            lambda radar_data: RadarSensor._Radar_callback(weak_self, radar_data))
+        self.sensor.listen(lambda data: RadarSensor._Radar_callback(weak_self, data))
+
+    def destroy(self):
+        if self.sensor is not None:
+            self.sensor.stop()
+            self.sensor.destroy()
+
 
     @staticmethod
     def _Radar_callback(weak_self, radar_data):
-        print(f"Radar detected {len(radar_data)} points")
+        data=[]
         self = weak_self()
         if not self:
             return
-        # To get a numpy [[vel, altitude, azimuth, depth],...[,,,]]:
-        # points = np.frombuffer(radar_data.raw_data, dtype=np.dtype('f4'))
-        # points = np.reshape(points, (len(radar_data), 4))
 
-        current_rot = radar_data.transform.rotation
+        # Camera transform
+        cam_transform = self._camera.get_transform()
+        world_2_camera = np.linalg.inv(np.array(cam_transform.get_matrix()))
+
+        radar_transform = radar_data.transform
+        current_rot = radar_transform.rotation
+
         for detect in radar_data:
             azi = math.degrees(detect.azimuth)
             alt = math.degrees(detect.altitude)
-            # The 0.25 adjusts a bit the distance so the dots can
-            # be properly seen
-            fw_vec = carla.Vector3D(x=detect.depth - 0.25)
+
+            fw_vec = carla.Vector3D(x=detect.depth)
             carla.Transform(
                 carla.Location(),
                 carla.Rotation(
                     pitch=current_rot.pitch + alt,
                     yaw=current_rot.yaw + azi,
-                    roll=current_rot.roll)).transform(fw_vec)
+                    roll=current_rot.roll
+                )
+            ).transform(fw_vec)
 
-            def clamp(min_v, max_v, value):
-                return max(min_v, min(value, max_v))
+            world_loc = radar_transform.location + fw_vec
+            world_point = np.array([world_loc.x, world_loc.y, world_loc.z, 1.0])
+            camera_point = np.dot(world_2_camera, world_point)
 
-            norm_velocity = detect.velocity / self.velocity_range # range [-1, 1]
-            r = int(clamp(0.0, 1.0, 1.0 - norm_velocity) * 255.0)
-            g = int(clamp(0.0, 1.0, 1.0 - abs(norm_velocity)) * 255.0)
-            b = int(abs(clamp(- 1.0, 0.0, - 1.0 - norm_velocity)) * 255.0)
-            self.debug.draw_point(
-                radar_data.transform.location + fw_vec,
-                size=0.05,
-                life_time=1.0,
-                persistent_lines=False,
-                color=carla.Color(r, g, b))
+            # Only consider points in front of the camera
+            if camera_point[2] <= 0:
+                continue
+
+            # Project to 2D
+            pixel = np.dot(self.K, [
+                camera_point[0] / camera_point[2],
+                camera_point[1] / camera_point[2],
+                1
+            ])
+            u, v = int(pixel[0]), int(pixel[1])
+
+            if 0 <= u < self.img_w and 0 <= v < self.img_h:
+                data.appens([u,v,detect.velocity])
+        if len(data) <500:
+            data=data+[0,0,0]*(500-len(data))
+        else:
+            data=data[:500]
+        self.radar_memory.write(data)
+
+
+# class RadarSensor(object):
+#     def __init__(self, parent_actor):
+#         self.sensor = None
+#         self._parent = parent_actor
+#         bound_x = 0.5 + self._parent.bounding_box.extent.x
+#         bound_y = 0.5 + self._parent.bounding_box.extent.y
+#         bound_z = 0.5 + self._parent.bounding_box.extent.z
+#
+#         self.velocity_range = 7.5 # m/s
+#         world = self._parent.get_world()
+#         self.debug = world.debug
+#         bp = world.get_blueprint_library().find('sensor.other.radar')
+#         bp.set_attribute('horizontal_fov', str(35))
+#         bp.set_attribute('vertical_fov', str(20))
+#         self.sensor = world.spawn_actor(
+#             bp,
+#             carla.Transform(
+#                 carla.Location(x=bound_x + 0.05, z=bound_z+0.05),
+#                 carla.Rotation(pitch=5)),
+#             attach_to=self._parent)
+#         # We need a weak reference to self to avoid circular reference.
+#         weak_self = weakref.ref(self)
+#         self.sensor.listen(
+#             lambda radar_data: RadarSensor._Radar_callback(weak_self, radar_data))
+#
+#     @staticmethod
+#     def _Radar_callback(weak_self, radar_data):
+#         print(f"Radar detected {len(radar_data)} points")
+#         self = weak_self()
+#         if not self:
+#             return
+#         # To get a numpy [[vel, altitude, azimuth, depth],...[,,,]]:
+#         # points = np.frombuffer(radar_data.raw_data, dtype=np.dtype('f4'))
+#         # points = np.reshape(points, (len(radar_data), 4))
+#
+#         current_rot = radar_data.transform.rotation
+#         for detect in radar_data:
+#             azi = math.degrees(detect.azimuth)
+#             alt = math.degrees(detect.altitude)
+#             # The 0.25 adjusts a bit the distance so the dots can
+#             # be properly seen
+#             fw_vec = carla.Vector3D(x=detect.depth - 0.25)
+#             carla.Transform(
+#                 carla.Location(),
+#                 carla.Rotation(
+#                     pitch=current_rot.pitch + alt,
+#                     yaw=current_rot.yaw + azi,
+#                     roll=current_rot.roll)).transform(fw_vec)
+#
+#             def clamp(min_v, max_v, value):
+#                 return max(min_v, min(value, max_v))
+#
+#             norm_velocity = detect.velocity / self.velocity_range # range [-1, 1]
+#             r = int(clamp(0.0, 1.0, 1.0 - norm_velocity) * 255.0)
+#             g = int(clamp(0.0, 1.0, 1.0 - abs(norm_velocity)) * 255.0)
+#             b = int(abs(clamp(- 1.0, 0.0, - 1.0 - norm_velocity)) * 255.0)
+#             self.debug.draw_point(
+#                 radar_data.transform.location + fw_vec,
+#                 size=0.05,
+#                 life_time=1.0,
+#                 persistent_lines=False,
+#                 color=carla.Color(r, g, b))
 
 class World:
     def __init__(self):
@@ -108,8 +205,6 @@ class World:
         settings.fixed_delta_seconds = self.delta
         self.world.apply_settings(settings)
         self.client.load_world(self.world_name)
-
-
 
     def get_vehicle_bps(self):
         blueprint_library = self.world.get_blueprint_library()
