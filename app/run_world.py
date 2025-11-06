@@ -4,6 +4,7 @@ import cv2
 import threading
 import carla
 import math
+import constants
 
 
 from engine.world import World
@@ -50,7 +51,7 @@ def radar_callback(raw_data):
         radar_memory.write(np.zeros((0, 4), dtype=np.float32))
         return
 
-    points = np.zeros((n, 4), dtype=np.float32)
+    points = np.zeros((constants.RADAR_MAX_DETECTIONS, 4), dtype=np.float32)
     T_wr = raw_data.transform  # radar sensor pose in world (at this frame)
 
     for i, det in enumerate(raw_data):
