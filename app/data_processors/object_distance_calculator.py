@@ -25,19 +25,22 @@ class ObjectDistanceCalculator:
         return distance
 
     def get_radar_distances(self, object_boxes, radar_data, K, P):
+        print(f"[DEBUG] Starting get_radar_distances with {len(object_boxes)} boxes and {len(radar_data)} radar points.")
+
         distances = []
-        if radar_data is None or radar_data.size == 0:
-            return [0.0 for _ in object_boxes]
+        radar_data = radar_data[np.any(radar_data != 0, axis=1)]
+        print(f"[DEBUG] Filtered radar points: {len(radar_data)} nonzero entries")
 
         # Prepare homogeneous world coordinates
         points_world = np.hstack([radar_data[:, :3], np.ones((radar_data.shape[0], 1))])  # (N,4)
 
-        # World → camera
+        # World --> camera
         points_cam = (P @ points_world.T).T  # (N,4)
 
         # Only keep points in front of camera (z > 0)
         in_front = points_cam[:, 2] > 0
         points_cam = points_cam[in_front]
+        print(f"[DEBUG] Points in front of camera: {len(points_cam)}")
 
         # Fourth dimension represent depths (can also be calculated using euclidian distance, maybe try later)
         depths = radar_data[in_front, 3]
@@ -55,7 +58,10 @@ class ObjectDistanceCalculator:
             inside_mask = (projected[:, 0] >= x1) & (projected[:, 0] <= x2) & \
                           (projected[:, 1] >= y1) & (projected[:, 1] <= y2)
 
+
             inside_points = projected[inside_mask]
+            num_inside = np.count_nonzero(inside_points)
+            print(f"[DEBUG] Box {i}: ({x1},{y1})-({x2},{y2}), radar points inside: {num_inside}")
 
             if inside_points.shape[0] == 0:
                 distances.append(0.0)
