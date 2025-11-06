@@ -111,6 +111,8 @@ class RadarSensor(object):
             carla.Location(x=2.0, y=0.0, z=1.5),  # 2m forward, 1.5m high, centered
             carla.Rotation(pitch=0.0, yaw=0.0, roll=0.0)  # aligned with camera
         )
+        self.radar_transform=radar_transform
+
 
         # Spawn radar attached to the ego vehicle
         self.sensor = world.spawn_actor(
