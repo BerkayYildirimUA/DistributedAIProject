@@ -95,10 +95,14 @@ class RadarSensor(object):
 
             if 0 <= u < self.img_w and 0 <= v < self.img_h:
                 data.append([u,v,detect.velocity])
-        if len(data) < 500:
-            data=data+[0,0,0]*(500-len(data))
+        max_points = 500
+        num_points = len(data)
+
+        if num_points < max_points:
+            # append [0,0,0] lists
+            data += [[0, 0, 0]] * (max_points - num_points)
         else:
-            data=data[:500]
+            data = data[:max_points]
         self.radar_memory.write(data)
 
 
