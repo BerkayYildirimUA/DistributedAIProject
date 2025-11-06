@@ -133,7 +133,7 @@ class RadarSensor(object):
         # Build camera intrinsics
         image_w = int(self._camera.attributes['image_size_x'])
         image_h = int(self._camera.attributes['image_size_y'])
-        # fov = float(self._camera.attributes['fov'])
+        self.fov = float(self._camera.attributes['fov'])
 
         self.camera_transform = camera_transform
         self.img_w, self.img_h = image_w, image_h
