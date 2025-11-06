@@ -40,7 +40,7 @@ try:
         #distances=object_distance_calculator.get_depth_camera_distances(boxes,depth_map)
 
         # Debugging step
-        distances = object_distance_calculator.get_radar_distances(boxes, radar_data, K, P, constants.IMAGE_WIDTH, constants.IMAGE_HEIGHT)
+        distances = object_distance_calculator.get_radar_distances(boxes, radar_data, K, P, constants.IMAGE_WIDTH, constants.IMAGE_HEIGHT, mode="range")
 
         # Visualise
         visualiser= POVVisualiser(
