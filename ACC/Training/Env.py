@@ -13,7 +13,7 @@ from ACC.Engine.engine import Engine
 from ACC.Utils.GForce_Class import GForceCalculator
 from ACC.Utils.abstractions import ActionsEnum
 from ACC.Utils.abstractions import VehicleState
-from ACC.Utils.implementations import CarlaWorldStateSensor
+from ACC.Utils.Sensors import CarlaWorldStateSensor
 from gymnasium import spaces
 import traceback
 

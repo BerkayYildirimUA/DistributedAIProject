@@ -7,7 +7,8 @@ from carla import BlueprintLibrary
 
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
-from ACC.Utils.implementations import CarlaLeadStateSensor, SimpleAccAgent, CarlaWorldStateSensor
+from ACC.Utils.Sensors import CarlaLeadStateSensor, CarlaWorldStateSensor
+from ACC.Utils.Agents.SimpleAgent import SimpleAccAgent
 from ACC.Engine.engine import Engine
 
 def main_loop(args):
@@ -64,6 +65,7 @@ def main_loop(args):
         engine.cleanup()
 
 from ACC.Training.Env import CarlaEnv
+
 def train_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
                      map_name=args.map, number_of_npc=args.num_npcs)
@@ -74,6 +76,8 @@ def train_loop(args):
 
     while not episode_over:
         action = env.action_space.sample()
+
+
         observation, reward, terminated, truncated, info = env.step(action)
         total_reward += reward
         episode_over = terminated or truncated
