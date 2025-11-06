@@ -64,6 +64,7 @@ class RadarSensor(object):
         current_rot = radar_transform.rotation
 
         for detect in radar_data:
+            print(detect)
             azi = math.degrees(detect.azimuth)
             alt = math.degrees(detect.altitude)
 
@@ -83,6 +84,7 @@ class RadarSensor(object):
 
             # Only consider points in front of the camera
             if camera_point[2] <= 0:
+                print("behond")
                 continue
 
             # Project to 2D
