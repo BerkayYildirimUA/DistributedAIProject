@@ -343,7 +343,7 @@ class World:
 
     def add_radar(self):
         self.radar_sensor=RadarSensor(self.ego_vehicle,self.rgb_camera,self.camera_transform)
-        self.radar_sensor2=RadarSensor2(self.ego_vehicle,self.rgb_camera,self.camera_transform)
+        self.radar_sensor2=RadarSensor2(self.ego_vehicle)
     def expose_queues(self):
         return self.rgb_camera_queue, self.depth_camera_queue
 
