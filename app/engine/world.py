@@ -157,7 +157,7 @@ class RadarSensor(object):
 
 
     @staticmethod
-    def _Radar_callback(weak_self, radar_data,transform):
+    def _Radar_callback(weak_self, radar_data):
         data=[]
         self = weak_self()
         if not self:
@@ -165,7 +165,7 @@ class RadarSensor(object):
 
         K=build_projection_matrix(self.img_w,self.img_h,self.fov)
         data = radar_to_image(radar_data,self.radar_transform,self.camera_transform,K,flatten=True)
-
+        print(data)
             # data.append([u, v, detect.velocity])
 
         max_points = 500
