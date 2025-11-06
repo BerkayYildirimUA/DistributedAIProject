@@ -26,7 +26,7 @@ class POVVisualiser:
 
     def add_trajectory_overlay(self, frame):
         for i, lane in enumerate(self.lanes):
-            cv2.circle(frame, lane, 5, (0, 255, 0), -1)
+            cv2.circle(frame, lane, 3, (0, 255, 0), -1)
 
             # color = colors[i % len(colors)]
             # cv2.polylines(frame, [np.array(lane, dtype=np.int32)], False, color, 4)
