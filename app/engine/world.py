@@ -6,33 +6,6 @@ import carla
 import numpy as np
 
 from memory.shared_memory import RadarMemory
-def carla_transform_to_matrix(transform: carla.Transform):
-    """Convert CARLA Transform to a 4x4 numpy matrix"""
-    rotation = transform.rotation
-    location = transform.location
-    pitch = math.radians(rotation.pitch)
-    yaw = math.radians(rotation.yaw)
-    roll = math.radians(rotation.roll)
-
-    cp = math.cos(pitch)
-    sp = math.sin(pitch)
-    cy = math.cos(yaw)
-    sy = math.sin(yaw)
-    cr = math.cos(roll)
-    sr = math.sin(roll)
-
-    # Rotation matrix (CARLA uses ZYX order)
-    R = np.array([
-        [cy*cp, cy*sp*sr - sy*cr, cy*sp*cr + sy*sr],
-        [sy*cp, sy*sp*sr + cy*cr, sy*sp*cr - cy*sr],
-        [-sp, cp*sr, cp*cr]
-    ])
-
-    # Compose 4x4 matrix
-    M = np.eye(4)
-    M[0:3,0:3] = R
-    M[0:3,3] = np.array([location.x, location.y, location.z])
-    return M
 
 class RadarSensor(object):
     def __init__(self, parent_actor, camera_actor):
@@ -89,13 +62,6 @@ class RadarSensor(object):
         self = weak_self()
         if not self:
             return
-
-        # Camera transform
-        # Build camera world->camera matrix
-        cam_world_matrix = carla_transform_to_matrix(self._camera.get_transform())
-        world_2_camera = np.linalg.inv(cam_world_matrix)
-
-        radar_transform = radar_data.transform
         min_depth = 1.0  # minimum distance to consider points
 
         for detect in radar_data:
@@ -103,25 +69,8 @@ class RadarSensor(object):
             x = detect.depth * math.cos(detect.altitude) * math.cos(detect.azimuth)
             y = detect.depth * math.cos(detect.altitude) * math.sin(detect.azimuth)
             z = 0.0  # flatten to ground plane
-            if x < min_depth:
-                continue  # skip points too close
 
-            world_loc = radar_transform.location + carla.Vector3D(x, y, z)
-            world_point = np.array([world_loc.x, world_loc.y, world_loc.z, 1.0])
-
-            # Transform to camera coordinates
-            camera_point = world_2_camera @ world_point
-
-            # Skip points behind camera
-            if camera_point[2] <= 0:
-                continue
-
-            # Project to 2D
-            pixel = self.K @ (camera_point[:3] / camera_point[2])
-            u, v = int(pixel[0]), int(pixel[1])
-
-            if 0 <= u < self.img_w and 0 <= v < self.img_h:
-                data.append([u, v, detect.velocity])
+            data.append([x, y, detect.velocity])
 
         max_points = 500
         num_points = len(data)
