@@ -272,7 +272,7 @@ class World:
         self.spectator.set_transform(spectator_transform)
 
     def add_radar(self):
-        self.radar_sensor=RadarSensor(self.ego_vehicle)
+        self.radar_sensor=RadarSensor(self.ego_vehicle,self.rgb_camera)
 
     def expose_queues(self):
         return self.rgb_camera_queue, self.depth_camera_queue
