@@ -50,6 +50,7 @@ class ObjectDistanceCalculator:
         # Combine projected pixel coordinates and their respective depth
         projected = np.vstack([u, v, depths]).T  # (N,3)
 
+        object_boxes = np.array(object_boxes)
         for i, (x1, y1, x2, y2) in enumerate(object_boxes):
             inside_mask = (projected[:, 0] >= x1) & (projected[:, 0] <= x2) & \
                           (projected[:, 1] >= y1) & (projected[:, 1] <= y2)
