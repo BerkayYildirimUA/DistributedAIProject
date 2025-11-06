@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from app.data_processors.intersection_detector import IntersectionDetector
+from data_processors.intersection_detector import IntersectionDetector
 from engine.bird_eye_visualiser import BirdVisualiser
 from data_processors.lane_detector import LaneDetector
 from data_processors.object_detector import ObjectDetector
