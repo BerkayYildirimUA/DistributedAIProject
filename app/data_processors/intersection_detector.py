@@ -7,7 +7,7 @@ class IntersectionDetector:
 
     def is_intersecting_list(self, lane_a, lane_b, boxes):
         if len(lane_a) < 2 or len(lane_b) < 2:
-            raise ValueError("Not enough lane points provided")
+            return [False]*len(boxes)
 
         # Form a closed polygon for the lane region
         lane_poly = np.array(lane_a + lane_b[::-1], dtype=np.int32)
