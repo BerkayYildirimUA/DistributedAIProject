@@ -35,6 +35,7 @@ class RadarSensor(object):
             bp,
             radar_transform,
             attach_to=self._parent
+        )
 
         # Build camera intrinsics
         image_w = int(self._camera.attributes['image_size_x'])
