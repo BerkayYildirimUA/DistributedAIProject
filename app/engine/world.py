@@ -133,19 +133,11 @@ class RadarSensor(object):
         # Build camera intrinsics
         image_w = int(self._camera.attributes['image_size_x'])
         image_h = int(self._camera.attributes['image_size_y'])
-        fov = float(self._camera.attributes['fov'])
+        # fov = float(self._camera.attributes['fov'])
 
         self.camera_transform = camera_transform
         self.img_w, self.img_h = image_w, image_h
 
-        # compute focal length in pixels
-        f_x = f_y = image_w / (2 * np.tan(np.deg2rad(fov) / 2))
-        c_x = image_w / 2
-        c_y = image_h / 2
-
-        self.K = np.array([[f_x, 0, c_x],
-                      [0, f_y, c_y],
-                      [0, 0, 1]])
 
         weak_self = weakref.ref(self)
         self.sensor.listen(lambda data: RadarSensor._Radar_callback(weak_self, data))
