@@ -18,16 +18,23 @@ class RadarSensor(object):
 
         self.radar_memory = RadarMemory().get_write_access()
 
+        # Get radar blueprint
         bp = world.get_blueprint_library().find('sensor.other.radar')
-        bp.set_attribute('horizontal_fov', '35')
+        bp.set_attribute('horizontal_fov', '35')  # match camera FOV
         bp.set_attribute('vertical_fov', '20')
-        bp.set_attribute('range', '50')
+        bp.set_attribute('range', '50')  # max detection range in meters
 
+        # Recommended radar transform
+        radar_transform = carla.Transform(
+            carla.Location(x=2.0, y=0.0, z=1.5),  # 2m forward, 1.5m high, centered
+            carla.Rotation(pitch=0.0, yaw=0.0, roll=0.0)  # aligned with camera
+        )
+
+        # Spawn radar attached to the ego vehicle
         self.sensor = world.spawn_actor(
             bp,
-            carla.Transform(carla.Location(x=2.0, z=1.0), carla.Rotation(pitch=5)),
+            radar_transform,
             attach_to=self._parent
-        )
 
         # Build camera intrinsics
         image_w = int(self._camera.attributes['image_size_x'])
