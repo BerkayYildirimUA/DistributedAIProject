@@ -94,8 +94,8 @@ class RadarSensor(object):
             u, v = int(pixel[0]), int(pixel[1])
 
             if 0 <= u < self.img_w and 0 <= v < self.img_h:
-                data.appens([u,v,detect.velocity])
-        if len(data) <500:
+                data.append([u,v,detect.velocity])
+        if len(data) < 500:
             data=data+[0,0,0]*(500-len(data))
         else:
             data=data[:500]
