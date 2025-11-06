@@ -139,18 +139,43 @@ class World:
         return self.rgb_camera_queue, self.depth_camera_queue, self.radar_queue
 
     def calculate_camera_intrinsic_extrinsic(self):
-        # Calculate camera intrinsic matrix K
-        focal = constants.IMAGE_WIDTH / (2.0 * math.tan(constants.HOR_FOV_DEG * math.pi / 360.0))
-        K = np.identity(3)
-        K[0, 0] = K[1, 1] = focal
-        K[0, 2] = constants.IMAGE_WIDTH / 2.0
-        K[1, 2] = constants.IMAGE_HEIGHT / 2.0
+        import numpy as np, math
 
-        # Calculate camera extrinsic matrix
-        P = np.array(self.rgb_camera.get_transform().get_inverse_matrix())
+        w = float(constants.IMAGE_WIDTH)
+        h = float(constants.IMAGE_HEIGHT)
+        hfov = math.radians(constants.HOR_FOV_DEG)
 
-        return [K, P]
+        # Intrinsics
+        fx = w / (2.0 * math.tan(hfov / 2.0))
+        # exact fy based on aspect
+        vfov = 2.0 * math.atan((h / w) * math.tan(hfov / 2.0))
+        fy = h / (2.0 * math.tan(vfov / 2.0))
+        cx = (w - 1.0) / 2.0
+        cy = (h - 1.0) / 2.0
 
+        K = np.array([[fx, 0.0, cx],
+                      [0.0, fy, cy],
+                      [0.0, 0.0, 1.0]], dtype=np.float64)
+
+        # World -> camera in Unreal frame (X forward, Y right, Z up)
+        T_world_cam_ue = np.array(self.rgb_camera.get_transform().get_inverse_matrix(),
+                                  dtype=np.float64)  # (4,4)
+
+        # Unreal -> CV frame (x right, y down, z forward)
+        R_ue2cv = np.array([[0, 1, 0],
+                            [0, 0, -1],
+                            [1, 0, 0]], dtype=np.float64)
+        T_ue2cv = np.eye(4, dtype=np.float64)
+        T_ue2cv[:3, :3] = R_ue2cv
+
+        # Final world -> camera (CV frame)
+        P = T_ue2cv @ T_world_cam_ue  # (4,4)
+
+        # Guards
+        assert K.shape == (3, 3), K.shape
+        assert P.shape == (4, 4), P.shape
+
+        return K, P
 
     def cleanup(self):
         self.rgb_camera.stop()

@@ -2,7 +2,6 @@ import queue
 import numpy as np
 import cv2
 import threading
-import constants
 import carla
 import math
 
@@ -44,36 +43,40 @@ def depth_callback(image):
 
 # Radar callback
 def radar_callback(raw_data):
-    current_rot = raw_data.transform.rotation
-    points = np.zeros((constants.RADAR_MAX_DETECTIONS, 4), dtype=np.float32)
-
-    if len(raw_data) == 0:
-        print("[RADAR CALLBACK] No detections this frame.")
+    # How many we’ll keep this frame (no arbitrary clipping)
+    n = len(raw_data)
+    if n == 0:
+        print("[RADAR] No detections this frame.")
+        radar_memory.write(np.zeros((0, 4), dtype=np.float32))
         return
 
-    print(f"[RADAR CALLBACK] {len(raw_data)} detections received")
+    points = np.zeros((n, 4), dtype=np.float32)
+    T_wr = raw_data.transform  # radar sensor pose in world (at this frame)
 
+    for i, det in enumerate(raw_data):
+        # detection angles are given in radians; CARLA Rotation expects degrees
+        azi_deg = math.degrees(det.azimuth)
+        alt_deg = math.degrees(det.altitude)
 
-    for i, detect in enumerate(raw_data):
-        if i >= constants.RADAR_MAX_DETECTIONS:
-            print(f"[RADAR CALLBACK] Clipped to {constants.RADAR_MAX_DETECTIONS} detections.")
-            break
+        # vector along radar X (forward) by the detection slant range
+        fwd = carla.Vector3D(x=det.depth)
 
-        azi = math.degrees(detect.azimuth)
-        alt = math.degrees(detect.altitude)
+        # rotate by detection's azimuth/altitude in the radar *local* frame
+        local_vec = carla.Transform(
+            carla.Location(),
+            carla.Rotation(pitch=alt_deg, yaw=azi_deg, roll=0.0)
+        ).transform(fwd)
 
-        fw_vec = carla.Vector3D(x=detect.depth)  # do not subtract 0.25 for geometry
-        # rotate by detection angles only, still in radar-local frame
-        local = carla.Transform(carla.Location(),
-                                carla.Rotation(pitch=alt, yaw=azi, roll=0.0)
-                                ).transform(fw_vec)
-        # now apply the radar's full transform once (rotation + translation) to get world
-        world_point = raw_data.transform.transform(local)  # <-- final world XYZ
-        points[i] = (world_point.x, world_point.y, world_point.z, detect.depth)
+        # now apply the radar pose once to get a world-space point
+        world_vec = T_wr.transform(local_vec)
+        points[i, 0] = world_vec.x
+        points[i, 1] = world_vec.y
+        points[i, 2] = world_vec.z
+        points[i, 3] = det.depth  # keep slant range if you want to inspect it
 
     radar_memory.write(points)
-    print(f"[RADAR CALLBACK] Wrote {np.count_nonzero(points[:, 3])} nonzero radar points to memory")
-    print(f"[RADAR CALLBACK] First point sample: {points[0]}")
+    print(f"[RADAR] wrote {len(points)} points; sample: {points[0]}")
+
 
 
 # ---------------------------
