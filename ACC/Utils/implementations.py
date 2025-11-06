@@ -1,17 +1,22 @@
+import weakref
+import collections
+
 import carla
 from carla import Vector3D
 import math
 
+from ACC.Utils.GForce_Class import GForceCalculator
 from ACC.Utils.abstractions import StateSensor, DecisionAgent, UI, VehicleState
 
 class CarlaWorldStateSensor(StateSensor):
 
-    def __init__(self, ego_vehicle: carla.Actor, world: carla.World):
+    def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World):
         self.__ego = ego_vehicle
         self.__world = world
 
         self.__safe_time_distance_seconds = 2
         self.counter = 0
+        self.__collision_sensor = CollisionSensor(ego_vehicle)
 
     def get_state(self) -> VehicleState:
         ego_transform = self.__ego.get_transform()
@@ -28,6 +33,7 @@ class CarlaWorldStateSensor(StateSensor):
         ego_velocity_ms = ego_velocity_vec.length()
 
         safe_distance = self.__safe_time_distance_seconds * ego_velocity_ms
+        has_crashed = self.__collision_sensor.has_collided
 
         smallest_dist = 400
         dists = []
@@ -43,7 +49,13 @@ class CarlaWorldStateSensor(StateSensor):
         else:
             self.counter += 1
 
-        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=360, distances=dists, safe_following_distance=safe_distance, hasCrashed=False)
+
+        speed_limit = self.__ego.get_speed_limit()
+
+        if speed_limit is 0.0:
+            speed_limit = 30
+
+        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=speed_limit, distances=dists, safe_following_distance=safe_distance, hasCrashed=has_crashed)
 
 class CarlaLeadStateSensor(StateSensor):
 
@@ -53,6 +65,8 @@ class CarlaLeadStateSensor(StateSensor):
 
         self.__safe_time_distance_seconds = 2
         self.counter = 0
+        self.__collision_sensor = CollisionSensor(ego_vehicle)
+
 
     def get_state(self) -> VehicleState:
         ego_transform = self.__ego.get_transform()
@@ -65,13 +79,20 @@ class CarlaLeadStateSensor(StateSensor):
 
         safe_distance = self.__safe_time_distance_seconds * ego_velocity_ms
 
+        has_crashed = self.__collision_sensor.has_collided
+
         if self.counter == 100:
             self.counter = 0
             print(f"speed: {ego_velocity_ms * 3.6} km/h, distance: {distance}m, safe dist: {safe_distance}m")
         else:
             self.counter += 1
 
-        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=360, distances=[distance], safe_following_distance=safe_distance, hasCrashed=False)
+        speed_limit = self.__ego.get_speed_limit()
+
+        if speed_limit is 0.0:
+            speed_limit = 30
+
+        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=speed_limit, distances=[distance], safe_following_distance=safe_distance, hasCrashed=has_crashed)
 
 class SimpleAccAgent(DecisionAgent):
 
@@ -117,6 +138,45 @@ class SimpleAccAgent(DecisionAgent):
         )
 
         return final_control
+
+
+#code form carla examples, from "automatic_control.py"
+class CollisionSensor(object):
+    """ Class for collision sensors """
+
+    def __init__(self, parent_actor):
+        """Constructor method"""
+        self.sensor = None
+        self.history = []
+        self.has_collided = False
+        self._parent = parent_actor
+
+        world = self._parent.get_world()
+        blueprint = world.get_blueprint_library().find('sensor.other.collision')
+        self.sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=self._parent)
+
+        weak_self = weakref.ref(self)
+        self.sensor.listen(lambda event: CollisionSensor._on_collision(weak_self, event))
+
+    def get_collision_history(self):
+        """Gets the history of collisions"""
+        history = collections.defaultdict(int)
+        for frame, intensity in self.history:
+            history[frame] += intensity
+        return history
+
+    @staticmethod
+    def _on_collision(weak_self, event):
+        """On collision method"""
+        self = weak_self()
+        if not self:
+            return
+        impulse = event.normal_impulse
+        intensity = math.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
+        self.history.append((event.frame, intensity))
+        self.has_collided = True
+        if len(self.history) > 4000:
+            self.history.pop(0)
 
 
 class PygameUI(UI):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import SupportsFloat, Any, Dict
 import carla
 import gymnasium as gym
@@ -9,6 +10,7 @@ from gymnasium.core import RenderFrame, ActType, ObsType
 from torch.backends.quantized import engine
 
 from ACC.Engine.engine import Engine
+from ACC.Utils.GForce_Class import GForceCalculator
 from ACC.Utils.abstractions import ActionsEnum
 from ACC.Utils.abstractions import VehicleState
 from ACC.Utils.implementations import CarlaWorldStateSensor
@@ -39,6 +41,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             dtype=np.float32,
         )
 
+        self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
+
     def _array_to_action(self, action: np.ndarray) -> dict[ActionsEnum, float]:
         return {
             ActionsEnum.throttle: float(action[0]),
@@ -54,6 +58,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         obs = self.sensor_real.get_state()
         info: dict[str, Any] = {}
+        self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
         return obs, info
 
     def close(self):
@@ -65,10 +70,44 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         #self.engine.ego.real
 
-        self.sensor_real.get_state()
+        state : VehicleState = self.sensor_real.get_state()
+
+        self.__g_force_calculator.update_speed(state.speed)
 
 
+        #crash
+        reward = 0.0
+        if state.hasCrashed:
+            reward = -100
+        else:
+            reward += 1
 
+
+        #geforce
+        g_force = self.__g_force_calculator.get_latest_g_force()
+        if g_force is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
+            if abs(g_force) < (0.56 / 9.81):
+                reward += 2
+            elif  abs(g_force) < (1.23 / 9.81):
+                reward += 1
+            elif  abs(g_force) < (2.12 / 9.81):
+                reward -= 2
+            else:
+                reward -= math.exp(9.81) * (abs(g_force) - 2)
+
+        #speed limit
+        if state.speed > (state.speed_limit + 3):
+            reward -= (state.speed - state.speed_limit - 1)
+        else:
+            reward += 1
+
+        if state.distances is not None and len(state.distances) > 0:
+            min_front_distance = min(state.distances)
+            safe_distance = state.safe_following_distance
+
+            if min_front_distance < safe_distance:
+                penalty = math.exp((safe_distance - min_front_distance) / safe_distance) - 1
+                reward -= 5 * penalty
 
         return 0
 

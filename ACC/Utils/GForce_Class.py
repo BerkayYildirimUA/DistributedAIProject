@@ -1,3 +1,6 @@
+from typing import List, Optional
+
+
 class GForceCalculator:
     """
     This class calculates the G-force of a vehicle over time while it accelerates in CARLA.
@@ -59,11 +62,23 @@ class GForceCalculator:
             self.speed_history = self.speed_history[-portion_size:]
 
 
-    def get_g_forces(self):
+    def get_g_forces(self) ->  Optional[List[float]]:
         """
         Returns the list of all calculated G-force values.
         """
+        if len(self.g_force_values) == 0:
+            return None
+
         return self.g_force_values
+
+    def get_latest_g_force(self) -> Optional[float]:
+        """
+        Returns the list of all calculated G-force values.
+        """
+        if len(self.g_force_values) == 0:
+            return None
+
+        return self.g_force_values[-1]
 
 
 if __name__ == '__main__':
