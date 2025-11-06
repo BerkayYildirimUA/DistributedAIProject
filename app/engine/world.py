@@ -101,12 +101,12 @@ class World:
 
     def create_world(self):
         self.client = carla.Client('localhost', self.port)
-        self.world = self.client.load_world(self.world_name)
+        self.client.load_world(self.world_name)
         self.client.set_timeout(self.timeout)
         self.world = self.client.get_world()
 
         settings = self.world.get_settings()
-        settings.synchronous_mode = True
+        settings.synchronous_mode = False
         settings.fixed_delta_seconds = self.delta
         self.world.apply_settings(settings)
 
