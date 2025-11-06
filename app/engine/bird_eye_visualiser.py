@@ -69,6 +69,7 @@ class BirdVisualiser:
         lanes = self.warp_points(lanes)
         objects,colors =self.get_object_coords_and_colors(boxes,class_ids)
         objects = self.warp_points(objects)
+        print("warped",objects)
         lane_colors=[(0,0,0)]*len(lanes)
         return lanes+objects,lane_colors+colors
 
