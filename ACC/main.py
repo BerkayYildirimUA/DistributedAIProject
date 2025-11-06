@@ -56,7 +56,7 @@ def main_loop(args):
             engine.update_spectator()
 
             # Render all components
-            display.fill((0, 0, 0))  # Clear the screen (assuming black background)
+            display.fill((255, 255, 255))  # Clear the screen (assuming black background)
 
             hud.render(display)  # Render the HUD on the Pygame surface
             pygame.display.flip()  # Update the screen
