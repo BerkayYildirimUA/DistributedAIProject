@@ -11,27 +11,34 @@ import numpy as np
 import carla
 
 
-def get_image_point(loc, K, w2c):
-    # Calculate 2D projection of 3D coordinate
+import numpy as np
+import math
 
-    # Format the input coordinate (loc is a carla.Position object)
-    point = np.array([loc.x, loc.y, loc.z, 1])
-    # transform to camera coordinates
-    point_camera = np.dot(w2c, point)
+def transform_to_matrix(transform):
+    """Convert carla.Transform to 4x4 homogeneous matrix."""
+    pitch = np.deg2rad(transform.rotation.pitch)
+    yaw   = np.deg2rad(transform.rotation.yaw)
+    roll  = np.deg2rad(transform.rotation.roll)
 
-    # New we must change from UE4's coordinate system to an "standard"
-    # (x, y ,z) -> (y, -z, x)
-    # and we remove the fourth componebonent also
-    point_camera = [point_camera[1], -point_camera[2], point_camera[0]]
+    # Rotation matrices
+    Rx = np.array([[1,0,0],
+                   [0,np.cos(roll),-np.sin(roll)],
+                   [0,np.sin(roll),np.cos(roll)]])
+    Ry = np.array([[np.cos(pitch),0,np.sin(pitch)],
+                   [0,1,0],
+                   [-np.sin(pitch),0,np.cos(pitch)]])
+    Rz = np.array([[np.cos(yaw),-np.sin(yaw),0],
+                   [np.sin(yaw),np.cos(yaw),0],
+                   [0,0,1]])
+    R = Rz @ Ry @ Rx
+    T = np.array([transform.location.x,
+                  transform.location.y,
+                  transform.location.z]).reshape(3,1)
 
-    # now project 3D->2D using the camera matrix
-    point_img = np.dot(K, point_camera)
-    # normalize
-    point_img[0] /= point_img[2]
-    point_img[1] /= point_img[2]
-
-    return point_img[0:2]
-
+    H = np.eye(4)
+    H[:3,:3] = R
+    H[:3,3] = T.flatten()
+    return H
 def build_projection_matrix(w, h, fov, is_behind_camera=False):
     focal = w / (2.0 * np.tan(fov * np.pi / 360.0))
     K = np.identity(3)
@@ -44,49 +51,50 @@ def build_projection_matrix(w, h, fov, is_behind_camera=False):
     K[0, 2] = w / 2.0
     K[1, 2] = h / 2.0
     return K
-
-
-def transform_to_matrix(transform: carla.Transform):
+def radar_to_image(radar_data, radar_transform, camera_transform, K, flatten=False):
     """
-    Convert carla.Transform to 4x4 homogeneous transformation matrix.
+    Map radar points to camera image coordinates.
+
+    radar_data: list of CARLA radar detections with attributes .depth, .azimuth, .altitude
+    radar_transform: carla.Transform of the radar sensor
+    camera_transform: carla.Transform of the camera sensor
+    K: camera intrinsic matrix (3x3)
+    flatten: if True, ignores height (sets z=0)
+    Returns: list of (u,v) pixel coordinates
     """
-    # Convert rotation from degrees to radians
-    pitch = np.deg2rad(transform.rotation.pitch)
-    yaw   = np.deg2rad(transform.rotation.yaw)
-    roll  = np.deg2rad(transform.rotation.roll)
+    # Precompute radar -> camera transform
+    H_radar = transform_to_matrix(radar_transform)
+    H_camera = transform_to_matrix(camera_transform)
+    H_radar_to_camera = np.linalg.inv(H_camera) @ H_radar
+    R = H_radar_to_camera[:3,:3]
+    t = H_radar_to_camera[:3,3]
 
-    # Rotation matrices around x, y, z axes
-    Rx = np.array([
-        [1, 0, 0],
-        [0, np.cos(roll), -np.sin(roll)],
-        [0, np.sin(roll),  np.cos(roll)]
-    ])
+    pixels = []
 
-    Ry = np.array([
-        [ np.cos(pitch), 0, np.sin(pitch)],
-        [ 0, 1, 0],
-        [-np.sin(pitch), 0, np.cos(pitch)]
-    ])
+    for detect in radar_data:
+        # Polar -> Cartesian
+        x = detect.depth * math.cos(detect.altitude) * math.cos(detect.azimuth)
+        y = detect.depth * math.cos(detect.altitude) * math.sin(detect.azimuth)
+        z = detect.depth * math.sin(detect.altitude)
+        if flatten:
+            z = 0.0
+        point_radar = np.array([x,y,z])
 
-    Rz = np.array([
-        [np.cos(yaw), -np.sin(yaw), 0],
-        [np.sin(yaw),  np.cos(yaw), 0],
-        [0, 0, 1]
-    ])
+        # Radar -> camera frame
+        point_cam = R @ point_radar + t
+        Xc, Yc, Zc = point_cam
 
-    # CARLA uses yaw-pitch-roll (Z-Y-X) order
-    R = Rz @ Ry @ Rx
+        # Only keep points in front of camera
+        if Zc <= 0:
+            continue
 
-    # Translation vector
-    T = np.array([transform.location.x,
-                  transform.location.y,
-                  transform.location.z]).reshape(3,1)
+        # Project to image plane
+        u = int(K[0,0]*Xc/Zc + K[0,2])
+        v = int(K[1,1]*Yc/Zc + K[1,2])
 
-    # Homogeneous 4x4 matrix
-    H = np.eye(4)
-    H[:3,:3] = R
-    H[:3,3] = T.flatten()
-    return H
+        pixels.append((u,v))
+
+    return pixels
 
 
 
@@ -149,32 +157,16 @@ class RadarSensor(object):
 
 
     @staticmethod
-    def _Radar_callback(weak_self, radar_data):
+    def _Radar_callback(weak_self, radar_data,transform):
         data=[]
         self = weak_self()
         if not self:
             return
 
-        for detect in radar_data:
-            # Convert polar to Cartesian coordinates (flatten to ground plane)
-            x = detect.depth * math.cos(detect.altitude) * math.cos(detect.azimuth)
-            y = detect.depth * math.cos(detect.altitude) * math.sin(detect.azimuth)
-            z = detect.depth * math.sin(detect.altitude)
-            # z = 0.0  # flatten to ground plane
-            point_radar = np.array([x, y, z, 1.0]).reshape(4, 1)
+        K=build_projection_matrix(self.img_w,self.img_h,self.fov)
+        data = radar_to_image(radar_data,self.radar_transform,self.camera_transform,K,flatten=True)
 
-            H_radar = transform_to_matrix(self.radar_transform)
-            H_camera = transform_to_matrix(self.camera_transform)
-            H_radar_to_camera = np.linalg.inv(H_camera) @ H_radar
-            R_radar_to_camera = H_radar_to_camera[:3, :3]
-            t_radar_to_camera = H_radar_to_camera[:3, 3]
-            point_camera = H_radar_to_camera @ point_radar
-            X_cam, Y_cam, Z_cam = point_camera[:3, 0]
-
-            u = (self.K[0, 0] * X_cam + self.K[0, 2] * Z_cam) / Z_cam
-            v = (self.K[1, 1] * Y_cam + self.K[1, 2] * Z_cam) / Z_cam
-
-            data.append([u, v, detect.velocity])
+            # data.append([u, v, detect.velocity])
 
         max_points = 500
         num_points = len(data)
