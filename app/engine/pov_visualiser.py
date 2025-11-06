@@ -3,20 +3,24 @@ import numpy as np
 
 
 class POVVisualiser:
-    def __init__(self,class_names,frame, boxes,class_ids,scores,distances,lanes):
+    def __init__(self,class_names,frame, boxes,class_ids,scores,distances,is_intersected,lanes):
         self.boxes = boxes
         self.class_ids = class_ids
         self.scores = scores
         self.distances = distances
         self.lanes = lanes
+        self.is_intersected=is_intersected
         self.class_names = class_names
         self.frame = frame
 
     def add_object_and_distance_overlay(self, frame):
-        for distance,(x1, y1, x2, y2), score, cls_id in zip(self.distances,self.boxes, self.scores, self.class_ids):
+        for distance,(x1, y1, x2, y2), score, cls_id,inter in zip(self.distances,self.boxes, self.scores, self.class_ids,self.is_intersected):
             x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
             cls_name = self.class_names[int(cls_id)]
-            color = (0, 255, 0)
+            if inter:
+                color= (255,0,0)
+            else:
+                color = (0, 255, 0)
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, f"{cls_name} {score:.2f}", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             cv2.putText(frame, f"{distance:.1f} m", (x1, y2 + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)

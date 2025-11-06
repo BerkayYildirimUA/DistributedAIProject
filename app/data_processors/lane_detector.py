@@ -110,11 +110,11 @@ class LaneDetector:
         return output
 
     # TODO: optimise, cant we filter earlier?
-    def get_lanes(self, frame):
+    def get_lanes(self, frame,int_degree=1):
         scores= self.get_lane_scores(frame)
         lanes = self.get_lane_coords(scores)
         # return torch.stack((x,y), dim=0).cpu().numpy()
-        return self.filter_car_lanes(lanes)
+        return self.filter_car_lanes(lanes,int_degree)
 
 
     def get_lane_coords(self, scores):
@@ -135,12 +135,12 @@ class LaneDetector:
             if lane_pts:
                 lanes.append(lane_pts)
         return lanes
-    def interpolate_lane(self,lane):
+    def interpolate_lane(self,lane,degree=1):
         if len(lane) < 2:
             return lane
         x = np.array([x for x,_ in lane])
         y = np.array([y for _,y in lane])
-        coeffs = np.polyfit(y, x, 3)
+        coeffs = np.polyfit(y, x, degree)
         poly = np.poly1d(coeffs)
 
         # Generate smooth curve
@@ -154,7 +154,7 @@ class LaneDetector:
             torch.tensor([x for x, y in lane], dtype=torch.float).mean() - frame_center))
         return best_lane
 
-    def filter_car_lanes(self, lanes):
+    def filter_car_lanes(self, lanes,int_degree):
         """
         Select lanes left and right of the car and return a single list of coordinates.
         lanes: list of lanes, each lane is a list of (x, y) points
@@ -179,8 +179,6 @@ class LaneDetector:
             if right_lanes else []
 
         # Flatten coordinates into a single list
-        best_coords = self.interpolate_lane(best_left) + self.interpolate_lane(best_right)
-        best_coords=best_left+best_right
-        return best_coords
+        return self.interpolate_lane(best_left,int_degree),self.interpolate_lane(best_right,int_degree)
 
 

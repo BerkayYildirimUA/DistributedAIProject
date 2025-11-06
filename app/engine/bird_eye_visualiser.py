@@ -2,7 +2,7 @@
 import cv2
 import numpy as np
 
-
+# TODO: not used at the moment
 class BirdVisualiser:
     def __init__(self,width,height):
         self.w = width
@@ -47,6 +47,8 @@ class BirdVisualiser:
             return []
         pts = np.array(pts, dtype='float32').reshape(-1, 1,2)
         warped = cv2.perspectiveTransform(pts, self.M).reshape(-1, 2)
+        warped[:, 0] = np.clip(warped[:, 0], 0, self.w - 1)
+        warped[:, 1] = np.clip(warped[:, 1], 0, self.h - 1)
         return warped
 
     def get_object_coords_and_colors(self,boxes,class_ids):
@@ -87,3 +89,18 @@ class BirdVisualiser:
         cv2.waitKey(1)
     def cleanup(self):
         cv2.destroyAllWindows()
+
+    def debug_perspective(self, frame):
+        src = np.float32([
+            (self.w * self.left_top_x, self.h * self.top_y),
+            (self.w * self.right_top_x, self.h * self.top_y),
+            (self.w * self.right_bottom_x, self.h * self.bottom_y),
+            (self.w * self.left_bottom_x, self.h * self.bottom_y)
+        ])
+        frame_copy = frame.copy()
+        for p in src:
+            cv2.circle(frame_copy, tuple(map(int, p)), 5, (0, 0, 255), -1)
+        cv2.polylines(frame_copy, [np.int32(src)], True, (255, 0, 0), 2)
+        cv2.imshow("Source trapezoid", frame_copy)
+        cv2.waitKey(0)
+
