@@ -17,7 +17,7 @@ vehicle_distance_memory = VehicleDistanceMemory().get_write_access()
 object_detector = ObjectDetector()
 object_distance_calculator=ObjectDistanceCalculator()
 lane_detector=LaneDetector()
-bird_eye_visualiser=BirdVisualiser(640,480)
+# bird_eye_visualiser=BirdVisualiser(640,480)
 intersection_detector=IntersectionDetector()
 try:
     import time
