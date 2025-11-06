@@ -20,11 +20,16 @@ try:
     cam_mats = camera_calibration_memory.read()
     K = cam_mats[0, :3, :3]
     P = cam_mats[1]
+    print("[DEBUG] Camera intrinsics K:\n", K)
+    print("[DEBUG] Camera extrinsics P:\n", P)
     while True:
         # Convert to Torch tensor and normalize
         frame=rgb_camera_memory.read()
         depth_map = depth_camera_memory.read()
         radar_data = radar_memory.read()
+        print("[DEBUG] Radar data shape:", radar_data.shape)
+        print("[DEBUG] Nonzero radar points:", np.count_nonzero(radar_data[:, 3]))
+        print("[DEBUG] Sample radar point:", radar_data[0])
         if np.count_nonzero(frame) == 0:
             # No data yet, skip this iteration  
             continue

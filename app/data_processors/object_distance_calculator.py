@@ -42,7 +42,7 @@ class ObjectDistanceCalculator:
         # Fourth dimension represent depths (can also be calculated using euclidian distance, maybe try later)
         depths = radar_data[in_front, 3]
 
-        # Camera → image (project to pixels)
+        # Camera --> image (project to pixels)
         pixels = (K @ points_cam[:, :3].T).T  # (N,3)
         u = pixels[:, 0] / pixels[:, 2]
         v = pixels[:, 1] / pixels[:, 2]

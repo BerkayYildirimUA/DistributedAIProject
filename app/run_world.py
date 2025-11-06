@@ -46,8 +46,17 @@ def depth_callback(image):
 def radar_callback(raw_data):
     current_rot = raw_data.transform.rotation
     points = np.zeros((constants.RADAR_MAX_DETECTIONS, 4), dtype=np.float32)
+
+    if len(raw_data) == 0:
+        print("[RADAR CALLBACK] No detections this frame.")
+        return
+
+    print(f"[RADAR CALLBACK] {len(raw_data)} detections received")
+
+
     for i, detect in enumerate(raw_data):
         if i >= constants.RADAR_MAX_DETECTIONS:
+            print(f"[RADAR CALLBACK] Clipped to {constants.RADAR_MAX_DETECTIONS} detections.")
             break
 
         azi = math.degrees(detect.azimuth)
@@ -67,6 +76,9 @@ def radar_callback(raw_data):
         points[i] = (world_location.x, world_location.y, world_location.z, detect.depth)
 
     radar_memory.write(points)
+    print(f"[RADAR CALLBACK] Wrote {np.count_nonzero(points[:, 3])} nonzero radar points to memory")
+    print(f"[RADAR CALLBACK] First point sample: {points[0]}")
+
 
 # ---------------------------
 # Threaded data processing
