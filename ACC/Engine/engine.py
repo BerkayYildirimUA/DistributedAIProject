@@ -11,6 +11,10 @@ from ACC.Engine.duo_classes import DuoActor, DuoClient, DuoWorld
 class Engine():
 
     def __init__(self, args, scenario : Optional[Scenario] = None):
+
+        self.args = args
+        self.scenario = scenario
+
         # client stuff
         self.host = args.host
         self.real_port = args.real_port

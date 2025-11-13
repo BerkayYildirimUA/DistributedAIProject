@@ -4,6 +4,12 @@ from typing import List
 import carla
 from enum import Enum
 
+
+class LightColors(Enum):
+    green = 0
+    orange = 1
+    red = 2
+
 @dataclass
 class VehicleState:
     speed: float
@@ -11,6 +17,7 @@ class VehicleState:
     distances: List[float] #car in front of the Ego
     safe_following_distance: float
     hasCrashed: bool
+    light_color: LightColors
 
 class ActionsEnum(Enum):
     brake = 1

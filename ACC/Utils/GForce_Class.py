@@ -32,7 +32,7 @@ class GForceCalculator:
         self.speed_history.append(current_speed)
 
         # If we have enough speeds, start processing
-        if len(self.speed_history) >= 5:
+        if len(self.speed_history) >= 3:
             # Split the list into 5 pairs (initial, final)
             portion_size = len(self.speed_history) // 2
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 from typing import SupportsFloat, Any, Dict
 import carla
@@ -17,6 +18,9 @@ from ACC.Utils.Sensors import CarlaWorldStateSensor
 from gymnasium import spaces
 import traceback
 
+from mushroom_rl.utils.spaces import Box
+from mushroom_rl.core import MDPInfo
+
 
 class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
@@ -29,9 +33,28 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         self.sensor_real = CarlaWorldStateSensor(self.engine.ego.real, self.engine.duo_world.get_real_world())
 
         self.max_vehicles = 5
+
+        # Complete observation space: speed + speed_limit + distances (5) + safe_distance + crashed + light_color
+        # Total: 10 values
         self.observation_space = spaces.Box(
-            low=np.array([0.0] * self.max_vehicles, dtype=np.float32),
-            high=np.array([130.0] * self.max_vehicles, dtype=np.float32),
+            low=np.array(
+                [0.0,  # speed
+                 0.0,  # speed_limit
+                 0.0, 0.0, 0.0, 0.0, 0.0,  # distances (5 vehicles)
+                 0.0,  # safe_following_distance
+                 0.0,  # hasCrashed (0 or 1)
+                 0.0],  # light_color (0, 1, 2)
+                dtype=np.float32
+            ),
+            high=np.array(
+                [130.0,  # speed
+                 130.0,  # speed_limit
+                 1000.0, 1000.0, 1000.0, 1000.0, 1000.0,  # distances (max 1000m)
+                 100.0,  # safe_following_distance
+                 1.0,  # hasCrashed
+                 2.0],  # light_color
+                dtype=np.float32
+            ),
             dtype=np.float32,
         )
 
@@ -43,22 +66,62 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
 
+        # MDPInfo for Mushroom-RL compatibility
+        self._mdp_info = MDPInfo(
+            observation_space=self.observation_space,
+            action_space=self.action_space,
+            gamma=0.99,
+            horizon=1000
+        )
+
+    def _vehicle_state_to_array(self, state: VehicleState) -> np.ndarray:
+        distances = state.distances if state.distances else []
+        padded_distances = list(distances) + [1000.0] * (self.max_vehicles - len(distances))
+        padded_distances = padded_distances[:self.max_vehicles]
+
+        obs = np.array([
+            state.speed,
+            state.speed_limit,
+            *padded_distances,
+            state.safe_following_distance,
+            1.0 if state.hasCrashed else 0.0,
+            float(state.light_color.value)
+        ], dtype=np.float32)
+
+        return obs
+
     def _array_to_action(self, action: np.ndarray) -> dict[ActionsEnum, float]:
         return {
             ActionsEnum.throttle: float(action[0]),
             ActionsEnum.brake: float(action[1]),
         }
 
+    @property
+    def info(self):
+        return self._mdp_info
+
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> \
-            tuple[VehicleState, dict[str, Any]]:
+            tuple[np.ndarray, dict[str, Any]]:
         super().reset(seed=seed)
-        self.engine.setup()
+
+        args = self.engine.args
+        scene = self.engine.scenario
+
+        self.engine.cleanup()
+        self.engine = None
+
+        self.engine = Engine(args,scene)
+        self.engine.connect_to_worlds()
+        if not self.engine.setup():
+            raise RuntimeError("Engine setup failed. Exiting.")
 
         self.sensor_real = CarlaWorldStateSensor(self.engine.ego.real, self.engine.duo_world.get_real_world())
 
-        obs = self.sensor_real.get_state()
+        state = self.sensor_real.get_state()
+        obs = self._vehicle_state_to_array(state)
         info: dict[str, Any] = {}
         self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
+
         return obs, info
 
     def close(self):
@@ -84,6 +147,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
 
         #geforce
+        """
         g_force = self.__g_force_calculator.get_latest_g_force()
         if g_force is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
             if abs(g_force) < (0.56 / 9.81):
@@ -94,10 +158,17 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 reward -= 2
             else:
                 reward -= math.exp(9.81) * (abs(g_force) - 2)
+        """
+
+        min_front_distance = min(state.distances) if state.distances and len(state.distances) > 0 else 1000.0
 
         #speed limit
         if state.speed > (state.speed_limit + 3):
             reward -= (state.speed - state.speed_limit - 1)
+        elif state.speed < (state.speed_limit - 5) and min_front_distance > (state.safe_following_distance * 2): # Going too slow without reason
+            speed_deficit = (state.speed_limit - 5) - state.speed
+            penalty = speed_deficit / state.speed_limit  # Normalized penalty? Idk if this is the right way, just feels correct TODO double check
+            reward -= 3 * penalty
         else:
             reward += 1
 
@@ -109,7 +180,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 penalty = math.exp((safe_distance - min_front_distance) / safe_distance) - 1
                 reward -= 5 * penalty
 
-        return 0
+        #logging.info(f"rewards: {reward}")
+        return reward
 
     def step(self, action: dict[ActionsEnum, float]) -> tuple[VehicleState, SupportsFloat, bool, bool, dict[str, dict[ActionsEnum, float]]]:
         terminated = False
@@ -122,6 +194,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             tm_control = self.engine.ego.get_mirror_control()
 
             action = self._array_to_action(action)
+
+            #logging.info(f"throttle: {action[ActionsEnum.throttle]}, brake: {action[ActionsEnum.brake]}")
+
             final_control = carla.VehicleControl(
                 throttle=action[ActionsEnum.throttle],
                 brake=action[ActionsEnum.brake],
@@ -153,12 +228,41 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         reward = self._reward()
 
-        obs = self.sensor_real.get_state()
+        state = self.sensor_real.get_state()
+        obs = self._vehicle_state_to_array(state)
+
         return obs, reward, terminated, truncated, info
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         pass
 
+
+class GymnasiumToGymWrapper:
+
+    def __init__(self, env):
+        self.env = env
+        self.observation_space = env.observation_space
+        self.action_space = env.action_space
+
+    @property
+    def info(self):
+        return self.env._mdp_info
+
+    def reset(self, state=None):
+        obs, _ = self.env.reset()
+        return obs
+
+    def step(self, action):
+        action = np.clip(action, 0.0, 1.0)
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        done = terminated or truncated
+        return obs, reward, done, info
+
+    def render(self):
+        return self.env.render()
+
+    def close(self):
+        return self.env.close()
 
 
 

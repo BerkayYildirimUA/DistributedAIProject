@@ -2,8 +2,8 @@ import argparse
 import logging
 import traceback
 
-import carla
-from carla import BlueprintLibrary
+#import carla
+#from carla import BlueprintLibrary
 
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
@@ -64,27 +64,95 @@ def main_loop(args):
     finally:
         engine.cleanup()
 
-from ACC.Training.Env import CarlaEnv
+from ACC.Training.Env import CarlaEnv, GymnasiumToGymWrapper
+from mushroom_rl.core import Core, Logger
+from mushroom_rl.algorithms.actor_critic import PPO
+from mushroom_rl.policy import GaussianTorchPolicy
+from mushroom_rl.utils.callbacks import CollectDataset
+import torch.nn as nn
+import torch.optim as optim
+import torch
 
 def train_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
                      map_name=args.map, number_of_npc=args.num_npcs)
     env = CarlaEnv(args, scene)
 
+    env = GymnasiumToGymWrapper(env)
+
     episode_over = False
     total_reward = 0
 
-    while not episode_over:
-        action = env.action_space.sample()
+    class BiasedActorNetwork(nn.Module):
+        def __init__(self, input_shape, output_shape, **kwargs):
+            super().__init__()
+            n_input = input_shape[0]
+            n_output = output_shape[0]
 
+            self.network = nn.Sequential(
+                nn.Linear(n_input, 32),  # Simpler: 32 instead of 64
+                nn.ReLU(),
+                nn.Linear(32, n_output),
+                nn.Sigmoid()
+            )
 
-        observation, reward, terminated, truncated, info = env.step(action)
-        total_reward += reward
-        episode_over = terminated or truncated
+            # Bias towards throttle (index 0), away from brake (index 1)
+            with torch.no_grad():
+                self.network[-2].bias[0] = 100  # Start throttle around 0.5
+                self.network[-2].bias[1] = -1  # Start brake near 0
 
-    print(f"Episode finished! Total reward: {total_reward}")
+        def forward(self, x, **kwargs):
+            return self.network(x)
+
+    def critic_network(input_shape, output_shape, **kwargs):
+        n_input = input_shape[0]
+        return nn.Sequential(
+            nn.Linear(n_input, 32),  # Simpler
+            nn.ReLU(),
+            nn.Linear(32, 1)
+        )
+
+    policy = GaussianTorchPolicy(
+        network=BiasedActorNetwork,
+        input_shape=env.observation_space.shape,
+        output_shape=env.action_space.shape,
+        use_cuda=True
+    )
+
+    agent = PPO(
+        mdp_info=env.info,
+        policy=policy,
+        actor_optimizer={'class': optim.Adam, 'params': {'lr': 3e-4}},
+        critic_params={
+            'network': critic_network,
+            'optimizer': {'class': optim.Adam, 'params': {'lr': 1e-3}},
+            'loss': nn.MSELoss(),
+            'input_shape': env.observation_space.shape,
+            'output_shape': (1,)
+        },
+        n_epochs_policy=10,
+        batch_size=64,
+        eps_ppo=0.2,
+        lam=0.95,  # GAE lambda (Generalized Advantage Estimation)
+        ent_coeff=0.1  # Entropy coefficient (optional)
+    )
+
+    logger = Logger(log_name='carla_ppo', results_dir='./logs')
+    collect_dataset = CollectDataset()
+
+    core = Core(agent, env, callbacks_fit=[collect_dataset])
+
+    core.learn(n_steps=100000, n_steps_per_fit=2048)
+
+    # Evaluate trained agent
+    print("Evaluating...")
+    core.evaluate(n_steps=5000, render=False)
+
+    # Access collected data
+    dataset = collect_dataset.get()
+    print(f"Average reward: {dataset.mean()}")
+
     env.close()
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CARLA ACC Dual Simulation (Mirror TM Only)')

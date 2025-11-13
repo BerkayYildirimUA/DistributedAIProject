@@ -1,4 +1,4 @@
-import carla
+#import carla
 from flatbuffers.flexbuffers import String
 
 

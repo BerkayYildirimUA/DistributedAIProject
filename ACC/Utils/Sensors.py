@@ -4,8 +4,9 @@ import collections
 import carla
 from carla import Vector3D
 import math
+import logging
 
-from ACC.Utils.abstractions import StateSensor, UI, VehicleState
+from ACC.Utils.abstractions import StateSensor, UI, VehicleState, LightColors
 
 class CarlaWorldStateSensor(StateSensor):
 
@@ -42,19 +43,22 @@ class CarlaWorldStateSensor(StateSensor):
                 smallest_dist = dist
             dists.append(dist)
 
+        speed_limit = self.__ego.get_speed_limit()
+
+        if speed_limit == 0.0:
+            speed_limit = 30
+
+
         if self.counter == 100:
             self.counter = 0
-            print(f"speed: {ego_velocity_ms * 3.6} km/h, distance to nearest: {smallest_dist}m, safe dist: {safe_distance}m")
+            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {speed_limit} km/h, distance to nearest: {smallest_dist}m, safe dist: {safe_distance}m")
         else:
             self.counter += 1
 
 
-        speed_limit = self.__ego.get_speed_limit()
 
-        if speed_limit is 0.0:
-            speed_limit = 30
 
-        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=speed_limit, distances=dists, safe_following_distance=safe_distance, hasCrashed=has_crashed)
+        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=speed_limit, distances=dists, safe_following_distance=safe_distance, hasCrashed=has_crashed, light_color=LightColors.green)
 
 class CarlaLeadStateSensor(StateSensor):
 
@@ -80,18 +84,20 @@ class CarlaLeadStateSensor(StateSensor):
 
         has_crashed = self.__collision_sensor.has_collided
 
+        speed_limit = self.__ego.get_speed_limit()
+
+        if speed_limit == 0.0:
+            speed_limit = 30
+
         if self.counter == 100:
             self.counter = 0
-            print(f"speed: {ego_velocity_ms * 3.6} km/h, distance: {distance}m, safe dist: {safe_distance}m")
+            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {speed_limit} km/h, distance to nearest: {distance}m, safe dist: {safe_distance}m")
         else:
             self.counter += 1
 
         speed_limit = self.__ego.get_speed_limit()
 
-        if speed_limit is 0.0:
-            speed_limit = 30
-
-        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=speed_limit, distances=[distance], safe_following_distance=safe_distance, hasCrashed=has_crashed)
+        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=speed_limit, distances=[distance], safe_following_distance=safe_distance, hasCrashed=has_crashed, light_color=LightColors.green)
 
 
 #code form carla examples, from "automatic_control.py"

@@ -1,9 +1,10 @@
-.idea!/.gitignore
-
-
 /.gitignore
 /.idea/workspace.xml
 /.idea/vcs.xml
 /.idea/modules.xml
 /.idea/misc.xml
 /.idea/DistributedAIProject.iml
+.venv/
+.venv
+.idea
+.idea/
