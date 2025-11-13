@@ -6,6 +6,7 @@ from data_processors.object_detector import ObjectDetector
 from data_processors.object_distance_calculator import ObjectDistanceCalculator
 from memory.shared_memory import RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, RadarMemory, CameraCalibrationMemory
 from engine.pov_visualiser import POVVisualiser
+from data_processors.radar_points_projector import RadarPointsProjector
 
 # Attach to shared memory
 rgb_camera_memory = RGBCameraMemory().get_read_access()
@@ -16,6 +17,7 @@ camera_calibration_memory = CameraCalibrationMemory().get_read_access()
 
 object_detector = ObjectDetector()
 object_distance_calculator=ObjectDistanceCalculator()
+radar_points_projector = RadarPointsProjector()
 try:
     import time
     cam_mats = camera_calibration_memory.read()
@@ -36,8 +38,18 @@ try:
         # Get distance for each object
         #distances=object_distance_calculator.get_depth_camera_distances(boxes,depth_map)
 
-        # Debugging step
-        distances = object_distance_calculator.get_radar_distances(boxes, radar_data, K, P, constants.IMAGE_WIDTH, constants.IMAGE_HEIGHT, mode="range")
+        # projection of radar_points to camera
+        u, v, z, Pc, kept = RadarPointsProjector.project_radar_points_world_to_image(
+            radar_data, K, P, constants.IMAGE_WIDTH, constants.IMAGE_HEIGHT
+        )
+
+        distances = object_distance_calculator.get_radar_distances(
+            boxes,
+            box_pad=2.0,
+            robust_pct=0.3,
+            mode="range",  # uses np.linalg.norm(Pc, axis=1)
+            projection=(u, v, z, Pc, kept)
+        )
 
         # Visualise
         visualiser= POVVisualiser(
@@ -48,13 +60,9 @@ try:
             distances)
 
         visualiser.overlay_radar_points(
-            radar_points_world=radar_data,
-            K=K,
-            P=P,
-            img_w=constants.IMAGE_WIDTH,
-            img_h=constants.IMAGE_HEIGHT,
             point_radius=2,
-            color_mode='depth'  # or 'fixed'
+            color_mode='depth',
+            projection=(u, v, z, Pc, kept)
         )
         visualiser.show()
 

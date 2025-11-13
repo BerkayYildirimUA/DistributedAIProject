@@ -1,5 +1,4 @@
 import cv2
-from app.data_processors.radar_points_projector import RadarPointsProjector
 
 class POVVisualiser:
     def __init__(self,class_names,frame, boxes,class_ids,scores,distances):
@@ -9,7 +8,6 @@ class POVVisualiser:
         self.distances = distances
         self.class_names = class_names
         self.frame = frame
-        self.RadarPointsProjector = RadarPointsProjector()
 
     def add_object_and_distance_overlay(self, frame):
         for distance,(x1, y1, x2, y2), score, cls_id in zip(self.distances,self.boxes, self.scores, self.class_ids):
@@ -26,12 +24,9 @@ class POVVisualiser:
     def add_trajectory_overlay(self, frame):
         return frame
 
-    def overlay_radar_points(self, radar_points_world, K, P, img_w, img_h,
-                             point_radius=2, color_mode='depth'):
+    def overlay_radar_points(self, projection, point_radius=2, color_mode='depth'):
+        u, v, z, Pc, kept = projection
 
-        u, v, z, Pc, kept = self.RadarPointsProjector.project_radar_points_world_to_image(
-            radar_points_world, K, P, img_w, img_h
-        )
         if u.size == 0:
             return
 

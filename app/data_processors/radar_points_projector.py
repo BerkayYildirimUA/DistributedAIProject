@@ -2,9 +2,11 @@ import numpy as np
 
 class RadarPointsProjector:
 
-    def project_radar_points_world_to_image(self, radar_points_world, K, P, img_w, img_h):
+    @staticmethod
+    def project_radar_points_world_to_image(radar_points_world, K, P, img_w, img_h):
         if radar_points_world is None or len(radar_points_world) == 0:
-            return (np.empty(0),) * 4 + (np.zeros(0, dtype=bool),)
+            kept = np.zeros(0, dtype=bool)
+            return (np.empty(0),) * 4 + (kept,)
 
         pts = np.asarray(radar_points_world, dtype=np.float64)
 
@@ -28,7 +30,7 @@ class RadarPointsProjector:
         # Keep points in front (z>0 in CV frame)
         z = Pc[:, 2]
         in_front = z > 0
-        Pc = Pc[in_front];
+        Pc = Pc[in_front]
         z = z[in_front]
         if Pc.size == 0:
             kept = np.zeros(valid.shape, dtype=bool)
@@ -42,9 +44,9 @@ class RadarPointsProjector:
 
         # Keep points that land on the image
         in_img = (u >= 0) & (u < img_w) & (v >= 0) & (v < img_h)
-        u = u[in_img];
-        v = v[in_img];
-        z = z[in_img];
+        u = u[in_img]
+        v = v[in_img]
+        z = z[in_img]
         Pc = Pc[in_img]
 
         # Compose the overall kept mask back to original N

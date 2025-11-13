@@ -1,11 +1,8 @@
 import numpy as np
-from app.data_processors.radar_points_projector import RadarPointsProjector
 from sklearn.cluster import DBSCAN
 
 
 class ObjectDistanceCalculator:
-    def __init__(self):
-        self.RadarPointsProjector = RadarPointsProjector()
 
     def get_depth_camera_distances(self, object_boxes, depth_map=None):
         distance=[]
@@ -26,15 +23,9 @@ class ObjectDistanceCalculator:
             raise Exception("Object distance calculation failed: size mismatch between distances and found object boxes!")
         return distance
 
-    def get_radar_distances(self, object_boxes, radar_points_world, K, P, img_w, img_h,
-                            box_pad=2.0, robust_pct=0.3, mode='z'):
-
+    def get_radar_distances(self, object_boxes, projection, box_pad=2.0, robust_pct=0.3, mode='z'):
         boxes = np.asarray(object_boxes, dtype=np.float64).reshape(-1, 4)
-
-        # Shared projection
-        u, v, z, Pc, kept = self.RadarPointsProjector.project_radar_points_world_to_image(
-            radar_points_world, K, P, img_w, img_h
-        )
+        u, v, z, Pc, kept = projection
 
         if u.size == 0:
             return [float('nan')] * len(boxes)
@@ -45,9 +36,9 @@ class ObjectDistanceCalculator:
         distances = []
         for (x1, y1, x2, y2) in boxes:
             # small padding to absorb tiny calibration/timing errors
-            x1p = x1 - box_pad;
+            x1p = x1 - box_pad
             y1p = y1 - box_pad
-            x2p = x2 + box_pad;
+            x2p = x2 + box_pad
             y2p = y2 + box_pad
 
             m = (u >= x1p) & (u <= x2p) & (v >= y1p) & (v <= y2p)
