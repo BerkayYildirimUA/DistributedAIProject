@@ -37,8 +37,7 @@
 #         for cls_id, cnt in sorted(cmap.items()):
 #             print(f"\t{cls_id}: {cnt}")
 #
-
-
+from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path

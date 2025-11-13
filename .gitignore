@@ -4,3 +4,7 @@
 .idea
 .idea
 app/__pycache__
+/app/TrafficLights/data/
+/app/TrafficLights/Models/
+/app/TrafficLights/dataset_creator.py
+/app/TrafficSigns/archive (1)/
