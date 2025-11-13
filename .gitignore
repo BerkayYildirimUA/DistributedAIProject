@@ -3,6 +3,7 @@
 /.idea/misc.xml
 .idea
 .idea/
+/.idea
 app/__pycache__
 /app/data_processors/model/tusimple_18.pth
 /app/TrafficLights/data/
