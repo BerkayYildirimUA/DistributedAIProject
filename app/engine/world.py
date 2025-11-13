@@ -14,6 +14,9 @@ import carla
 import numpy as np
 import math
 
+from app.run_vehicle_pov import radar
+
+
 def transform_to_matrix(transform):
     """Convert carla.Transform to 4x4 homogeneous matrix."""
     pitch = np.deg2rad(transform.rotation.pitch)
@@ -150,6 +153,7 @@ class RadarSensor(object):
 
     @staticmethod
     def _Radar_callback(weak_self, radar_data):
+        self.debug_radar(radar_data)
         data=[]
         self = weak_self()
         if not self:
@@ -170,7 +174,39 @@ class RadarSensor(object):
             data = data[:max_points]
         self.radar_memory.write(data)
 
+    def debug_radar(self,radar_data):
+        print(f"Radar detected {len(radar_data)} points")
+        # To get a numpy [[vel, altitude, azimuth, depth],...[,,,]]:
+        # points = np.frombuffer(radar_data.raw_data, dtype=np.dtype('f4'))
+        # points = np.reshape(points, (len(radar_data), 4))
 
+        current_rot = radar_data.transform.rotation
+        for detect in radar_data:
+            azi = math.degrees(detect.azimuth)
+            alt = math.degrees(detect.altitude)
+            # The 0.25 adjusts a bit the distance so the dots can
+            # be properly seen
+            fw_vec = carla.Vector3D(x=detect.depth - 0.25)
+            carla.Transform(
+                carla.Location(),
+                carla.Rotation(
+                    pitch=current_rot.pitch + alt,
+                    yaw=current_rot.yaw + azi,
+                    roll=current_rot.roll)).transform(fw_vec)
+
+            def clamp(min_v, max_v, value):
+                return max(min_v, min(value, max_v))
+
+            norm_velocity = detect.velocity / self.velocity_range  # range [-1, 1]
+            r = int(clamp(0.0, 1.0, 1.0 - norm_velocity) * 255.0)
+            g = int(clamp(0.0, 1.0, 1.0 - abs(norm_velocity)) * 255.0)
+            b = int(abs(clamp(- 1.0, 0.0, - 1.0 - norm_velocity)) * 255.0)
+            self.debug.draw_point(
+                radar_data.transform.location + fw_vec,
+                size=0.05,
+                life_time=1.0,
+                persistent_lines=False,
+                color=carla.Color(r, g, b))
 class RadarSensor2(object):
     def __init__(self, parent_actor):
         self.sensor = None
@@ -343,7 +379,7 @@ class World:
 
     def add_radar(self):
         self.radar_sensor=RadarSensor(self.ego_vehicle,self.rgb_camera,self.camera_transform)
-        self.radar_sensor2=RadarSensor2(self.ego_vehicle)
+
     def expose_queues(self):
         return self.rgb_camera_queue, self.depth_camera_queue
 
