@@ -198,7 +198,7 @@ class Engine():
             logging.info(f"Spawned EGO pair: Real ID {self.ego.real.id}, Mirror ID {self.ego.mirror.id}")
 
             # --- LEAD ---
-            if self.scenario.lead_car_bp_name is not "":
+            if self.scenario.lead_car_bp_name != "":
                 lead_transform = carla.Transform(
                     ego_spawn_point.location + ego_spawn_point.get_forward_vector() * 15.0,
                     ego_spawn_point.rotation
@@ -332,7 +332,8 @@ class Engine():
                 destroyed_count += 1
         logging.info(f"Destroy method called for {destroyed_count} actor pairs.")
 
-        self.duo_world.tick()
+        if self.duo_world:
+            self.duo_world.tick()
 
         # Clear
         self.ego = None

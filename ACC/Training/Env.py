@@ -5,9 +5,8 @@ import math
 from typing import SupportsFloat, Any, Dict
 import carla
 import gymnasium as gym
-from gymnasium import spaces
 import numpy as np
-from gymnasium.core import RenderFrame, ActType, ObsType
+from gymnasium.core import RenderFrame
 from torch.backends.quantized import engine
 
 from ACC.Engine.engine import Engine
@@ -26,6 +25,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
     def __init__(self, args, scene):
         super().__init__()
+        self.eng_args = None
+        self.eng_scene = None
+
         self.engine = Engine(args, scene)
         self.engine.connect_to_worlds()
         if not self.engine.setup():
@@ -59,8 +61,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         )
 
         self.action_space = spaces.Box(
-            low=np.array([0.0, 0.0]),
-            high=np.array([1.0, 1.0]),
+            low=np.array([-1.0]),
+            high=np.array([1.0]),
             dtype=np.float32,
         )
 
@@ -91,9 +93,19 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         return obs
 
     def _array_to_action(self, action: np.ndarray) -> dict[ActionsEnum, float]:
+        action = float(action[0])
+
+        throttle = 0.0
+        brake = 0.0
+
+        if action >= 0:
+            throttle = abs(action)
+        else:
+            brake = abs(action)
+
         return {
-            ActionsEnum.throttle: float(action[0]),
-            ActionsEnum.brake: float(action[1]),
+            ActionsEnum.throttle: throttle,
+            ActionsEnum.brake: brake,
         }
 
     @property
@@ -104,13 +116,14 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             tuple[np.ndarray, dict[str, Any]]:
         super().reset(seed=seed)
 
-        args = self.engine.args
-        scene = self.engine.scenario
 
-        self.engine.cleanup()
-        self.engine = None
+        if engine is not None:
+            self.eng_args = self.engine.args
+            self.eng_scene = self.engine.scenario
+            self.engine.cleanup()
+            self.engine = None
 
-        self.engine = Engine(args,scene)
+        self.engine = Engine(self.eng_args,self.eng_scene)
         self.engine.connect_to_worlds()
         if not self.engine.setup():
             raise RuntimeError("Engine setup failed. Exiting.")
@@ -147,7 +160,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
 
         #geforce
-        """
+
         g_force = self.__g_force_calculator.get_latest_g_force()
         if g_force is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
             if abs(g_force) < (0.56 / 9.81):
@@ -158,7 +171,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 reward -= 2
             else:
                 reward -= math.exp(9.81) * (abs(g_force) - 2)
-        """
+
 
         min_front_distance = min(state.distances) if state.distances and len(state.distances) > 0 else 1000.0
 
@@ -171,6 +184,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             reward -= 3 * penalty
         else:
             reward += 1
+            if abs(g_force) < (1.23 / 9.81):
+                reward += 10
 
         if state.distances is not None and len(state.distances) > 0:
             min_front_distance = min(state.distances)
@@ -183,7 +198,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         #logging.info(f"rewards: {reward}")
         return reward
 
-    def step(self, action: dict[ActionsEnum, float]) -> tuple[VehicleState, SupportsFloat, bool, bool, dict[str, dict[ActionsEnum, float]]]:
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, SupportsFloat, bool, bool, dict[str, dict[ActionsEnum, float]]]:
         terminated = False
         truncated = False
         info: dict[str, Any] = {}
@@ -253,7 +268,7 @@ class GymnasiumToGymWrapper:
         return obs
 
     def step(self, action):
-        action = np.clip(action, 0.0, 1.0)
+        action = np.clip(action, -1.0, 1.0)
         obs, reward, terminated, truncated, info = self.env.step(action)
         done = terminated or truncated
         return obs, reward, done, info
@@ -265,4 +280,5 @@ class GymnasiumToGymWrapper:
         return self.env.close()
 
 
-
+    def stop(self):
+        return self.env.close()
