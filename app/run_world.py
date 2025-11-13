@@ -76,7 +76,6 @@ def radar_callback(raw_data):
         points[i, 3] = det.depth  # keep slant range if you want to inspect it
 
     radar_memory.write(points)
-    print(f"[RADAR] wrote {len(points)} points; sample: {points[0]}")
 
 
 

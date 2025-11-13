@@ -28,9 +28,6 @@ try:
         frame=rgb_camera_memory.read()
         depth_map = depth_camera_memory.read()
         radar_data = radar_memory.read()
-        print("[DEBUG] Radar data shape:", radar_data.shape)
-        print("[DEBUG] Nonzero radar points:", np.count_nonzero(radar_data[:, 3]))
-        print("[DEBUG] Sample radar point:", radar_data[0])
         if np.count_nonzero(frame) == 0:
             # No data yet, skip this iteration  
             continue

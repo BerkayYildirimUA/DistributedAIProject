@@ -1,4 +1,5 @@
 import cv2
+from radar_points_projector import RadarPointsProjector
 
 class POVVisualiser:
     def __init__(self,class_names,frame, boxes,class_ids,scores,distances):
@@ -8,6 +9,7 @@ class POVVisualiser:
         self.distances = distances
         self.class_names = class_names
         self.frame = frame
+        self.RadarPointsProjector = RadarPointsProjector()
 
     def add_object_and_distance_overlay(self, frame):
         for distance,(x1, y1, x2, y2), score, cls_id in zip(self.distances,self.boxes, self.scores, self.class_ids):
@@ -23,6 +25,28 @@ class POVVisualiser:
 
     def add_trajectory_overlay(self, frame):
         return frame
+
+    def overlay_radar_points(self, radar_points_world, K, P, img_w, img_h,
+                             point_radius=2, color_mode='depth'):
+
+        u, v, z, Pc, kept = self.RadarPointsProjector.project_radar_points_world_to_image(
+            radar_points_world, K, P, img_w, img_h
+        )
+        if u.size == 0:
+            return
+
+        # Optional color ramp by depth (near=green, far=red)
+        if color_mode == 'depth':
+            z_min, z_max = float(np.min(z)), float(np.max(z))
+            span = max(1e-6, z_max - z_min)
+
+        for ui, vi, zi in zip(u, v, z):
+            if color_mode == 'depth':
+                t = (zi - z_min) / span
+                bgr = (0, int(255 * (1.0 - t)), int(255 * t))
+            else:
+                bgr = (0, 0, 255)
+            cv2.circle(self.frame, (int(round(ui)), int(round(vi))), point_radius, bgr, -1)
 
     def show(self):
         frame_with_boxes_bgr=self.add_object_and_distance_overlay(self.frame)
