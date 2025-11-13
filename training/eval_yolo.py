@@ -11,15 +11,15 @@ if __name__=='__main__':
     print(nms)
 
     # Load a model
-    model = YOLO("runs/detect/train8/weights/best.pt")
+    model = YOLO("runs/detect/train_all_640_m/weights/best.pt")
 
     # Evaluate on test set
     model.val(
         data="data.yaml",
         task="test",  # run on test set instead of val
-        imgsz=800,
+        imgsz=640,
         save=True , # saves predictions to runs/val,
-        classes=[0,1,2]
+        classes=[0,1,2,3,4,5,6]
     )
 
 
