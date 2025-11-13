@@ -22,7 +22,7 @@ class World:
         # Spawn random vehicles
         self.spawn_random_vehicles()
         # NEW: spawn pedestrians (walkers)
-        self.spawn_pedestrians(num_walkers=40)
+        #self.spawn_pedestrians(num_walkers=40)
         # Spawn ego vehicle
         self.create_and_spawn_ego_vehicle()
         # Enable autopilot
