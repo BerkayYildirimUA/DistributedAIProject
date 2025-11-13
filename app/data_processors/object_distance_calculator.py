@@ -1,5 +1,5 @@
 import numpy as np
-from radar_points_projector import RadarPointsProjector
+from app.data_processors.radar_points_projector import RadarPointsProjector
 from sklearn.cluster import DBSCAN
 
 

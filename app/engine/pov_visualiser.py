@@ -1,5 +1,5 @@
 import cv2
-from radar_points_projector import RadarPointsProjector
+from app.data_processors.radar_points_projector import RadarPointsProjector
 
 class POVVisualiser:
     def __init__(self,class_names,frame, boxes,class_ids,scores,distances):
