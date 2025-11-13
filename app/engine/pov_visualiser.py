@@ -11,10 +11,7 @@ class POVVisualiser:
         scores,
         distances,
         is_intersected,
-        lanes=[],
-        # tube_projector=None,
-        speed_ms: float = 0.0,
-        steer_rad: float = 0.0,
+        lanes=[]
     ):
         self.boxes = boxes
         self.class_ids = class_ids
@@ -27,8 +24,6 @@ class POVVisualiser:
         self.is_intersected=is_intersected
         self.class_names = class_names
         self.frame = frame
-        self.speed_ms = float(speed_ms)
-        self.steer_rad = float(steer_rad)
 
     def add_object_and_distance_overlay(self, frame_rgb):
         # teken boxes + labels (groen) op RGB, converteer daarna naar BGR voor imshow
@@ -60,14 +55,6 @@ class POVVisualiser:
 
         # cv2.imshow verwacht BGR
         return cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
-
-    # def add_trajectory_overlay(self, frame):
-    #     for i, lane in enumerate(self.lanes):
-    #         cv2.circle(frame, lane, 3, (0, 255, 0), -1)
-
-    #         # color = colors[i % len(colors)]
-    #         # cv2.polylines(frame, [np.array(lane, dtype=np.int32)], False, color, 4)
-    #     return frame
     
     def add_trajectory_overlay(self, frame_bgr,color=(255,255,0),thickness=4):
         cv2.polylines(frame_bgr, [self.left_lane], False, color, thickness, cv2.LINE_AA)
