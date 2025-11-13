@@ -77,18 +77,16 @@ try:
         # Visualise
         visualiser = POVVisualiser(
             object_detector.classes,
-            frame,boxes,
+            frame,
+            boxes,
             class_ids,
             scores,
             distances,
             is_intersected,
-            frame, boxes, 
-            class_ids, 
-            scores, 
-            distances,
             tube_projector=tube_projector,
             speed_ms=float(speed_ms), steer_rad=float(steer_rad)
         )
+
         visualiser.show()
 
 
