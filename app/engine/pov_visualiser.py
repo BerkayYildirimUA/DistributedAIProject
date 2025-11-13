@@ -11,8 +11,8 @@ class POVVisualiser:
         scores,
         distances,
         is_intersected,
-        #lanes=[]
-        tube_projector=None,
+        lanes=[],
+        # tube_projector=None,
         speed_ms: float = 0.0,
         steer_rad: float = 0.0,
     ):
@@ -20,11 +20,13 @@ class POVVisualiser:
         self.class_ids = class_ids
         self.scores = scores
         self.distances = distances
-        #self.lanes = lanes
+        if len(lanes) > 1:
+            self.left_lane=lanes[0]
+            self.right_lane=lanes[1]
+
         self.is_intersected=is_intersected
         self.class_names = class_names
-        self.frame = frame                      # verwacht RGB
-        self.tube_projector = tube_projector    # <-- juist
+        self.frame = frame
         self.speed_ms = float(speed_ms)
         self.steer_rad = float(steer_rad)
 
@@ -67,20 +69,15 @@ class POVVisualiser:
     #         # cv2.polylines(frame, [np.array(lane, dtype=np.int32)], False, color, 4)
     #     return frame
     
-    def add_trajectory_overlay(self, frame_bgr):
-        if self.tube_projector is None:
-            return frame_bgr
-        return self.tube_projector.project_and_draw(
-            frame_bgr,
-            speed_ms=self.speed_ms,
-            steer_rad=self.steer_rad,
-            color=(0, 255, 255),
-            thickness=4,
-        )
+    def add_trajectory_overlay(self, frame_bgr,color=(255,255,0),thickness=4):
+        cv2.polylines(frame_bgr, [self.left_lane], False, color, thickness, cv2.LINE_AA)
+        cv2.polylines(frame_bgr, [self.right_lane], False, color, thickness, cv2.LINE_AA)
+        return frame_bgr
 
     def show(self):
         frame_with_boxes_bgr = self.add_object_and_distance_overlay(self.frame)
         frame_with_trajectory_bgr = self.add_trajectory_overlay(frame_with_boxes_bgr)
+
         cv2.imshow("Ego Vehicle POV", frame_with_trajectory_bgr)
         cv2.waitKey(1)
 

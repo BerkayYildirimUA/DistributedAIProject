@@ -22,7 +22,15 @@ state_memory = VehicleStateMemory().get_read_access()
 tube_projector = None  # initialiseer pas als we de eerste framegrootte kennen
 lane_mem = LaneTubeMemory(max_pts=256).get_write_access()
 object_distance_calculator=ObjectDistanceCalculator()
-
+tube_projector = MotionTubeProjector(
+    img_w=640, img_h=480,
+    fov_deg=90.0,  # CARLA RGB camera default
+    cam_height=1.5,  # jouw camera z=1.5
+    lane_width=3.6,
+    wheelbase=2.8,
+    meters_ahead=40.0,
+    center_offset_m=0.0  # evt. +0.2 of -0.2 afstellen
+)
 #lane_detector=LaneDetector()
 # bird_eye_visualiser=BirdVisualiser(640,480)
 intersection_detector=IntersectionDetector()
@@ -46,27 +54,18 @@ try:
         if np.count_nonzero(frame) == 0:
             continue
 
-        # init tube_projector once we know frame size
-        if tube_projector is None:
-            h, w = frame.shape[:2]
-            tube_projector = MotionTubeProjector(
-                img_w=w, img_h=h,
-                fov_deg=90.0,  # CARLA RGB camera default
-                cam_height=1.5,  # jouw camera z=1.5
-                lane_width=3.6,
-                wheelbase=2.8,
-                meters_ahead=40.0,
-                center_offset_m=0.0  # evt. +0.2 of -0.2 afstellen
-            )
-
         # vehicle state
         speed_ms, steer_rad = state_memory.read()
+        # init tube_projector once we know frame size
+        lanes = tube_projector.get_projected_lanes(float(speed_ms), float(steer_rad))
+
+
         # ---- bereken tube punten en schrijf naar shared memory ----
-        left_uv, right_uv = tube_projector.compute_tube_points_img(float(speed_ms), float(steer_rad))
-        h, w = frame.shape[:2]
-        left_norm = _pack_norm_pts(left_uv, w, h, max_pts=256)
-        right_norm = _pack_norm_pts(right_uv, w, h, max_pts=256)
-        lane_mem.write(np.stack([left_norm, right_norm], axis=0))
+        # left_uv, right_uv = tube_projector.compute_tube_points_img(float(speed_ms), float(steer_rad))
+        # h, w = frame.shape[:2]
+        # left_norm = _pack_norm_pts(left_uv, w, h, max_pts=256)
+        # right_norm = _pack_norm_pts(right_uv, w, h, max_pts=256)
+        # lane_mem.write(np.stack([left_norm, right_norm], axis=0))
         # -----------------------------------------------------------
 
         # Detect + distances
@@ -119,7 +118,7 @@ try:
             scores,
             distances,
             is_intersected,
-            tube_projector=tube_projector,
+            lanes,
             speed_ms=float(speed_ms), steer_rad=float(steer_rad)
         )
 

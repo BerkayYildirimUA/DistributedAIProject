@@ -96,8 +96,24 @@ class MotionTubeProjector:
     def _to_poly(uv: np.ndarray) -> np.ndarray:
         return np.round(uv).astype(np.int32).reshape((-1, 1, 2))
 
-    def project_and_draw(self, frame_bgr: np.ndarray, speed_ms: float, steer_rad: float,
-                         color=(0, 255, 255), thickness: int = 4) -> np.ndarray:
+    # def project_and_draw(self, frame_bgr: np.ndarray, speed_ms: float, steer_rad: float,
+    #                      color=(0, 255, 255), thickness: int = 4) -> np.ndarray:
+    #     center_xy = self._centerline_xy(speed_ms, steer_rad)
+    #     half = 0.5 * self.lane_w
+    #
+    #     left_pts_cam  = self._veh_to_cam_points(center_xy, +half)
+    #     right_pts_cam = self._veh_to_cam_points(center_xy, -half)
+    #
+    #     left_uv  = self._project(left_pts_cam)
+    #     right_uv = self._project(right_pts_cam)
+    #
+    #     if left_uv.shape[0] > 1:
+    #         cv2.polylines(frame_bgr, [self._to_poly(left_uv)],  False, color, thickness, cv2.LINE_AA)
+    #     if right_uv.shape[0] > 1:
+    #         cv2.polylines(frame_bgr, [self._to_poly(right_uv)], False, color, thickness, cv2.LINE_AA)
+    #     return frame_bgr
+
+    def get_projected_lanes(self,speed_ms: float, steer_rad: float):
         center_xy = self._centerline_xy(speed_ms, steer_rad)
         half = 0.5 * self.lane_w
 
@@ -107,11 +123,7 @@ class MotionTubeProjector:
         left_uv  = self._project(left_pts_cam)
         right_uv = self._project(right_pts_cam)
 
-        if left_uv.shape[0] > 1:
-            cv2.polylines(frame_bgr, [self._to_poly(left_uv)],  False, color, thickness, cv2.LINE_AA)
-        if right_uv.shape[0] > 1:
-            cv2.polylines(frame_bgr, [self._to_poly(right_uv)], False, color, thickness, cv2.LINE_AA)
-        return frame_bgr
+        return self._to_poly(left_uv), self._to_poly(right_uv)
 
     def compute_tube_points_img(self, speed_ms: float, steer_rad: float):
         """
