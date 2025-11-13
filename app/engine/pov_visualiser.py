@@ -7,7 +7,7 @@ class POVVisualiser:
         self.class_ids = class_ids
         self.scores = scores
         self.distances = distances
-        self.class_names = class_namesg
+        self.class_names = class_names
         self.frame = frame
 
     def add_object_and_distance_overlay(self, frame):
