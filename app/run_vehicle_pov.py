@@ -21,8 +21,17 @@ radar_points_projector = RadarPointsProjector()
 try:
     import time
     cam_mats = camera_calibration_memory.read()
-    K = cam_mats[0, :3, :3]
-    P = cam_mats[1]
+    K = np.asarray(cam_mats[0, :3, :3], dtype=np.float64)
+    P_ue = np.asarray(cam_mats[1], dtype=np.float64)  # Unreal engine camera frame
+
+    # Unreal -> CV (x right, y down, z forward)
+    R_ue2cv = np.array([[0, 1, 0],
+                        [0, 0, -1],
+                        [1, 0, 0]], dtype=np.float64)
+    T_ue2cv = np.eye(4, dtype=np.float64)
+    T_ue2cv[:3, :3] = R_ue2cv
+
+    P = T_ue2cv @ P_ue
     print("[DEBUG] Camera intrinsics K:\n", K)
     print("[DEBUG] Camera extrinsics P:\n", P)
     while True:
