@@ -46,6 +46,16 @@ try:
             class_ids,
             scores,
             distances)
+
+        visualiser.overlay_radar_points(
+            radar_points_world=radar_data,
+            K=K,
+            P=P,
+            img_w=constants.IMAGE_WIDTH,
+            img_h=constants.IMAGE_HEIGHT,
+            point_radius=2,
+            color_mode='depth'  # or 'fixed'
+        )
         visualiser.show()
 
 finally:
