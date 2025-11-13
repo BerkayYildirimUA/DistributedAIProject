@@ -19,7 +19,6 @@ if __name__=='__main__':
         task="test",  # run on test set instead of val
         imgsz=640,
         save=True , # saves predictions to runs/val,
-        classes=[0,1,2,3,4,5,6]
     )
 
 
