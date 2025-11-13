@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 
 class POVVisualiser:
     def __init__(self,class_names,frame, boxes,class_ids,scores,distances):
@@ -6,7 +7,7 @@ class POVVisualiser:
         self.class_ids = class_ids
         self.scores = scores
         self.distances = distances
-        self.class_names = class_names
+        self.class_names = class_namesg
         self.frame = frame
 
     def add_object_and_distance_overlay(self, frame):
