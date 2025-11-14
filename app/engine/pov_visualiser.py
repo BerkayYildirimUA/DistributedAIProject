@@ -25,24 +25,26 @@ class POVVisualiser:
     def add_trajectory_overlay(self, frame):
         return frame
 
-    def overlay_radar_points(self, projection, point_radius=2, color_mode='depth'):
+    def overlay_radar_points(self, projection, velocities, point_radius=2):
         u, v, z, Pc, kept = projection
-
         if u.size == 0:
             return
 
-        # Optional color ramp by depth (near=green, far=red)
-        if color_mode == 'depth':
-            z_min, z_max = float(np.min(z)), float(np.max(z))
-            span = max(1e-6, z_max - z_min)
-
-        for ui, vi, zi in zip(u, v, z):
-            if color_mode == 'depth':
-                t = (zi - z_min) / span
-                bgr = (0, int(255 * (1.0 - t)), int(255 * t))
-            else:
-                bgr = (0, 0, 255)
-            cv2.circle(self.frame, (int(round(ui)), int(round(vi))), point_radius, bgr, -1)
+        if velocities.size == u.size:
+            # Manual-control style: map radial velocity to color
+            vel_range = 7.5  # m/s window, same as CARLA example
+            for ui, vi, vel in zip(u, v, velocities):
+                if vel <= -vel_range:  # strong negative -> RED
+                    bgr = (0, 0, 255)
+                elif vel >= vel_range:  # strong positive -> BLUE
+                    bgr = (255, 0, 0)
+                else:
+                    # Linear blend in [-vr, +vr]: RGB = (255-a, a, 0)
+                    a = int(((vel + vel_range) / (2.0 * vel_range)) * 255.0)
+                    a = max(0, min(255, a))
+                    # Convert RGB -> BGR for OpenCV
+                    bgr = (0, a, 255 - a)
+                cv2.circle(self.frame, (int(round(ui)), int(round(vi))), point_radius, bgr, -1)
 
     def show(self):
         frame_with_boxes_bgr=self.add_object_and_distance_overlay(self.frame)

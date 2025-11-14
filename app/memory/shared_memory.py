@@ -53,7 +53,7 @@ class VehicleDistanceMemory(SharedMemory):
 class RadarMemory(SharedMemory):
     def __init__(self):
         filename = "RADAR_MEMORY.dat"
-        shape = (constants.RADAR_MAX_DETECTIONS, 4)
+        shape = (constants.RADAR_MAX_DETECTIONS, 5)
         dtype = np.float32
         super().__init__(filename, shape, dtype)
 

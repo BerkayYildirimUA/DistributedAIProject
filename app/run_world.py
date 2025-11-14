@@ -44,26 +44,33 @@ def depth_callback(image):
 
 # Radar callback (manual_control.py logic from PythonAPI/examples)
 def radar_callback(radar_data):
+    max_n = constants.RADAR_MAX_DETECTIONS
+
+    # We will always write a (max_n, 5) array: [x, y, z, depth, velocity]
+    # Zero rows mean "padding" and will be ignored, used for consistency in shared memory
+    points = np.zeros((max_n, 5), dtype=np.float32)
 
     n = len(radar_data)
     if n == 0:
-        radar_memory.write(np.zeros((0, 4), dtype=np.float32))
+        radar_memory.write(points)  # all zeros
         return
 
-    # IMPORTANT: do NOT pre-allocate a fixed 100; use actual detections length
-    points = np.zeros((n, 4), dtype=np.float32)
+    current_rot = radar_data.transform.rotation   # sensor rotation (world)
+    sensor_loc  = radar_data.transform.location   # sensor location (world)
 
-    current_rot = radar_data.transform.rotation  # sensor's world rotation this frame
-    sensor_loc  = radar_data.transform.location  # sensor's world location this frame
+    # Fill up to max_n; clip if needed (shouldn't be necessary with 30k pps @ 20Hz)
+    write_n = min(n, max_n)
 
-    for i, detect in enumerate(radar_data):
-        azi = math.degrees(detect.azimuth)
-        alt = math.degrees(detect.altitude)
+    for i, det in enumerate(radar_data):
+        if i >= write_n:
+            break
+        azi = math.degrees(det.azimuth)
+        alt = math.degrees(det.altitude)
 
-        # Manual-control trick: move points slightly toward the sensor to make dots visible
-        fw_vec = carla.Vector3D(x=detect.depth - 0.25)
+        # manual_control trick: pull the point a tad toward the sensor for visibility
+        fw_vec = carla.Vector3D(x=det.depth - 0.25)
 
-        # Rotate the forward vector by (sensor rotation + detection’s az/alt)
+        # rotate local forward by (sensor rot + detection angles)
         carla.Transform(
             carla.Location(),
             carla.Rotation(
@@ -72,16 +79,17 @@ def radar_callback(radar_data):
                 roll =current_rot.roll)
         ).transform(fw_vec)
 
-        # Convert to a world-space point by adding the sensor location
+        # world point = sensor location + rotated forward vector
         world_point = sensor_loc + fw_vec
 
-        # Store world XYZ + slant range (depth)
         points[i, 0] = world_point.x
         points[i, 1] = world_point.y
         points[i, 2] = world_point.z
-        points[i, 3] = detect.depth
+        points[i, 3] = det.depth
+        points[i, 4] = det.velocity
 
     radar_memory.write(points)
+
 
 
 

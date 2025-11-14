@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+from sympy.physics.units import velocity
+
 import constants
 
 from data_processors.object_detector import ObjectDetector
@@ -40,9 +42,11 @@ try:
         #distances=object_distance_calculator.get_depth_camera_distances(boxes,depth_map)
 
         # projection of radar_points to camera
-        u, v, z, Pc, kept = RadarPointsProjector.project_radar_points_world_to_image(
+        u, v, z, Pc, kept, idx = RadarPointsProjector.project_radar_points_world_to_image(
             radar_data, K, P, constants.IMAGE_WIDTH, constants.IMAGE_HEIGHT
         )
+
+        vel = radar_data[idx, 4].astype(np.float64)  # radial velocity
 
         distances = object_distance_calculator.get_radar_distances(
             boxes,
@@ -63,8 +67,8 @@ try:
 
         visualiser.overlay_radar_points(
             point_radius=2,
-            color_mode='depth',
-            projection=(u, v, z, Pc, kept)
+            projection=(u, v, z, Pc, kept),
+            velocities=vel
         )
         visualiser.show()
 
