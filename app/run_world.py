@@ -19,9 +19,9 @@ radar_memory = RadarMemory().get_write_access()
 camera_calibration_memory = CameraCalibrationMemory().get_write_access()
 rgb_camera_queue, depth_camera_queue, radar_queue = world.expose_queues()
 K, P = world.calculate_camera_intrinsic_extrinsic()
-cam_mats = np.zeros((2, 4, 4), dtype=np.float32)
+cam_mats = np.zeros((2, 4, 4), dtype=np.float64)
 cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
-cam_mats[1, :, :] = P  # extrinsic
+cam_mats[1, :, :] = P  # extrinsic, full 4x4 world -> camera (cv frame)
 camera_calibration_memory.write(cam_mats)
 
 # Define transforms for handling camera data

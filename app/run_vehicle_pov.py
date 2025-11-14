@@ -22,16 +22,14 @@ try:
     import time
     cam_mats = camera_calibration_memory.read()
     K = np.asarray(cam_mats[0, :3, :3], dtype=np.float64)
-    P_ue = np.asarray(cam_mats[1], dtype=np.float64)  # Unreal engine camera frame
+    P = np.asarray(cam_mats[1], dtype=np.float64)
+    R = P[:3, :3]
 
-    # Unreal -> CV (x right, y down, z forward)
-    R_ue2cv = np.array([[0, 1, 0],
-                        [0, 0, -1],
-                        [1, 0, 0]], dtype=np.float64)
-    T_ue2cv = np.eye(4, dtype=np.float64)
-    T_ue2cv[:3, :3] = R_ue2cv
+    # rotation should be orthonormal and proper
+    assert np.allclose(R.T @ R, np.eye(3), atol=1e-5), "P[:3,:3] not orthonormal"
+    detR = np.linalg.det(R)
+    assert 0.9 < detR < 1.1, f"det(R) ~ {detR}, expected +1"
 
-    P = T_ue2cv @ P_ue
     print("[DEBUG] Camera intrinsics K:\n", K)
     print("[DEBUG] Camera extrinsics P:\n", P)
     while True:

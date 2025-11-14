@@ -139,8 +139,6 @@ class World:
         return self.rgb_camera_queue, self.depth_camera_queue, self.radar_queue
 
     def calculate_camera_intrinsic_extrinsic(self):
-        import numpy as np, math
-
         w = float(constants.IMAGE_WIDTH)
         h = float(constants.IMAGE_HEIGHT)
         hfov = math.radians(constants.HOR_FOV_DEG)
