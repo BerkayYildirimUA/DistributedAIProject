@@ -23,8 +23,6 @@ radar_points_projector = RadarPointsProjector()
 try:
     import time
 
-    print("[DEBUG] Camera intrinsics K:\n", K)
-    print("[DEBUG] Camera extrinsics P:\n", P)
     while True:
         # Convert to Torch tensor and normalize
         frame=rgb_camera_memory.read()
