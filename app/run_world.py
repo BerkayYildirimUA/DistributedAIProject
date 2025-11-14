@@ -109,6 +109,7 @@ def process_rgb_images():
 def process_depth_images():
     while True:
         try:
+            test = "a"
             #depth_image = depth_camera_queue.get(timeout=1.0)
             #depth_callback(depth_image)
         except queue.Empty:
