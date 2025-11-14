@@ -139,7 +139,23 @@ class World:
     def expose_queues(self):
         return self.rgb_camera_queue, self.depth_camera_queue, self.radar_queue
 
-    def calculate_camera_intrinsic_extrinsic(self):
+    def calculate_camera_extrinsic(self):
+        # World -> camera in Unreal frame (X forward, Y right, Z up)
+        T_world_cam_ue = np.array(self.rgb_camera.get_transform().get_inverse_matrix(),
+                                  dtype=np.float64)  # (4,4)
+
+        # Unreal -> CV frame (x right, y down, z forward)
+        R_ue2cv = np.array([[0, 1, 0],
+                            [0, 0, -1],
+                            [1, 0, 0]], dtype=np.float64)
+        T_ue2cv = np.eye(4, dtype=np.float64)
+        T_ue2cv[:3, :3] = R_ue2cv
+
+        # Final world -> camera (CV frame)
+        P = T_ue2cv @ T_world_cam_ue  # (4,4)
+        return P
+
+    def calculate_camera_intrinsic(self):
         w = float(constants.IMAGE_WIDTH)
         h = float(constants.IMAGE_HEIGHT)
         hfov = math.radians(constants.HOR_FOV_DEG)
@@ -155,26 +171,7 @@ class World:
         K = np.array([[fx, 0.0, cx],
                       [0.0, fy, cy],
                       [0.0, 0.0, 1.0]], dtype=np.float64)
-
-        # World -> camera in Unreal frame (X forward, Y right, Z up)
-        T_world_cam_ue = np.array(self.rgb_camera.get_transform().get_inverse_matrix(),
-                                  dtype=np.float64)  # (4,4)
-
-        # Unreal -> CV frame (x right, y down, z forward)
-        R_ue2cv = np.array([[0, 1, 0],
-                            [0, 0, -1],
-                            [1, 0, 0]], dtype=np.float64)
-        T_ue2cv = np.eye(4, dtype=np.float64)
-        T_ue2cv[:3, :3] = R_ue2cv
-
-        # Final world -> camera (CV frame)
-        P = T_ue2cv @ T_world_cam_ue  # (4,4)
-
-        # Guards
-        assert K.shape == (3, 3), K.shape
-        assert P.shape == (4, 4), P.shape
-
-        return K, P
+        return K
 
     def cleanup(self):
         self.rgb_camera.stop()

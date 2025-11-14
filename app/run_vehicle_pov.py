@@ -22,9 +22,6 @@ object_distance_calculator=ObjectDistanceCalculator()
 radar_points_projector = RadarPointsProjector()
 try:
     import time
-    cam_mats = camera_calibration_memory.read()
-    K = np.asarray(cam_mats[0, :3, :3], dtype=np.float64)
-    P = np.asarray(cam_mats[1], dtype=np.float64)
 
     print("[DEBUG] Camera intrinsics K:\n", K)
     print("[DEBUG] Camera extrinsics P:\n", P)
@@ -40,6 +37,10 @@ try:
         boxes, class_ids, scores =object_detector.get_objects(frame)
         # Get distance for each object
         #distances=object_distance_calculator.get_depth_camera_distances(boxes,depth_map)
+
+        cam_mats = camera_calibration_memory.read()
+        K = np.asarray(cam_mats[0, :3, :3], dtype=np.float64)
+        P = np.asarray(cam_mats[1], dtype=np.float64)
 
         # projection of radar_points to camera
         u, v, z, Pc, kept, idx = RadarPointsProjector.project_radar_points_world_to_image(
