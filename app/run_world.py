@@ -32,13 +32,14 @@ def camera_callback(image):
 
 # Callback to calculate depth map in meters
 def depth_callback(image):
-    array = np.frombuffer(image.raw_data, dtype=np.uint8).reshape((image.height, image.width, 4))
-    b = array[:, :, 0].astype(np.float32)
-    g = array[:, :, 1].astype(np.float32)
-    r = array[:, :, 2].astype(np.float32)
-    normalized_depth = (r + g * 256.0 + b * 256.0 * 256.0) / (256.0**3 - 1)
-    depth_meters = normalized_depth * 1000.0
-    depht_camera_memory.write(depth_meters)
+    test = "a"
+    # array = np.frombuffer(image.raw_data, dtype=np.uint8).reshape((image.height, image.width, 4))
+    # b = array[:, :, 0].astype(np.float32)
+    # g = array[:, :, 1].astype(np.float32)
+    # r = array[:, :, 2].astype(np.float32)
+    # normalized_depth = (r + g * 256.0 + b * 256.0 * 256.0) / (256.0**3 - 1)
+    # depth_meters = normalized_depth * 1000.0
+    # depht_camera_memory.write(depth_meters)
 
 # Radar callback (manual_control.py logic from PythonAPI/examples)
 def radar_callback(radar_data):

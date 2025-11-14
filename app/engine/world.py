@@ -94,14 +94,14 @@ class World:
 
         # Depth camera setup
         # TODO: change max depth value to a value found in real depth camera setups
-        depth_bp = self.world.get_blueprint_library().find('sensor.camera.depth')
-        depth_bp.set_attribute("image_size_x", str(constants.IMAGE_WIDTH))
-        depth_bp.set_attribute("image_size_y", str(constants.IMAGE_HEIGHT))
-        depth_bp.set_attribute("sensor_tick", str(constants.SENSOR_TICK))
-        depth_bp.set_attribute("fov", str(constants.HOR_FOV_DEG))
-        self.depth_camera = self.world.spawn_actor(depth_bp, camera_init_trans, attach_to=self.ego_vehicle)
-        self.depth_camera_queue = queue.Queue(maxsize=constants.QUEUE_MAXSIZE)
-        self.depth_camera.listen(lambda image: self.depth_camera_queue.put_nowait(image))
+        # depth_bp = self.world.get_blueprint_library().find('sensor.camera.depth')
+        # depth_bp.set_attribute("image_size_x", str(constants.IMAGE_WIDTH))
+        # depth_bp.set_attribute("image_size_y", str(constants.IMAGE_HEIGHT))
+        # depth_bp.set_attribute("sensor_tick", str(constants.SENSOR_TICK))
+        # depth_bp.set_attribute("fov", str(constants.HOR_FOV_DEG))
+        # self.depth_camera = self.world.spawn_actor(depth_bp, camera_init_trans, attach_to=self.ego_vehicle)
+        # self.depth_camera_queue = queue.Queue(maxsize=constants.QUEUE_MAXSIZE)
+        # self.depth_camera.listen(lambda image: self.depth_camera_queue.put_nowait(image))
 
         # Radar setup
         blueprint_library = self.world.get_blueprint_library()
