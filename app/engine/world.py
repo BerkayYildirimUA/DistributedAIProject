@@ -137,7 +137,7 @@ class World:
         self.spectator.set_transform(spectator_transform)
 
     def expose_queues(self):
-        return self.rgb_camera_queue, self.depth_camera_queue, self.radar_queue
+        return self.rgb_camera_queue, self.radar_queue
 
     def calculate_camera_extrinsic(self):
         # World -> camera in Unreal frame (X forward, Y right, Z up)

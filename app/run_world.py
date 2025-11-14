@@ -17,7 +17,7 @@ depht_camera_memory = DepthCameraMemory().get_write_access()
 #vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
 radar_memory = RadarMemory().get_write_access()
 camera_calibration_memory = CameraCalibrationMemory().get_write_access()
-rgb_camera_queue, depth_camera_queue, radar_queue = world.expose_queues()
+rgb_camera_queue, radar_queue = world.expose_queues()
 K = world.calculate_camera_intrinsic()
 cam_mats = np.zeros((2, 4, 4), dtype=np.float64)
 cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
@@ -109,8 +109,8 @@ def process_rgb_images():
 def process_depth_images():
     while True:
         try:
-            depth_image = depth_camera_queue.get(timeout=1.0)
-            depth_callback(depth_image)
+            #depth_image = depth_camera_queue.get(timeout=1.0)
+            #depth_callback(depth_image)
         except queue.Empty:
             continue
     
