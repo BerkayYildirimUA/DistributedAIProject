@@ -90,7 +90,9 @@ class World:
         # We spawn the camera and attach it to our ego vehicle
         self.rgb_camera = self.world.spawn_actor(camera_bp, camera_init_trans, attach_to=self.ego_vehicle)
         self.rgb_camera_queue = queue.Queue(maxsize=constants.QUEUE_MAXSIZE)
-        self.rgb_camera.listen(lambda image: self.rgb_camera_queue.put_nowait(image))
+        #self.rgb_camera.listen(lambda image: self.rgb_camera_queue.put_nowait(image))
+        self.rgb_camera.listen(lambda data: (self.rgb_camera_queue.get_nowait(), self.rgb_camera_queue.put_nowait(data)) if self.rgb_camera_queue.full() else self.rgb_camera_queue.put_nowait(data))
+
 
         # Depth camera setup
         # TODO: change max depth value to a value found in real depth camera setups
@@ -176,6 +178,6 @@ class World:
     def cleanup(self):
         self.rgb_camera.stop()
         self.rgb_camera.destroy()
-        self.depth_camera.stop()
-        self.depth_camera.destroy()
+        #self.depth_camera.stop()
+        #self.depth_camera.destroy()
         self.ego_vehicle.destroy()
