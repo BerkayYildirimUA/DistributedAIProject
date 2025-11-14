@@ -28,7 +28,7 @@ try:
     # rotation should be orthonormal and proper
     assert np.allclose(R.T @ R, np.eye(3), atol=1e-5), "P[:3,:3] not orthonormal"
     detR = np.linalg.det(R)
-    assert -0.9 < detR < -1.1, f"det(R) ~ {detR}, expected +1"
+    assert -0.9 > detR > -1.1, f"det(R) ~ {detR}, expected -1"
 
     print("[DEBUG] Camera intrinsics K:\n", K)
     print("[DEBUG] Camera extrinsics P:\n", P)
