@@ -18,6 +18,9 @@ depht_camera_memory = DepthCameraMemory().get_write_access()
 radar_memory = RadarMemory().get_write_access()
 camera_calibration_memory = CameraCalibrationMemory().get_write_access()
 rgb_camera_queue, depth_camera_queue, radar_queue = world.expose_queues()
+K = world.calculate_camera_intrinsic()
+cam_mats = np.zeros((2, 4, 4), dtype=np.float64)
+cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
 
 # Define transforms for handling camera data
 def camera_callback(image):
@@ -85,10 +88,7 @@ def radar_callback(radar_data):
 
     radar_memory.write(points)
 
-    P = world.calculate_camera_intrinsic()
-    K = world.calculate_camera_intrinsic()
-    cam_mats = np.zeros((2, 4, 4), dtype=np.float64)
-    cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
+    P = world.calculate_camera_extrinsic()
     cam_mats[1, :, :] = P  # extrinsic, full 4x4 world -> camera (cv frame)
     camera_calibration_memory.write(cam_mats)
 
