@@ -41,7 +41,7 @@ class World:
         self.world = self.client.get_world()
 
         settings = self.world.get_settings()
-        settings.synchronous_mode = True
+        settings.synchronous_mode = False
         settings.fixed_delta_seconds = self.delta
         self.world.apply_settings(settings)
 
