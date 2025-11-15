@@ -40,13 +40,15 @@ class World:
     def create_world(self):
         self.client = carla.Client('localhost', self.port)
         self.client.set_timeout(self.timeout)
+
+        self.client.load_world(self.world_name)
         self.world = self.client.get_world()
 
         settings = self.world.get_settings()
         settings.synchronous_mode = False
-        settings.fixed_delta_seconds = self.delta
+        # settings.fixed_delta_seconds = self.delta
         self.world.apply_settings(settings)
-        self.client.load_world(self.world_name)
+
 
     def get_vehicle_bps(self):
         blueprint_library = self.world.get_blueprint_library()
@@ -116,16 +118,16 @@ class World:
         camera_bp.set_attribute("image_size_y", "480")
         camera_bp.set_attribute("sensor_tick", "0.05")
         self.rgb_camera = self.world.spawn_actor(camera_bp, camera_init_trans, attach_to=self.ego_vehicle)
-        self.rgb_camera_queue = queue.Queue(maxsize=10)
-        self.rgb_camera.listen(lambda image: self.rgb_camera_queue.put_nowait(image))
+        self.rgb_camera_queue = queue.Queue(maxsize=50)
+        self.rgb_camera.listen(lambda image: self.rgb_camera_queue.put(image))
 
         depth_bp = self.world.get_blueprint_library().find('sensor.camera.depth')
         depth_bp.set_attribute("image_size_x", "640")
         depth_bp.set_attribute("image_size_y", "480")
         depth_bp.set_attribute("sensor_tick", "0.05")
         self.depth_camera = self.world.spawn_actor(depth_bp, camera_init_trans, attach_to=self.ego_vehicle)
-        self.depth_camera_queue = queue.Queue(maxsize=10)
-        self.depth_camera.listen(lambda image: self.depth_camera_queue.put_nowait(image))
+        self.depth_camera_queue = queue.Queue(maxsize=50)
+        self.depth_camera.listen(lambda image: self.depth_camera_queue.put(image))
 
     def enable_autopilot_for_ego_vehicle(self):
         traffic_manager = self.client.get_trafficmanager()
