@@ -27,12 +27,12 @@ class POVVisualiser:
 
     def add_object_and_distance_overlay(self, frame_rgb):
         # teken boxes + labels (groen) op RGB, converteer daarna naar BGR voor imshow
-        for distance, (x1, y1, x2, y2), score, cls_id in zip(
-            self.distances, self.boxes, self.scores, self.class_ids
+        for distance, (x1, y1, x2, y2), score, cls_id,is_intersecting in zip(
+            self.distances, self.boxes, self.scores, self.class_ids,self.is_intersected
         ):
             x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
             cls_name = self.class_names[int(cls_id)]
-            color = (0, 255, 0)
+            color = (255, 0, 0) if is_intersecting else (0, 255, 0)
             cv2.rectangle(frame_rgb, (x1, y1), (x2, y2), color, 2)
             cv2.putText(
                 frame_rgb,
@@ -55,7 +55,14 @@ class POVVisualiser:
 
         # cv2.imshow verwacht BGR
         return cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
-    
+
+    # def add_trajectory_overlay(self, frame):
+    #     for i, lane in enumerate([*self.left_lane, *self.right_lane]):
+    #         cv2.circle(frame, lane, 3, (0, 255, 0), -1)
+    #
+    #         # color = colors[i % len(colors)]
+    #         # cv2.polylines(frame, [np.array(lane, dtype=np.int32)], False, color, 4)
+    #     return frame
     def add_trajectory_overlay(self, frame_bgr,color=(255,255,0),thickness=4):
         cv2.polylines(frame_bgr, [self.left_lane], False, color, thickness, cv2.LINE_AA)
         cv2.polylines(frame_bgr, [self.right_lane], False, color, thickness, cv2.LINE_AA)

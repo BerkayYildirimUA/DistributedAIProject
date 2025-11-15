@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+from data_processors.lane_detector import LaneDetector
 from data_processors.intersection_detector import IntersectionDetector
 import torch
 from TrafficLights.TL_color_detector import TL_color_detector
@@ -33,6 +34,7 @@ tube_projector = MotionTubeProjector(
 # bird_eye_visualiser=BirdVisualiser(640,480)
 intersection_detector=IntersectionDetector()
 tl_color_detector = TL_color_detector()
+# lane_detector=LaneDetector()
 
 
 try:
@@ -50,7 +52,6 @@ try:
         # MOTION TUBES
         lanes = tube_projector.get_projected_lanes(float(speed_ms), float(steer_rad))
         # VISION MODEL
-        # lane_detector=LaneDetector()
         # lanes = lane_detector.get_lanes(frame,int_degree=3)
 
         # Detect + distances

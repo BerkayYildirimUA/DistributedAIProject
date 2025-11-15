@@ -10,3 +10,7 @@ app/__pycache__
 /app/TrafficLights/Models/
 /app/TrafficLights/dataset_creator.py
 /app/TrafficSigns/archive (1)/
+data_processors/__pycache__/
+engine/__pycache__/
+memory/__pycache__/
+**/__pycache__/
