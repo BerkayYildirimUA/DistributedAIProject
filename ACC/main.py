@@ -19,6 +19,7 @@ def main_loop(args):
         engine.connect_to_worlds()
         if not engine.setup():
             raise RuntimeError("Engine setup failed. Exiting.")
+        engine.real_world.world.on_tick(hud.on_world_tick)
 
         # sensor and agent Setup (Real World)
         sensor_real = CarlaStateSensor(engine.ego.real, engine.lead.real)
@@ -32,6 +33,11 @@ def main_loop(args):
 
 
         while True:
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    raise KeyboardInterrupt
+
             # Clock tick MUST come first for accurate FPS reading
             client_clock.tick(60)
 
