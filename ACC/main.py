@@ -19,7 +19,7 @@ def main_loop(args):
         engine.connect_to_worlds()
         if not engine.setup():
             raise RuntimeError("Engine setup failed. Exiting.")
-        engine.real_world.world.on_tick(hud.on_world_tick)
+        engine.real_world.world.on_tick(hud.on_world_tick
 
         # sensor and agent Setup (Real World)
         sensor_real = CarlaStateSensor(engine.ego.real, engine.lead.real)
