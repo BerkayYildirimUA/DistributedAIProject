@@ -84,7 +84,7 @@ if __name__ == '__main__':
     # CARLA
     parser.add_argument(
         '--carla-path',
-        required=False,  # Make it mandatory unless you have a reliable default
+        required=True,  # Make it mandatory unless you have a reliable default
         help='Path to the CARLA executable (CarlaUE4.sh or CarlaUE4.exe)'
     )
 
