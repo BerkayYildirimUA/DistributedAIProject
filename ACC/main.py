@@ -19,7 +19,6 @@ def main_loop(args):
         engine.connect_to_worlds()
         if not engine.setup():
             raise RuntimeError("Engine setup failed. Exiting.")
-        engine.real_world.world.on_tick(hud.on_world_tick)
 
         # sensor and agent Setup (Real World)
         sensor_real = CarlaStateSensor(engine.ego.real, engine.lead.real)
@@ -29,6 +28,7 @@ def main_loop(args):
         pygame.init() #initialize pygame modules
         display = pygame.display.set_mode((args.width, args.height))
         hud = HUD(args.width, args.height) #HUD initialization
+        engine.duo_world.world.on_tick(hud.on_world_tick)
 
 
 
@@ -42,7 +42,7 @@ def main_loop(args):
             client_clock.tick(60)
 
             mirror_frame, _ = engine.duo_world.tick()
-            hud.tick(engine.real_world, client_clock)
+            hud.tick(engine.duo_world, client_clock)
 
             # apply control
             tm_control = engine.ego.get_mirror_control()
