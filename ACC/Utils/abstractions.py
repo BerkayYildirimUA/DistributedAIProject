@@ -1,9 +1,11 @@
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List
 import carla
 from enum import Enum
 
+import numpy
 
 class LightColors(Enum):
     green = 0
@@ -11,13 +13,14 @@ class LightColors(Enum):
     red = 2
 
 @dataclass
-class VehicleState:
+class VehicleState: #maybe add steering direction?
     speed: float
     speed_limit: float
     distances: List[float] #car in front of the Ego
     safe_following_distance: float
     hasCrashed: bool
     light_color: LightColors
+    steering_dir: float = -numpy.inf #so it can give error when used while not set. While keeping the ability to not use it.
 
 class ActionsEnum(Enum):
     brake = 1

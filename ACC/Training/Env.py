@@ -48,7 +48,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                  0.0, 0.0, 0.0, 0.0, 0.0,  # distances (5 vehicles)
                  0.0,  # safe_following_distance
                  0.0,  # hasCrashed (0 or 1)
-                 0.0],  # light_color (0, 1, 2)
+                 0.0,  # light_color (0, 1, 2)
+                 -1.0],  #steering
                 dtype=np.float32
             ),
             high=np.array(
@@ -57,7 +58,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                  1000.0, 1000.0, 1000.0, 1000.0, 1000.0,  # distances (max 1000m)
                  100.0,  # safe_following_distance
                  1.0,  # hasCrashed
-                 2.0],  # light_color
+                 2.0, # light_color
+                 1.0], #steering
                 dtype=np.float32
             ),
             dtype=np.float32,
@@ -222,12 +224,14 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         terminated = False
         truncated = False
         info: dict[str, Any] = {}
+
+        steering_dir = 0.0 #for state
         try:
             mirror_frame, _ = self.engine.duo_world.tick()
 
             # apply control
             tm_control = self.engine.ego.get_mirror_control()
-
+            steering_dir = tm_control
             action = self._array_to_action(action)
 
             #logging.info(f"throttle: {action[ActionsEnum.throttle]}, brake: {action[ActionsEnum.brake]}")
@@ -257,6 +261,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             # spectator
             self.engine.update_spectator()
         except Exception as e:
+            steering_dir = 0.0
             print(f"\nAn critical error occurred during step in traing env: {e}")
             traceback.print_exc()
             terminated = True
@@ -264,6 +269,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         reward = self._reward()
 
         state = self.sensor_real.get_state()
+        state.steering_dir = steering_dir
         obs = self._vehicle_state_to_array(state)
 
         return obs, reward, terminated, truncated, info

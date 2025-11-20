@@ -17,6 +17,7 @@ import numpy
 
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
+import datetime
 
 
 class BiasedActorNetwork(nn.Module):
@@ -56,6 +57,8 @@ def train_loop(args):
                      map_name=args.map, number_of_npc=args.num_npcs)
     env = CarlaEnv(args, scene)
 
+    env.set_rewards(reward_geforce=False, reward_safe_distance=False)
+
     env = GymnasiumToGymWrapper(env)
 
     episode_over = False
@@ -86,7 +89,11 @@ def train_loop(args):
         ent_coeff=0.1
     )
 
-    #logger = Logger(log_name='carla_ppo', results_dir='./logs')
+
+    timestamp = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
+    logger = Logger(log_name=f'{timestamp}_carla_ppo', results_dir='./logs')
+    agent.set_logger(logger)
+
     collect_dataset = CollectDataset()
 
     core = Core(agent, env, callbacks_fit=[collect_dataset])
@@ -104,6 +111,8 @@ def train_loop(args):
     print(f"Average reward: {numpy.mean(rewards)}")
 
     env.close()
+
+    agent.save(f'./models/{timestamp}/')
 
 
 if __name__ == '__main__':
