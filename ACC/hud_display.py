@@ -89,9 +89,9 @@ class HUD(object):
         if not self._show_info:
             return
 
-        transform = world.player.get_transform()
-        vel = world.player.get_velocity()
-        control = world.player.get_control()
+        transform = ego.get_transform()
+        vel = ego.get_velocity()
+        control = ego.get_control()
 
         heading = 'N' if abs(transform.rotation.yaw) < 89.5 else ''
         heading += 'S' if abs(transform.rotation.yaw) > 90.5 else ''
@@ -109,7 +109,7 @@ class HUD(object):
             'Server:  % 16.0f FPS' % self.server_fps,
             'Client:  % 16.0f FPS' % clock.get_fps(),
             '',
-            'Vehicle: % 20s' % get_actor_display_name(world.player, truncate=20),
+            'Vehicle: % 20s' % get_actor_display_name(ego, truncate=20),
             'Map:     % 20s' % world.map.name.split('/')[-1],
             'Simulation time: % 12s' % datetime.timedelta(seconds=int(self.simulation_time)),
             '',
@@ -155,7 +155,7 @@ class HUD(object):
                 (l.z - transform.location.z) ** 2
             )
 
-        vehicles = [(dist(x.get_location()), x) for x in vehicles if x.id != world.player.id]
+        vehicles = [(dist(x.get_location()), x) for x in vehicles if x.id != ego.id]
 
         for distance, vehicle in sorted(vehicles):
             if distance > 200.0:
