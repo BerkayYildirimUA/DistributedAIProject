@@ -62,10 +62,14 @@ class IntersectionDetector:
 
     def is_intersecting_list(self, lane_a, lane_b, boxes):
         if len(lane_a) < 2 or len(lane_b) < 2:
-            return [False]*len(boxes)
+            return [False] * len(boxes)
 
-        # Form a closed polygon for the lane region
-        lane_poly = np.array(lane_a + lane_b[::-1], dtype=np.int32)
+            # Convert to numpy arrays and ensure shape (N,2)
+        lane_a = np.array(lane_a, dtype=np.int32).reshape(-1, 2)
+        lane_b = np.array(lane_b, dtype=np.int32).reshape(-1, 2)
+
+        # Form a closed polygon by connecting lane_a and reversed lane_b
+        lane_poly = np.vstack([lane_a, lane_b[::-1]]).astype(np.int32)
 
         results = []
         for box in boxes:
@@ -73,7 +77,7 @@ class IntersectionDetector:
             cx = int((x1 + x2) / 2)
             cy = int((y1 + y2) / 2)
 
-            # Check if the center is inside or on the edge of the lane polygon
+            # Use pointPolygonTest
             inside = cv2.pointPolygonTest(lane_poly, (cx, cy), False) >= 0
             results.append(inside)
 
