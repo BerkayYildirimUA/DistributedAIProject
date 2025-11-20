@@ -83,7 +83,7 @@ class HUD(object):
         self.frame = timestamp.frame_count
         self.simulation_time = timestamp.elapsed_seconds
 
-    def tick(self, world, clock):
+    def tick(self, world, ego, clock):
         """HUD method for every client tick"""
         self._notifications.tick(world, clock)
         if not self._show_info:
@@ -98,12 +98,12 @@ class HUD(object):
         heading += 'E' if 179.5 > transform.rotation.yaw > 0.5 else ''
         heading += 'W' if -0.5 > transform.rotation.yaw > -179.5 else ''
 
-        colhist = world.collision_sensor.get_collision_history()
-        collision = [colhist[x + self.frame - 200] for x in range(0, 200)]
-        max_col = max(1.0, max(collision))
-        collision = [x / max_col for x in collision]
+        #colhist = world.collision_sensor.get_collision_history()
+        #collision = [colhist[x + self.frame - 200] for x in range(0, 200)]
+        #max_col = max(1.0, max(collision))
+        #collision = [x / max_col for x in collision]
 
-        vehicles = world.world.get_actors().filter('vehicle.*')
+        vehicles = world.get_actors().filter('vehicle.*')
 
         self._info_text = [
             'Server:  % 16.0f FPS' % self.server_fps,
@@ -137,13 +137,13 @@ class HUD(object):
                 ('Jump:', control.jump)
             ]
 
-        self._info_text += [
-            '',
-            'Collision:',
-            collision,
-            '',
-            'Number of vehicles: % 8d' % len(vehicles)
-        ]
+        #self._info_text += [
+        #    '',
+        #    'Collision:',
+        #    collision,
+        #    '',
+        #    'Number of vehicles: % 8d' % len(vehicles)
+        #]
 
         if len(vehicles) > 1:
             self._info_text += ['Nearby vehicles:']

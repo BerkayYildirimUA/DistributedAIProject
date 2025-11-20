@@ -42,7 +42,7 @@ def main_loop(args):
             client_clock.tick(60)
 
             mirror_frame, _ = engine.duo_world.tick()
-            hud.tick(engine.duo_world, client_clock)
+            hud.tick(engine.duo_world.real_world, engine.ego.real, client_clock)
 
             # apply control
             tm_control = engine.ego.get_mirror_control()
