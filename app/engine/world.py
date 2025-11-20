@@ -40,13 +40,12 @@ class World:
     def create_world(self):
         self.client = carla.Client('localhost', self.port)
         self.client.set_timeout(self.timeout)
+        self.client.load_world(self.world_name)
         self.world = self.client.get_world()
-
         settings = self.world.get_settings()
-        settings.synchronous_mode = False
+        settings.synchronous_mode = True
         settings.fixed_delta_seconds = self.delta
         self.world.apply_settings(settings)
-        self.client.load_world(self.world_name)
 
     def get_vehicle_bps(self):
         blueprint_library = self.world.get_blueprint_library()
