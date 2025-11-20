@@ -28,7 +28,7 @@ def main_loop(args):
         pygame.init() #initialize pygame modules
         display = pygame.display.set_mode((args.width, args.height))
         hud = HUD(args.width, args.height) #HUD initialization
-        engine.duo_world.world.on_tick(hud.on_world_tick)
+        engine.duo_world.real_world.on_tick(hud.on_world_tick)
 
 
 
