@@ -20,6 +20,8 @@ from ACC.Engine.start_words import CarlaServerManager
 import datetime
 
 
+
+#class RLagent()
 class BiasedActorNetwork(nn.Module):
     def __init__(self, input_shape, output_shape, **kwargs):
         super().__init__()
@@ -43,13 +45,18 @@ class BiasedActorNetwork(nn.Module):
         return self.network(x)
 
 
-def critic_network(input_shape, output_shape, **kwargs):
-    n_input = input_shape[0]
-    return nn.Sequential(
-        nn.Linear(n_input, 64),
-        nn.ReLU(),
-        nn.Linear(64, 1)
-    )
+class CriticNetwork(nn.Module):
+    def __init__(self, input_shape, output_shape, **kwargs):
+        super().__init__()
+        n_input = input_shape[0]
+        self._model = nn.Sequential(
+            nn.Linear(n_input, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1)
+        )
+
+    def forward(self, x, **kwargs):
+        return self._model(x)
 
 
 def train_loop(args):
@@ -57,6 +64,7 @@ def train_loop(args):
                      map_name=args.map, number_of_npc=args.num_npcs)
     env = CarlaEnv(args, scene)
 
+    env.eng_scene.number_of_npc = 0
     env.set_rewards(reward_geforce=False, reward_safe_distance=False)
 
     env = GymnasiumToGymWrapper(env)
@@ -76,7 +84,7 @@ def train_loop(args):
         policy=policy,
         actor_optimizer={'class': optim.AdamW, 'params': {'lr': 3e-4}},
         critic_params={
-            'network': critic_network,
+            'network': CriticNetwork,
             'optimizer': {'class': optim.AdamW, 'params': {'lr': 1e-3}},
             'loss': nn.MSELoss(),
             'input_shape': env.observation_space.shape,
@@ -98,11 +106,11 @@ def train_loop(args):
 
     core = Core(agent, env, callbacks_fit=[collect_dataset])
 
-    core.learn(n_steps=10, n_steps_per_fit=10)
+    core.learn(n_steps=1000000, n_steps_per_fit=10000)
 
     # Evaluate trained agent
     print("Evaluating...")
-    core.evaluate(n_steps=10, render=False)
+    core.evaluate(n_steps=10000, render=False)
 
     dataset = collect_dataset.get()
 
