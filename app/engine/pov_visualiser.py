@@ -11,7 +11,8 @@ class POVVisualiser:
         scores,
         distances,
         is_intersected,
-        lanes=[]
+        lanes=[],
+        traffic_line_info=[]
     ):
         self.boxes = boxes
         self.class_ids = class_ids
@@ -25,7 +26,7 @@ class POVVisualiser:
         self.is_intersected=is_intersected
         self.class_names = class_names
         self.frame = frame
-
+        self.traffic_line_info = traffic_line_info
     def add_object_and_distance_overlay(self, frame_rgb):
         # teken boxes + labels (groen) op RGB, converteer daarna naar BGR voor imshow
         for distance, (x1, y1, x2, y2), score, cls_id,is_intersecting in zip(
@@ -70,12 +71,27 @@ class POVVisualiser:
         cv2.polylines(frame_bgr, [self.right_lane], False, color, thickness, cv2.LINE_AA)
         return frame_bgr
 
+    def add_traffic_light_overlay(self,frame):
+        tl_boxes_colored, tl_colors, tl_scores = self.traffic_line_info
+        for (box, color, conf) in zip(tl_boxes_colored.tolist(), tl_colors, tl_scores.tolist()):
+            x1, y1, x2, y2 = map(int, box)
+            color_map = {"red": (0, 0, 255), "yellow": (0, 255, 255), "green": (0, 255, 0)}
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color_map[color], 2)
 
+            # place TL color ABOVE the class label (which is at y1-5)
+            label = f"{color} {conf:.2f}"
+            (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+            y_top = max(0, y1 - 5 - th - 4)  # a bit higher than the class text
+
+            cv2.rectangle(frame, (x1, y_top - th - 4), (x1 + tw + 4, y_top), (0, 0, 0), -1)
+            cv2.putText(frame, f"{color} {conf:.2f}", (x1, max(0, y_top)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+        return frame
 
     def show(self):
-        frame_with_boxes_bgr = self.add_object_and_distance_overlay(self.frame)
+        frame_with_traffic_light_info = self.add_traffic_light_overlay(self.frame)
+        frame_with_boxes_bgr = self.add_object_and_distance_overlay(frame_with_traffic_light_info)
         frame_with_trajectory_bgr = self.add_trajectory_overlay(frame_with_boxes_bgr)
-
         cv2.imshow("Ego Vehicle POV", frame_with_trajectory_bgr)
         cv2.waitKey(1)
 

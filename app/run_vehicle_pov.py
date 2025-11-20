@@ -65,7 +65,6 @@ try:
 
         # --- Stage 2: select only traffic lights ---
         if len(class_ids) > 0:
-
             cls_names = [object_detector.classes[int(c)] for c in class_ids.tolist()]
             is_tl = torch.tensor([n == "traffic light" for n in cls_names],
                                  dtype=torch.bool, device=boxes.device)
@@ -74,26 +73,7 @@ try:
             tl_boxes = torch.empty((0, 4))
 
         # --- Stage 3: classify traffic light colors ---
-        if len(tl_boxes) > 0:
-            tl_boxes_colored, tl_color_ids, tl_scores = tl_color_detector.predict_colors_batch(frame, tl_boxes)
-            tl_colors = [tl_color_detector.classes[int(i)] for i in tl_color_ids]
-            for (box, color, conf) in zip(tl_boxes_colored.tolist(), tl_colors, tl_scores.tolist()):
-                x1, y1, x2, y2 = map(int, box)
-                color_map = {"red": (0, 0, 255), "yellow": (0, 255, 255), "green": (0, 255, 0)}
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color_map[color], 2)
-
-                # place TL color ABOVE the class label (which is at y1-5)
-                label = f"{color} {conf:.2f}"
-                (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
-                y_top = max(0, y1 - 5 - th - 4)  # a bit higher than the class text
-
-                cv2.rectangle(frame, (x1, y_top - th - 4), (x1 + tw + 4, y_top), (0, 0, 0), -1)
-                cv2.putText(frame, f"{color} {conf:.2f}", (x1, max(0, y_top)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
-        else:
-            tl_boxes_colored = torch.empty((0, 4))
-            tl_color_ids = torch.empty((0,))
-            tl_scores = torch.empty((0,))
+        tl_boxes_colored, tl_colors, tl_scores = tl_color_detector.predict_colors_batch(frame, tl_boxes)
 
         # Visualise
         visualiser = POVVisualiser(
@@ -104,7 +84,8 @@ try:
             scores,
             distances,
             is_intersected,
-            lanes
+            lanes,
+            [tl_boxes_colored, tl_colors, tl_scores]
         )
 
         visualiser.show()
