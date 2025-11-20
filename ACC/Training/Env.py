@@ -14,19 +14,22 @@ from ACC.Utils.GForce_Class import GForceCalculator
 from ACC.Utils.abstractions import ActionsEnum
 from ACC.Utils.abstractions import VehicleState
 from ACC.Utils.Sensors import CarlaWorldStateSensor
+from ACC.Engine.scenario import Scenario
 from gymnasium import spaces
 import traceback
 
 from mushroom_rl.utils.spaces import Box
 from mushroom_rl.core import MDPInfo
 
+from typing import Optional
 
 class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
     def __init__(self, args, scene):
         super().__init__()
         self.eng_args = None
-        self.eng_scene = None
+        self.eng_scene: Optional[Scenario] = None
+
 
         self.engine = Engine(args, scene)
         self.engine.connect_to_worlds()
@@ -76,6 +79,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             horizon=1000
         )
 
+        self.set_rewards()
+
     def _vehicle_state_to_array(self, state: VehicleState) -> np.ndarray:
         distances = state.distances if state.distances else []
         padded_distances = list(distances) + [1000.0] * (self.max_vehicles - len(distances))
@@ -112,16 +117,29 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
     def info(self):
         return self._mdp_info
 
+    def set_rewards(self, reward_crash=True, reward_geforce=True, reward_speed_limit=True, reward_safe_distance=True):
+
+        if self.eng_scene is not None:
+            self.eng_scene.rewards["reward_crash"] = reward_crash
+            self.eng_scene.rewards["reward_geforce"] = reward_geforce
+            self.eng_scene.rewards["reward_speed_limit"] = reward_speed_limit
+            self.eng_scene.rewards["reward_safe_distance"] = reward_safe_distance
+
+
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> \
             tuple[np.ndarray, dict[str, Any]]:
         super().reset(seed=seed)
 
 
+
         if engine is not None:
             self.eng_args = self.engine.args
-            self.eng_scene = self.engine.scenario
+            self.eng_scene: Scenario = self.engine.scenario
             self.engine.cleanup()
             self.engine = None
+
+
+        self.set_rewards()
 
         self.engine = Engine(self.eng_args,self.eng_scene)
         self.engine.connect_to_worlds()
@@ -187,6 +205,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             if abs(g_force) < (1.23 / 9.81):
                 reward += 10
 
+
+        #safe distance
         if state.distances is not None and len(state.distances) > 0:
             min_front_distance = min(state.distances)
             safe_distance = state.safe_following_distance

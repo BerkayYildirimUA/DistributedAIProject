@@ -11,6 +11,26 @@ from ACC.Utils.Sensors import CarlaLeadStateSensor, CarlaWorldStateSensor
 from ACC.Utils.Agents.SimpleAgent import SimpleAccAgent
 from ACC.Engine.engine import Engine
 
+"""
+RL FEEDBACK 
+
+no need to gragh rewawrd for the PP. 
+Don't use TM data either.
+
+Just focus on stuff the rewards are based on:
+    - geforces over time, maybe as histogram
+    - speed
+    - speed limit
+    - etc etc
+    
+train in steps, don't overcomplicate at first. Turn on rewards as we go
+
+maybe change action space center if need be, like 0 =! do nothing, perhabs. 
+
+
+
+"""
+
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
                      map_name=args.map, number_of_npc=args.num_npcs)
