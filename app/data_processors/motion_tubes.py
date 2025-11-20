@@ -119,11 +119,12 @@ class MotionTubeProjector:
 
         left_pts_cam  = self._veh_to_cam_points(center_xy, +half)
         right_pts_cam = self._veh_to_cam_points(center_xy, -half)
+        center_pts_cam = self._veh_to_cam_points(center_xy, 0)
 
         left_uv  = self._project(left_pts_cam)
         right_uv = self._project(right_pts_cam)
-
-        return self._to_poly(left_uv), self._to_poly(right_uv)
+        center_uv = self._project(center_pts_cam)
+        return self._to_poly(left_uv),self._to_poly(center_uv) ,self._to_poly(right_uv)
 
     def compute_tube_points_img(self, speed_ms: float, steer_rad: float):
         """

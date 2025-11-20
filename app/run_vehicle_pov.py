@@ -58,7 +58,9 @@ try:
         distances = object_distance_calculator.get_distances(boxes, depth_map)
 
         # Lanes
-        is_intersected=intersection_detector.is_intersecting_list(lanes[0],lanes[1],boxes)
+        # get also trajectory
+        is_intersected=intersection_detector.is_intersecting_list_trajectory_based(boxes,lanes[1],3.6/2,0)
+        # is_intersected=intersection_detector.is_intersecting_list(lanes[0],lanes[1],boxes)
 
         # --- Stage 2: select only traffic lights ---
         if len(class_ids) > 0:

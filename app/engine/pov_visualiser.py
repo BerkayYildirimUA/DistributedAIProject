@@ -19,7 +19,8 @@ class POVVisualiser:
         self.distances = distances
         if len(lanes) > 1:
             self.left_lane=lanes[0]
-            self.right_lane=lanes[1]
+            self.center_lane=lanes[1]
+            self.right_lane=lanes[2]
 
         self.is_intersected=is_intersected
         self.class_names = class_names
@@ -58,8 +59,11 @@ class POVVisualiser:
     
     def add_trajectory_overlay(self, frame_bgr,color=(255,255,0),thickness=4):
         cv2.polylines(frame_bgr, [self.left_lane], False, color, thickness, cv2.LINE_AA)
+        cv2.polylines(frame_bgr, [self.center_line], False, color, thickness, 4)
         cv2.polylines(frame_bgr, [self.right_lane], False, color, thickness, cv2.LINE_AA)
         return frame_bgr
+
+
 
     def show(self):
         frame_with_boxes_bgr = self.add_object_and_distance_overlay(self.frame)
