@@ -29,17 +29,15 @@ class BiasedActorNetwork(nn.Module):
         n_output = output_shape[0]
 
         self.network = nn.Sequential(
-            nn.Linear(n_input, 32),
-            nn.Tanh(),
-            nn.Linear(32, 64),
-            nn.Tanh(),
-            nn.Linear(64, n_output),
+            nn.Linear(n_input, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, n_output),
             nn.Tanh()
         )
 
-        # Bias towards throttle (index -1 <=> 1)
-        # with torch.no_grad():
-        # self.network[-2].bias[0] = 0.5
+
 
     def forward(self, x, **kwargs):
         return self.network(x)
@@ -50,9 +48,12 @@ class CriticNetwork(nn.Module):
         super().__init__()
         n_input = input_shape[0]
         self._model = nn.Sequential(
-            nn.Linear(n_input, 64),
+            nn.Linear(n_input, 256),
             nn.ReLU(),
-            nn.Linear(64, 1)
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1)
+
         )
 
     def forward(self, x, **kwargs):
@@ -61,10 +62,9 @@ class CriticNetwork(nn.Module):
 
 def train_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=args.num_npcs)
+                     map_name=args.map, number_of_npc=0)
     env = CarlaEnv(args, scene)
 
-    env.eng_scene.number_of_npc = 0
     env.set_rewards(reward_geforce=False, reward_safe_distance=False)
 
     env = GymnasiumToGymWrapper(env)
@@ -104,13 +104,18 @@ def train_loop(args):
 
     collect_dataset = CollectDataset()
 
+    agent.load("./models/251121_234441")
     core = Core(agent, env, callbacks_fit=[collect_dataset])
 
-    core.learn(n_steps=1000000, n_steps_per_fit=10000)
+
+
+    #core.learn(n_steps=100000, n_steps_per_fit=2048)
+
+    core.learn(n_steps=100000, n_steps_per_fit=128)
 
     # Evaluate trained agent
     print("Evaluating...")
-    core.evaluate(n_steps=10000, render=False)
+    core.evaluate(n_steps=20000, render=False)
 
     dataset = collect_dataset.get()
 
@@ -120,7 +125,7 @@ def train_loop(args):
 
     env.close()
 
-    agent.save(f'./models/{timestamp}/')
+    agent.save(f'./models/{timestamp}/', full_save=True)
 
 
 if __name__ == '__main__':

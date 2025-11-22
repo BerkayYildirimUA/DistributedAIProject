@@ -56,12 +56,12 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 dtype=np.float32
             ),
             high=np.array(
-                [130.0,  # speed
-                 130.0,  # speed_limit
-                 1000.0, 1000.0, 1000.0, 1000.0, 1000.0,  # distances (max 1000m)
-                 100.0,  # safe_following_distance
+                [1.5,  # speed
+                 1.5,  # speed_limit
+                 1.0, 1.0, 1.0, 1.0, 1.0,  # distances (max 1000m)
+                 1.0,  # safe_following_distance
                  1.0,  # hasCrashed
-                 2.0, # light_color
+                 1.0, # light_color
                  1.0], #steering
                 dtype=np.float32
             ),
@@ -81,7 +81,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             observation_space=self.observation_space,
             action_space=self.action_space,
             gamma=0.99,
-            horizon=1000
+            horizon=20000
         )
 
         #self.set_rewards()
@@ -91,14 +91,27 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         padded_distances = list(distances) + [1000.0] * (self.max_vehicles - len(distances))
         padded_distances = padded_distances[:self.max_vehicles]
 
+        #normilze
+        norm_speed = state.speed / 130
+        speed_ratio = state.speed / (state.speed_limit + 1e-5)
+
+        norm_distances = np.array(padded_distances, dtype=np.float32) / 1000.0
+        norm_distances = np.clip(norm_distances, 0.0, 1.0)
+
+        norm_safe_dist = state.safe_following_distance / 100.0
+
+        norm_light = float(state.light_color.value) / 2.0
+
+        norm_steering = float(state.steering_dir)
+
         obs = np.array([
-            state.speed,
-            state.speed_limit,
-            *padded_distances,
-            state.safe_following_distance,
+            norm_speed,
+            speed_ratio,
+            *norm_distances,
+            norm_safe_dist,
             1.0 if state.hasCrashed else 0.0,
-            float(state.light_color.value),
-            float(state.steering_dir)
+            norm_light,
+            norm_steering
         ], dtype=np.float32)
 
         return obs
@@ -130,6 +143,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             self.eng_scene.rewards["reward_geforce"] = reward_geforce
             self.eng_scene.rewards["reward_speed_limit"] = reward_speed_limit
             self.eng_scene.rewards["reward_safe_distance"] = reward_safe_distance
+        else:
+            print("SOMETHING WRONG") #TODO: delete this debug
 
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> \
@@ -174,9 +189,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         self.__g_force_calculator.update_speed(state.speed)
         g_force = self.__g_force_calculator.get_latest_g_force()
 
-        reward = 0.0
-
-
         rewards_dict = self.eng_scene.rewards
         #print(rewards_dict)
         use_crash = rewards_dict.get("reward_crash", True)
@@ -184,44 +196,44 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         use_speed = rewards_dict.get("reward_speed_limit", True)
         use_dist = rewards_dict.get("reward_safe_distance", True)
 
-        #crash
+        ############### CRASH ###############
+        r_crash = 0
         if use_crash:
             if state.hasCrashed:
-                reward = -100
+                r_crash = -1000
             else:
-                reward += 1
+                r_crash = 1
 
-
-        #geforce
-
+        ############### G-FORCE ###############
+        #TODO: simply, make continuous
+        r_geforce = 0
         if use_geforce:
             if g_force is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
                 if abs(g_force) < (0.56 / 9.81):
-                    reward += 2
+                    r_geforce = 2
                 elif  abs(g_force) < (1.23 / 9.81):
-                    reward += 1
+                    r_geforce = 1
                 elif  abs(g_force) < (2.12 / 9.81):
-                    reward -= 2
+                    r_geforce = 2
                 else:
-                    reward -= math.exp(9.81) * (abs(g_force) - 2)
+                    r_geforce = math.exp(9.81) * (abs(g_force) - 2)
 
+
+        ############### SPEED ###############
+        r_speed = 0
         if use_speed:
-            min_front_distance = min(state.distances) if state.distances and len(state.distances) > 0 else 1000.0
+            speed_diff = state.speed - state.speed_limit
 
-            #speed limit
-            if state.speed > (state.speed_limit + 3):
-                reward -= (state.speed - state.speed_limit - 1)
-            elif state.speed < (state.speed_limit - 5) and min_front_distance > (state.safe_following_distance * 2): # Going too slow without reason
-                speed_deficit = (state.speed_limit - 5) - state.speed
-                penalty = speed_deficit / state.speed_limit  # Normalized penalty? Idk if this is the right way, just feels correct TODO double check
-                reward -= 3 * penalty
+            MAX_REWARD = 1.0
+            if speed_diff > 0:
+                r_speed = MAX_REWARD - (speed_diff ** 2)
             else:
-                reward += 1
-                if abs(g_force) < (1.23 / 9.81):
-                    reward += 10
+                r_speed = MAX_REWARD - (MAX_REWARD * (speed_diff ** 2) / 25)
 
 
-        #safe distance
+        ############### SAFE DISTANCE ###############
+        # TODO: simply, make continuous
+        r_dist = 0
         if use_dist:
             if state.distances is not None and len(state.distances) > 0:
                 min_front_distance = min(state.distances)
@@ -229,14 +241,17 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
                 if min_front_distance < safe_distance:
                     penalty = math.exp((safe_distance - min_front_distance) / safe_distance) - 1
-                    reward -= 5 * penalty
+                    r_dist -= 5 * penalty
+
+
 
         #logging.info(f"rewards: {reward}")
-
         #logging.info(f"  [Crash]         : {'ON' if use_crash else 'OFF'}")
         #logging.info(f"  [G-Force]       : {'ON' if use_geforce else 'OFF'}")
         #logging.info(f"  [Speed Limit]   : {'ON' if use_speed else 'OFF'}")
         #logging.info(f"  [Safe Distance] : {'ON' if use_dist else 'OFF'}")
+
+        reward = r_crash + r_dist + r_geforce + r_speed
 
         return reward
 
@@ -244,6 +259,12 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         terminated = False
         truncated = False
         info: dict[str, Any] = {}
+
+
+        #termination
+        state = self.sensor_real.get_state()
+        if state.hasCrashed:
+            terminated = True
 
         steering_dir = 0.0 #for state
         try:
@@ -280,6 +301,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
             # spectator
             self.engine.update_spectator()
+
+
+
         except Exception as e:
             steering_dir = 0.0
             print(f"\nAn critical error occurred during step in traing env: {e}")

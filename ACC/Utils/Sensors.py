@@ -43,6 +43,9 @@ class CarlaWorldStateSensor(StateSensor):
                 smallest_dist = dist
             dists.append(dist)
 
+        if len(vehicles) == 0:
+            dists.append(400)
+
         speed_limit = self.__ego.get_speed_limit()
 
         if speed_limit == 0.0:

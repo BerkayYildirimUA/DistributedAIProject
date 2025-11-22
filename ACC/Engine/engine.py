@@ -197,6 +197,8 @@ class Engine():
             if not self.ego: raise RuntimeError("Failed to spawn EGO pair.")
             logging.info(f"Spawned EGO pair: Real ID {self.ego.real.id}, Mirror ID {self.ego.mirror.id}")
 
+            self.tm_mirror.auto_lane_change(self.ego.mirror) #turn off lane changes
+
             # --- LEAD ---
             if self.scenario.lead_car_bp_name != "":
                 lead_transform = carla.Transform(
