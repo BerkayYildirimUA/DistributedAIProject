@@ -1,5 +1,7 @@
 # https://mushroomrl.readthedocs.io/en/latest/?badge=latest
-
+import os
+os.environ["SDL_VIDEODRIVER"] = "dummy"
+os.environ["GLFW_IM_MODULE"] = "none"
 
 from ACC.Training.Env import CarlaEnv, GymnasiumToGymWrapper
 from mushroom_rl.core import Core, Logger
@@ -20,7 +22,6 @@ from ACC.Engine.start_words import CarlaServerManager
 import datetime
 from mushroom_rl.policy import DeterministicPolicy
 
-import os
 #class RLagent()
 class BiasedActorNetwork(nn.Module):
     def __init__(self, input_shape, output_shape, **kwargs):
