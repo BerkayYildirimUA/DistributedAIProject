@@ -1,8 +1,5 @@
 # https://mushroomrl.readthedocs.io/en/latest/?badge=latest
-import os
-os.environ["SDL_VIDEODRIVER"] = "dummy"
-os.environ["GLFW_IM_MODULE"] = "none"
-os.environ["DISPLAY"] = ""
+
 
 from ACC.Training.Env import CarlaEnv, GymnasiumToGymWrapper
 from mushroom_rl.core import Core, Logger
