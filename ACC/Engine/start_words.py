@@ -20,7 +20,7 @@ class CarlaServerManager:
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-    def launch_servers(self, real_port: int, real_stream_port: int, mirror_port: int, mirror_stream_port: int, connect_timeout: int = 60):
+    def launch_servers(self, real_port: int, real_stream_port: int, mirror_port: int, mirror_stream_port: int, connect_timeout: int = 60, no_render: bool = False):
 
         if self.real_server_process or self.mirror_server_process:
             logging.warning("Servers already seem to be launched. Skipping launch.")
@@ -28,12 +28,21 @@ class CarlaServerManager:
 
         try:
             # --- Launch Real Server (Rendered) ---
-            real_cmd = [
+            if not no_render:
+                real_cmd = [
                 self.carla_path,
-                f"-carla-rpc-port={real_port}",
-                f"-carla-streaming-port={real_stream_port}",
-                "-nosound",
-            ]
+                    "-nullrhi"
+                    f"-carla-rpc-port={real_port}",
+                    f"-carla-streaming-port={real_stream_port}",
+                    "-nosound",
+                ]
+            else:
+                real_cmd = [
+                    self.carla_path,
+                    f"-carla-rpc-port={real_port}",
+                    f"-carla-streaming-port={real_stream_port}",
+                    "-nosound",
+                ]
             logging.info(f"Starting REAL server: {' '.join(real_cmd)}")
             self.real_server_process = subprocess.Popen(real_cmd)
             logging.info(f"REAL server process started with PID: {self.real_server_process.pid}")
