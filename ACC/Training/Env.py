@@ -117,15 +117,15 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         return obs
 
     def _array_to_action(self, action: np.ndarray) -> dict[ActionsEnum, float]:
-        action = float(action[0])
+        val = float(action[0])
 
         throttle = 0.0
         brake = 0.0
 
-        if action >= 0:
-            throttle = abs(action)
+        if action >= -0.5:
+            throttle = (val + 0.5) / 1.5
         else:
-            brake = abs(action)
+            brake = abs(val + 0.5) / 0.5
 
         return {
             ActionsEnum.throttle: throttle,

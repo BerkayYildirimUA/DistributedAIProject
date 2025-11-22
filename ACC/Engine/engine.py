@@ -24,7 +24,13 @@ class Engine():
         self.mirror_traffic_manager_port = args.tm_mirror_port
 
         # world settings
-        self.map_name = scenario.map if scenario is not None else args.map
+
+        temp_map_name = scenario.map if scenario is not None else args.map
+
+        if temp_map_name == "random":
+            temp_map_name = random.choice(["Town01", "Town02", "Town03", "Town04", "Town05", "Town06", "Town07"])
+
+        self.map_name = temp_map_name
         self.delta_seconds = scenario.delta_seconds if scenario is not None else args.delta_seconds
 
         # scenario
@@ -55,14 +61,14 @@ class Engine():
             logging.info(f"Connecting to REAL CARLA server at {self.host}:{self.real_port}")
             client_real = carla.Client(self.host, self.real_port)
             client_real.set_timeout(10.0)
-            logging.info("Connection to REAL server successful. Loading map...")
+            logging.info(f"Connection to REAL server successful. Loading map: {self.map_name}...")
             world_real = client_real.load_world(self.map_name)
             logging.info(f"Successfully loaded REAL world. Map: {world_real.get_map().name}")
 
             logging.info(f"Connecting to MIRROR CARLA server at {self.host}:{self.mirror_port}")
             client_mirror = carla.Client(self.host, self.mirror_port)
             client_mirror.set_timeout(10.0)
-            logging.info("Connection to MIRROR server successful. Loading map...")
+            logging.info(f"Connection to MIRROR server successful. Loading map {self.map_name}...")
             world_mirror = client_mirror.load_world(self.map_name)
 
             if world_mirror.get_map().name != world_real.get_map().name:
@@ -184,8 +190,8 @@ class Engine():
 
             # --- EGO ---
             if not available_spawn_points: raise RuntimeError("Spawn points list is empty.")
-            ego_spawn_point_index = 100 if 100 < len(available_spawn_points) else random.randrange(
-                len(available_spawn_points))
+            #ego_spawn_point_index = 100 if 100 < len(available_spawn_points) else random.randrange(len(available_spawn_points))
+            ego_spawn_point_index = random.randrange(len(available_spawn_points))
             ego_spawn_point = available_spawn_points.pop(ego_spawn_point_index)
 
             filter = self.scenario.ego_car_bp_name if self.scenario is not None else 'vehicle.tesla.model3'
@@ -197,7 +203,7 @@ class Engine():
             if not self.ego: raise RuntimeError("Failed to spawn EGO pair.")
             logging.info(f"Spawned EGO pair: Real ID {self.ego.real.id}, Mirror ID {self.ego.mirror.id}")
 
-            self.tm_mirror.auto_lane_change(self.ego.mirror) #turn off lane changes
+            self.tm_mirror.auto_lane_change(self.ego.mirror, False) #turn off lane changes
 
             # --- LEAD ---
             if self.scenario.lead_car_bp_name != "":

@@ -18,7 +18,7 @@ import numpy
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
 import datetime
-
+from mushroom_rl.policy import DeterministicPolicy
 
 
 #class RLagent()
@@ -60,42 +60,117 @@ class CriticNetwork(nn.Module):
         return self._model(x)
 
 
+class TD3ActorNetwork(nn.Module):
+    def __init__(self, input_shape, output_shape, **kwargs):
+        super().__init__()
+        n_input = input_shape[0]
+        n_output = output_shape[0]
+
+        self.net = nn.Sequential(
+            nn.Linear(n_input, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, n_output),
+            nn.Tanh()  # Forces output to [-1, 1]
+        )
+
+    def forward(self, state, **kwargs):
+        return self.net(state)
+
+
+class TD3CriticNetwork(nn.Module):
+    def __init__(self, input_shape, output_shape, **kwargs):
+        super().__init__()
+        n_input = input_shape[0]
+        n_action = output_shape[0]
+
+        # Critic takes STATE + ACTION as input
+        self.net = nn.Sequential(
+            nn.Linear(n_input + n_action, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1)  # Outputs Q-value
+        )
+
+    def forward(self, state, action, **kwargs):
+        # Concatenate state and action: [Speed, Dist, ... Throttle]
+        x = torch.cat((state, action.float()), dim=1)
+        return self.net(x).squeeze(1)
+
+
+
+
 def train_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
                      map_name=args.map, number_of_npc=0)
     env = CarlaEnv(args, scene)
 
-    env.set_rewards(reward_geforce=False, reward_safe_distance=False)
+    env.set_rewards(reward_geforce=False, reward_safe_distance=False, reward_crash=False)
 
     env = GymnasiumToGymWrapper(env)
 
     episode_over = False
     total_reward = 0
 
-    policy = GaussianTorchPolicy(
-        network=BiasedActorNetwork,
+    #policy = GaussianTorchPolicy(
+    #    network=BiasedActorNetwork,
+    #    input_shape=env.observation_space.shape,
+    #    output_shape=env.action_space.shape,
+    #    use_cuda=True
+    #)
+#
+    #agent = PPO(
+    #    mdp_info=env.info,
+    #    policy=policy,
+    #    actor_optimizer={'class': optim.AdamW, 'params': {'lr': 3e-4}},
+    #    critic_params={
+    #        'network': CriticNetwork,
+    #        'optimizer': {'class': optim.AdamW, 'params': {'lr': 1e-3}},
+    #        'loss': nn.MSELoss(),
+    #        'input_shape': env.observation_space.shape,
+    #        'output_shape': (1,)
+    #    },
+    #    n_epochs_policy=10,
+    #    batch_size=64,
+    #    eps_ppo=0.2,
+    #    lam=0.95,
+    #    ent_coeff=0.1
+    #)
+    actor_params = dict(
+        network=TD3ActorNetwork,
         input_shape=env.observation_space.shape,
-        output_shape=env.action_space.shape,
-        use_cuda=True
+        output_shape=env.action_space.shape
     )
 
-    agent = PPO(
-        mdp_info=env.info,
-        policy=policy,
-        actor_optimizer={'class': optim.AdamW, 'params': {'lr': 3e-4}},
-        critic_params={
-            'network': CriticNetwork,
-            'optimizer': {'class': optim.AdamW, 'params': {'lr': 1e-3}},
-            'loss': nn.MSELoss(),
-            'input_shape': env.observation_space.shape,
-            'output_shape': (1,)
-        },
-        n_epochs_policy=10,
-        batch_size=64,
-        eps_ppo=0.2,
-        lam=0.95,
-        ent_coeff=0.1
+    # TD3 uses TWO critics (Twin) to prevent over-optimism
+    critic_params = dict(
+        network=TD3CriticNetwork,
+        optimizer={'class': optim.AdamW, 'params': {'lr': 1e-3}},
+        loss=nn.MSELoss(),
+        input_shape=env.observation_space.shape,
+        output_shape=env.action_space.shape
     )
+
+
+    agent = TD3(
+        mdp_info=env.info,
+        policy_class=DeterministicPolicy,
+        policy_params={},
+
+        actor_params=actor_params,
+        actor_optimizer={'class': optim.AdamW, 'params': {'lr': 1e-3}},
+        critic_params=critic_params,
+        batch_size=100,  # TD3 likes larger batches
+        initial_replay_size=1000,  # Drive random for 1000 steps to fill memory
+        max_replay_size=100000,  # Remember last 100k steps
+        tau=0.005,  # Soft update factor (Standard for TD3)
+        policy_delay=2,  # Update actor half as often as critic
+        noise_std=0.1,  # Exploration noise (10% jitter)
+        noise_clip=0.5  # Don't jitter more than 50%
+    )
+
 
 
     timestamp = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
@@ -104,14 +179,14 @@ def train_loop(args):
 
     collect_dataset = CollectDataset()
 
-    agent.load("./models/251121_234441")
+    agent = agent.load("./models/251122_015813")
     core = Core(agent, env, callbacks_fit=[collect_dataset])
 
 
 
     #core.learn(n_steps=100000, n_steps_per_fit=2048)
 
-    core.learn(n_steps=100000, n_steps_per_fit=128)
+    core.learn(n_steps=3000000, n_steps_per_fit=1)
 
     # Evaluate trained agent
     print("Evaluating...")
@@ -158,7 +233,7 @@ if __name__ == '__main__':
                         help='Port for MIRROR Traffic Manager (default: 9000)')
 
     # Simulation Settings
-    parser.add_argument('--map', default='Town03', help='Map to load (should match both servers) (default: Town04)')
+    parser.add_argument('--map', default='random', help='Map to load (should match both servers) (default: Town04)')
     parser.add_argument('--delta-seconds', default=0.05, type=float,
                         help='Fixed delta seconds for simulation (default: 0.05)')
     parser.add_argument('--num-npcs', default=2, type=int, help='Number of NPC vehicles to spawn (default: 2)')
