@@ -151,7 +151,7 @@ class CollisionSensor(object):
         """Explicitly stop listening to prevent Stream errors"""
         if self.sensor is not None:
             if self.sensor.is_listening:
-                self.sensor.stop()  # <--- CRITICAL
+                self.sensor.stop()
             if self.sensor.is_alive:
                 self.sensor.destroy()
             self.sensor = None
