@@ -22,6 +22,17 @@ class CarlaWorldStateSensor(StateSensor):
         if self.__collision_sensor:
             self.__collision_sensor.cleanup()
 
+    def reset(self, ego, world):
+        self.__ego = ego
+        self.__world = world
+        self.counter = 0
+        if self.__collision_sensor:
+            self.__collision_sensor.reset()
+
+
+
+
+
     def get_state(self) -> VehicleState:
         ego_transform = self.__ego.get_transform()
 
@@ -156,6 +167,10 @@ class CollisionSensor(object):
                 self.sensor.destroy()
             self.sensor = None
 
+    def reset(self):
+        """Clear the crash data for the next episode"""
+        self.history = []
+        self.has_collided = False
 
 class PygameUI(UI):
     pass
