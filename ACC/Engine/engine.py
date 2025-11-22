@@ -258,6 +258,8 @@ class Engine():
 
             # Spectator setup
             self.spectator = self.duo_world.get_real_world().get_spectator()
+
+            self.duo_world.tick()
             logging.info("Setup complete.")
             return True
 
