@@ -52,7 +52,8 @@ class CarlaWorldStateSensor(StateSensor):
         ego_velocity_ms = ego_velocity_vec.length()
 
         safe_distance = self.__safe_time_distance_seconds * ego_velocity_ms
-        has_crashed = self.__collision_sensor.has_collided
+        #has_crashed = self.__collision_sensor.has_collided
+        has_crashed = False
 
         smallest_dist = 400
         dists = []
