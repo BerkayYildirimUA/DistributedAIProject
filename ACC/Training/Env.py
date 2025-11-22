@@ -83,7 +83,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             observation_space=self.observation_space,
             action_space=self.action_space,
             gamma=0.99,
-            horizon=20000
+            horizon=50
         )
 
         #self.set_rewards()
