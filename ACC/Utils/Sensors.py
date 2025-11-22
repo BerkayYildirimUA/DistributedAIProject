@@ -16,7 +16,8 @@ class CarlaWorldStateSensor(StateSensor):
 
         self.__safe_time_distance_seconds = 2
         self.counter = 0
-        self.__collision_sensor = CollisionSensor(ego_vehicle)
+#        self.__collision_sensor = CollisionSensor(ego_vehicle)
+        self.__collision_sensor = None
 
     def cleanup(self):
 
@@ -91,7 +92,8 @@ class CarlaLeadStateSensor(StateSensor):
 
         self.__safe_time_distance_seconds = 2
         self.counter = 0
-        self.__collision_sensor = CollisionSensor(ego_vehicle)
+        #self.__collision_sensor = CollisionSensor(ego_vehicle)
+        self.__collision_sensor = None
 
 
     def get_state(self) -> VehicleState:
