@@ -19,13 +19,11 @@ class CarlaWorldStateSensor(StateSensor):
         self.__collision_sensor = CollisionSensor(ego_vehicle)
 
     def cleanup(self):
-        self.__collision_sensor.ego_has_spawned = False
 
         if self.__collision_sensor:
             self.__collision_sensor.cleanup()
 
     def reset(self, ego, world):
-        self.__collision_sensor.ego_has_spawned = False
 
         self.__ego = ego
         self.__world = world
@@ -38,8 +36,6 @@ class CarlaWorldStateSensor(StateSensor):
 
 
     def get_state(self) -> VehicleState:
-
-        self.__collision_sensor.ego_has_spawned = True
 
         ego_transform = self.__ego.get_transform()
 
@@ -145,10 +141,9 @@ class CollisionSensor(object):
         blueprint = world.get_blueprint_library().find('sensor.other.collision')
         self.sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=self._parent)
 
-        self.ego_has_spawned = False
 
         weak_self = weakref.ref(self)
-        self.sensor.listen(lambda event: CollisionSensor._on_collision(weak_self, event) if self.ego_has_spawned else None)
+        self.sensor.listen(lambda event: CollisionSensor._on_collision(weak_self, event))
 
     def get_collision_history(self):
         """Gets the history of collisions"""
