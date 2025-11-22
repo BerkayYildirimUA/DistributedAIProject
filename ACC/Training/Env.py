@@ -35,6 +35,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         self.engine.connect_to_worlds()
         if not self.engine.setup():
             raise RuntimeError("Engine setup failed. Exiting.")
+
+
         self.sensor_real = CarlaWorldStateSensor(self.engine.ego.real, self.engine.duo_world.get_real_world())
 
         self.max_vehicles = 5
@@ -166,6 +168,10 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         self.engine.connect_to_worlds()
         if not self.engine.setup():
             raise RuntimeError("Engine setup failed. Exiting.")
+
+        if self.sensor_real is not None:
+            self.sensor_real.cleanup()
+            self.sensor_real = None
 
         self.sensor_real = CarlaWorldStateSensor(self.engine.ego.real, self.engine.duo_world.get_real_world())
 
