@@ -18,28 +18,29 @@ class CarlaWorldStateSensor(StateSensor):
         self.counter = 0
         self.__collision_sensor = CollisionSensor(ego_vehicle)
 
-
     def cleanup(self):
+        self.__collision_sensor.ego_has_spawned = False
+
         if self.__collision_sensor:
             self.__collision_sensor.cleanup()
-            self.__collision_sensor = None
 
     def reset(self, ego, world):
+        self.__collision_sensor.ego_has_spawned = False
+
         self.__ego = ego
         self.__world = world
         self.counter = 0
-        if self.__collision_sensor and self.__collision_sensor.sensor and self.__collision_sensor.sensor.is_alive:
+        if self.__collision_sensor:
             self.__collision_sensor.reset()
-        else:
-            if self.__collision_sensor:
-                self.__collision_sensor.cleanup()
-            self.__collision_sensor = CollisionSensor(self.__ego)
 
 
 
 
 
     def get_state(self) -> VehicleState:
+
+        self.__collision_sensor.ego_has_spawned = True
+
         ego_transform = self.__ego.get_transform()
 
         vehicles = self.__world.get_actors().filter('vehicle.*')
@@ -55,7 +56,6 @@ class CarlaWorldStateSensor(StateSensor):
 
         safe_distance = self.__safe_time_distance_seconds * ego_velocity_ms
         has_crashed = self.__collision_sensor.has_collided
-        #has_crashed = False
 
         smallest_dist = 400
         dists = []
@@ -130,22 +130,22 @@ class CarlaLeadStateSensor(StateSensor):
 #code form carla examples, from "automatic_control.py"
 class CollisionSensor(object):
     """ Class for collision sensors """
+
     def __init__(self, parent_actor):
+        """Constructor method"""
         self.sensor = None
         self.history = []
         self.has_collided = False
         self._parent = parent_actor
-        self._is_listening = False
+
         world = self._parent.get_world()
         blueprint = world.get_blueprint_library().find('sensor.other.collision')
-        try:
-            self.sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=self._parent)
-        except Exception as e:
-            logging.error(f"Could not spawn collision sensor: {e}")
-            self.sensor = None
-            return
-        self.sensor.listen(self._on_collision)
-        self._is_listening = True
+        self.sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=self._parent)
+
+        self.ego_has_spawned = False
+
+        weak_self = weakref.ref(self)
+        self.sensor.listen(lambda event: CollisionSensor._on_collision(weak_self, event) if self.ego_has_spawned else None)
 
     def get_collision_history(self):
         """Gets the history of collisions"""
@@ -154,46 +154,32 @@ class CollisionSensor(object):
             history[frame] += intensity
         return history
 
-    def _on_collision(self, event):
+    @staticmethod
+    def _on_collision(weak_self, event):
         """On collision method"""
+        self = weak_self()
+        if not self:
+            return
         impulse = event.normal_impulse
         intensity = math.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
-
-        # Update state
         self.history.append((event.frame, intensity))
         self.has_collided = True
-
-        # Keep history small
         if len(self.history) > 4000:
             self.history.pop(0)
 
     def cleanup(self):
         """Explicitly stop listening to prevent Stream errors"""
         if self.sensor is not None:
-            if self._is_listening:
-                try:
-                    self.sensor.stop()
-                except Exception:
-                    pass
-                self._is_listening = False
-
-
+            if self.sensor.is_listening:
+                self.sensor.stop()
             if self.sensor.is_alive:
-                try:
-                    self.sensor.destroy()
-                except Exception:
-                    pass
-
+                self.sensor.destroy()
             self.sensor = None
 
     def reset(self):
         """Clear the crash data for the next episode"""
         self.history = []
         self.has_collided = False
-
-    def __del__(self):
-        """Failsafe destructor"""
-        self.cleanup()
 
 class PygameUI(UI):
     pass
