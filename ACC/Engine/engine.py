@@ -28,7 +28,7 @@ class Engine():
         temp_map_name = scenario.map if scenario is not None else args.map
 
         if temp_map_name == "random":
-            temp_map_name = random.choice(["Town01", "Town02", "Town03", "Town04", "Town05", "Town06", "Town07"])
+            temp_map_name = random.choice(["Town01", "Town02", "Town03", "Town04", "Town05"]) #"Town06", "Town07"
 
         self.map_name = temp_map_name
         self.delta_seconds = scenario.delta_seconds if scenario is not None else args.delta_seconds
