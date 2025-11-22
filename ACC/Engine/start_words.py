@@ -31,7 +31,7 @@ class CarlaServerManager:
             if no_render:
                 real_cmd = [
                 self.carla_path,
-                    "-nullrhi"
+                    "-nullrhi",
                     f"-carla-rpc-port={real_port}",
                     f"-carla-streaming-port={real_stream_port}",
                     "-nosound",

@@ -250,8 +250,7 @@ if __name__ == '__main__':
     # training
     parser.add_argument('--do_train', default=False, type=bool, help='Train an RL agent or just run the sim')
 
-    parser.add_argument('--no_display', default=False, type=bool, help='Train an RL agent or just run the sim')
-
+    parser.add_argument('--no_display', action='store_true', help='Disable rendering for SSH')
 
     args = parser.parse_args()
 
