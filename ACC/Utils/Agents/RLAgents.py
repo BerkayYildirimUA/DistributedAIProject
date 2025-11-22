@@ -20,7 +20,7 @@ from ACC.Engine.start_words import CarlaServerManager
 import datetime
 from mushroom_rl.policy import DeterministicPolicy
 
-
+import os
 #class RLagent()
 class BiasedActorNetwork(nn.Module):
     def __init__(self, input_shape, output_shape, **kwargs):
@@ -179,7 +179,12 @@ def train_loop(args):
 
     collect_dataset = CollectDataset()
 
-    agent = agent.load("./models/251122_015813.msh")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
+    model_path = os.path.join(project_root, "ACC", "Utils", "models", "251122_015813.msh")
+
+    logger.info(f"loading from: {model_path}")
+    agent = agent.load("model_path")
     core = Core(agent, env, callbacks_fit=[collect_dataset])
 
 
