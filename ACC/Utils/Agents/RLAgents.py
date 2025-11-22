@@ -267,7 +267,7 @@ if __name__ == '__main__':
             args.real_stream_port,
             args.mirror_port,
             args.mirror_stream_port,
-            args.no_display
+            no_render=args.no_display
         )
 
         logging.info("Servers launched successfully. Starting main simulation loop...")
