@@ -179,7 +179,7 @@ def train_loop(args):
 
     collect_dataset = CollectDataset()
 
-    agent = agent.load("./models/251122_015813")
+    agent = agent.load("./models/251122_015813.msh")
     core = Core(agent, env, callbacks_fit=[collect_dataset])
 
 
@@ -200,7 +200,7 @@ def train_loop(args):
 
     env.close()
 
-    agent.save(f'./models/{timestamp}/', full_save=True)
+    agent.save(f'./models/{timestamp}.msh', full_save=True)
 
 
 if __name__ == '__main__':

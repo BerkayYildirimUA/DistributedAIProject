@@ -18,6 +18,10 @@ class CarlaWorldStateSensor(StateSensor):
         self.counter = 0
         self.__collision_sensor = CollisionSensor(ego_vehicle)
 
+    def cleanup(self):
+        if self.__collision_sensor:
+            self.__collision_sensor.cleanup()
+
     def get_state(self) -> VehicleState:
         ego_transform = self.__ego.get_transform()
 
@@ -62,6 +66,8 @@ class CarlaWorldStateSensor(StateSensor):
 
 
         return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=speed_limit, distances=dists, safe_following_distance=safe_distance, hasCrashed=has_crashed, light_color=LightColors.green)
+
+
 
 class CarlaLeadStateSensor(StateSensor):
 
@@ -140,6 +146,15 @@ class CollisionSensor(object):
         self.has_collided = True
         if len(self.history) > 4000:
             self.history.pop(0)
+
+    def cleanup(self):
+        """Explicitly stop listening to prevent Stream errors"""
+        if self.sensor is not None:
+            if self.sensor.is_listening:
+                self.sensor.stop()  # <--- CRITICAL
+            if self.sensor.is_alive:
+                self.sensor.destroy()
+            self.sensor = None
 
 
 class PygameUI(UI):

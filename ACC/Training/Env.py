@@ -179,6 +179,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
     def close(self):
         super().close()
+        if self.sensor_real:  # You need to make sure you store this in self
+            self.sensor_real.cleanup()
+
         self.engine.cleanup()
 
 
