@@ -184,7 +184,7 @@ def train_loop(args):
     model_path = os.path.join(project_root, "ACC", "Utils", "models", "251122_015813.msh")
 
     logger.info(f"loading from: {model_path}")
-    agent = agent.load("model_path")
+    agent = agent.load(model_path)
     core = Core(agent, env, callbacks_fit=[collect_dataset])
 
 
