@@ -139,10 +139,13 @@ class CollisionSensor(object):
         self._parent = parent_actor
 
         world = self._parent.get_world()
+
+        world.tick()
+
         blueprint = world.get_blueprint_library().find('sensor.other.collision')
         self.sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=self._parent)
 
-        self.ego_has_spawned = False
+        self.ego_has_spawned
 
         weak_self = weakref.ref(self)
         self.sensor.listen(lambda event: CollisionSensor._on_collision(weak_self, event) if self.ego_has_spawned else None)
