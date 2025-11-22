@@ -28,7 +28,7 @@ class CarlaServerManager:
 
         try:
             # --- Launch Real Server (Rendered) ---
-            if not no_render:
+            if no_render:
                 real_cmd = [
                 self.carla_path,
                     "-nullrhi"
