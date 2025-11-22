@@ -181,7 +181,7 @@ def train_loop(args):
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
-    model_path = os.path.join(project_root, "ACC", "Utils", "models", "251122_015813.msh")
+    model_path = os.path.join(project_root, "ACC", "Utils", "Agents", "models", "251122_015813.msh")
 
     logger.info(f"loading from: {model_path}")
     agent = agent.load(model_path)
