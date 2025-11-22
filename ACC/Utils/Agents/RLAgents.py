@@ -208,6 +208,11 @@ def train_loop(args):
 
 
 if __name__ == '__main__':
+
+    if torch.cuda.is_available():
+        torch.set_default_device('cuda')
+        print(f"Training on: {torch.cuda.get_device_name(0)}")
+
     parser = argparse.ArgumentParser(description='CARLA ACC Dual Simulation (Mirror TM Only)')
 
     # CARLA
