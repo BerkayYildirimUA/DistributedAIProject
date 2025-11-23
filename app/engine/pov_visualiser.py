@@ -67,7 +67,7 @@ class POVVisualiser:
     #     return frame
     def add_trajectory_overlay(self, frame_bgr,color=(255,255,0),thickness=4):
         cv2.polylines(frame_bgr, [self.left_lane], False, color, thickness, cv2.LINE_AA)
-        cv2.polylines(frame_bgr, [self.center_line], False, color, thickness, 4)
+        cv2.polylines(frame_bgr, [self.center_lane], False, color, thickness, 4)
         cv2.polylines(frame_bgr, [self.right_lane], False, color, thickness, cv2.LINE_AA)
         return frame_bgr
 

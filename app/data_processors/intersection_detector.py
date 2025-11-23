@@ -27,16 +27,11 @@ class IntersectionDetector:
         return np.hypot(px - proj_x, py - proj_y)
 
     def is_intersecting_list_trajectory_based(self, boxes, center_line, distance_to_line, margin):
-        """
-        Returns a list of booleans indicating whether each detected object (box)
-        lies within (distance_to_line + margin) of the trajectory polyline.
-        """
-
         results = []
 
         # Convert center line into list of consecutive segment pairs
+        center_line = [tuple(p[0]) for p in center_line]  # convert (1,2) arrays → (x, y) tuples
         segments = list(zip(center_line[:-1], center_line[1:]))
-
         for box in boxes:
             # Extract object center
             x1, y1, x2, y2 = box
@@ -47,38 +42,15 @@ class IntersectionDetector:
             min_dist = float("inf")
             for (p1, p2) in segments:
                 d = self.point_to_segment_distance(cx, cy, p1[0], p1[1], p2[0], p2[1])
-                if d < min_dist:
+                if float(d) < float(min_dist):
                     min_dist = d
 
             # Check threshold
             threshold = distance_to_line + margin
-            results.append(min_dist <= threshold)
+            # print(float(min_dist),threshold)
+            results.append(float(min_dist) <= float(threshold))
 
         return results
 
-    # def is_intersecting_list_trajectory_based(self, boxes, center_line, distance_to_line, margin):
 
 
-
-    def is_intersecting_list(self, lane_a, lane_b, boxes):
-        if len(lane_a) < 2 or len(lane_b) < 2:
-            return [False] * len(boxes)
-
-            # Convert to numpy arrays and ensure shape (N,2)
-        lane_a = np.array(lane_a, dtype=np.int32).reshape(-1, 2)
-        lane_b = np.array(lane_b, dtype=np.int32).reshape(-1, 2)
-
-        # Form a closed polygon by connecting lane_a and reversed lane_b
-        lane_poly = np.vstack([lane_a, lane_b[::-1]]).astype(np.int32)
-
-        results = []
-        for box in boxes:
-            x1, y1, x2, y2 = box
-            cx = int((x1 + x2) / 2)
-            cy = int((y1 + y2) / 2)
-
-            # Use pointPolygonTest
-            inside = cv2.pointPolygonTest(lane_poly, (cx, cy), False) >= 0
-            results.append(inside)
-
-        return results

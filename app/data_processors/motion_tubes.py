@@ -52,7 +52,7 @@ class MotionTubeProjector:
         """
         steer = self._smooth_steer(steer_rad)
         # horizon langer bij hogere snelheid
-        horizon_m = float(np.clip(speed_ms * 2.0, 12.0, self.meters_ahead))
+        horizon_m = float(np.clip(speed_ms * 2.0, 30.0, self.meters_ahead))
         s = np.linspace(0.0, horizon_m, int(horizon_m * 4) + 2)  # ~4 samples/m
 
         kappa = np.tan(steer) / max(self.wb, 1e-6)
