@@ -222,8 +222,8 @@ class World:
         #try:
         #    self.depth_camera.stop()
         #    self.depth_camera.destroy()
-        except Exception:
-            pass
+        #except Exception:
+        #    pass
 
         # stop/destroy pedestrian controllers first
         for c in self.walker_controllers:
