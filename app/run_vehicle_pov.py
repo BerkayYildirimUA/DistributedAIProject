@@ -84,10 +84,6 @@ try:
         # VISION MODEL
         # lanes = lane_detector.get_lanes(frame,int_degree=3)
 
-        # Detect + distances
-        boxes, class_ids, scores = object_detector.get_objects(frame)
-        distances = object_distance_calculator.get_distances(boxes, depth_map)
-
         # Lanes
         # get also trajectory
         lane_1 = [tuple(p[0]) for p in lanes[0]]
