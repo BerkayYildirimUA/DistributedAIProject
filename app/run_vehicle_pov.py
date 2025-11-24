@@ -63,10 +63,10 @@ try:
             distances
         )
 
-        # visualiser.overlay_radar_points(
-        #     projection=(u, v, z, Pc, kept),
-        #     velocities=vel
-        # )
+        visualiser.overlay_radar_points(
+            projection=(u, v, z, Pc, kept),
+            velocities=vel
+        )
         visualiser.show()
 
 finally:
