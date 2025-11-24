@@ -20,7 +20,7 @@ from data_processors.radar_points_projector import RadarPointsProjector
 # Attach to shared memory
 rgb_camera_memory = RGBCameraMemory().get_read_access()
 #depth_camera_memory = DepthCameraMemory().get_read_access()
-#vehicle_distance_memory = VehicleDistanceMemory().get_write_access()
+vehicle_distance_memory = VehicleDistanceMemory().get_write_access()
 radar_memory = RadarMemory().get_read_access()
 camera_calibration_memory = CameraCalibrationMemory().get_read_access()
 
@@ -93,6 +93,19 @@ try:
         min_lane_distance = abs(max(lane_1_x)-min(lane_2_x))
         is_intersected=intersection_detector.is_intersecting_list_trajectory_based(boxes,lanes[1],min_lane_distance/2,0.1*min_lane_distance)
         # is_intersected=intersection_detector.is_intersecting_list(lanes[0],lanes[1],boxes)
+
+        # Write distance of closest vehicle in lane to shared memory
+        intersecting_box_indices = [i for i, x in enumerate(is_intersected) if x]
+        closest_vehicle_distance = np.inf
+        for indice in intersecting_box_indices:
+            d = distances[indice]
+            if d < closest_vehicle_distance:
+                closest_vehicle_distance = d
+
+        vehicle_distance_memory.write(closest_vehicle_distance)
+
+
+
 
         # --- Stage 2: select only traffic lights ---
         if len(class_ids) > 0:
