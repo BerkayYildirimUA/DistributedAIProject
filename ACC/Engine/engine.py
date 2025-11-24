@@ -257,7 +257,8 @@ class Engine():
             settings_sync = carla.WorldSettings(
                 synchronous_mode=True,
                 fixed_delta_seconds=self.delta_seconds,
-
+                max_substep_delta_time=0.01,
+                max_substeps=10
             )
             self.duo_world.set_both_worlds_settings(settings_sync)
             self.duo_world.tick()
@@ -400,9 +401,14 @@ class Engine():
     def synchronization_mirror_ego_with_real_ego(self):
         if self.ego.is_alive():
             final_real_ego_transform = self.ego.get_real_transform()
+            real_velocity = self.ego.get_velocity()
+            real_angular_vel = self.ego.get_angular_velocity()
+
             if final_real_ego_transform and self.ego.mirror and self.ego.mirror.is_alive:
                 try:
                     self.ego.mirror.set_transform(final_real_ego_transform)
+                    self.ego.set_mirror_velocity(real_velocity)
+                    self.ego.set_mirror_angular_velocity(real_angular_vel)
                 except Exception as e:
                     logging.error(f"Error syncing mirror ego {self.ego.mirror.id} with real transform: {e}")
 
@@ -417,6 +423,99 @@ class Engine():
                     self.spectator.set_transform(carla.Transform(spectator_location, spectator_rotation))
                 except Exception as e:
                     logging.warning(f"Failed to update spectator transform: {e}")
+
+    def repair_actor_pair(self, duo_actor: DuoActor) -> bool:
+        """
+        Attempts to repair a DuoActor where one actor has died but the other survives.
+        Uses the surviving actor's transform.
+        """
+
+        if not self.duo_world or not self.duo_client:
+            logging.error("Cannot repair actor pair. Worlds not initialized.")
+            return False
+
+        real_alive = duo_actor.real is not None and duo_actor.real.is_alive
+        mirror_alive = duo_actor.mirror is not None and duo_actor.mirror.is_alive
+
+        # Both alive? Nothing to repair.
+        if real_alive and mirror_alive:
+            logging.info("Both actors are alive. No repair needed.")
+            return True
+
+        # Both dead? Can't salvage this one.
+        if not real_alive and not mirror_alive:
+            logging.error("Both actors are dead. Cannot repair without a survivor.")
+            return False
+
+        # Determine survivor and target world
+        if real_alive:
+            survivor = duo_actor.real
+            target_world = self.duo_world.get_mirror_world()
+            target_side = "MIRROR"
+        else:
+            survivor = duo_actor.mirror
+            target_world = self.duo_world.get_real_world()
+            target_side = "REAL"
+
+        # Grab transform from the living actor
+        try:
+            repair_transform = survivor.get_transform()
+        except Exception as e:
+            logging.error(f"Failed to get transform from surviving actor: {e}")
+            return False
+
+        # Resolve blueprint
+        try:
+            type_id = survivor.type_id
+            blueprint = self.blueprint_library.find(type_id)
+        except Exception as e:
+            logging.error(f"Failed to infer blueprint from survivor: {e}")
+            return False
+
+        logging.info(f"Attempting to respawn {target_side} actor using {blueprint.id} at {repair_transform.location}")
+
+        # Spawn the replacement
+        new_actor = self.spawn_actor_sync(target_world, blueprint, repair_transform)
+        if not new_actor:
+            logging.error(f"Failed to spawn replacement {target_side} actor.")
+            return False
+
+        # Patch up the DuoActor
+        if target_side == "MIRROR":
+            duo_actor.mirror = new_actor
+        else:
+            duo_actor.real = new_actor
+
+        logging.info(f"Successfully repaired {target_side} actor. New ID: {new_actor.id}")
+        return True
+
+    def revive_ego_pair(self) -> bool:
+        """
+        Specialized repair function for the ego vehicle.
+        Handles ego-specific configuration after resurrection (e.g., TM settings).
+        """
+        if not self.ego:
+            logging.error("No ego actor exists to revive.")
+            return False
+
+        was_mirror_dead = self.ego.mirror is None or not self.ego.mirror.is_alive
+
+        success = self.repair_actor_pair(self.ego)
+
+        if success and was_mirror_dead:
+            # Reconfigure the mirror ego with TM settings
+            try:
+                if self.tm_mirror and self.ego.mirror:
+                    self.ego.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
+                    self.tm_mirror.auto_lane_change(self.ego.mirror, False)
+                    self.ego.set_mirror_physics(True)
+                    self.duo_world.get_mirror_world().tick()
+                    logging.info("Ego mirror actor reconfigured with Traffic Manager settings.")
+            except Exception as e:
+                logging.warning(f"Failed to reconfigure ego mirror TM settings: {e}")
+
+        return success
+
 
     def cleanup(self):
         logging.info('Initiating cleanup...')

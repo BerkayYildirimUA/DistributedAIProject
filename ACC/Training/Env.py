@@ -285,6 +285,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         try:
 
             if not self.engine.ego.is_alive():
+                if not self.engine.ego.mirror.is_alive:
+                    self.engine.revive_ego_pair()
                 raise RuntimeError("Ego vehicle disappeared (Simulation Glitch).")
 
 
@@ -302,17 +304,11 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 # print("Car Crashed!")
                 terminated = True
 
-            if state.speed < 60:
-                temp_throttle = 0.8
-                temp_break = 0
-            else:
-                temp_throttle = 0
-                temp_break = 1
 
 
             final_control = carla.VehicleControl(
-                throttle=temp_throttle, #action[ActionsEnum.throttle],
-                brake=temp_break, #action[ActionsEnum.brake],
+                throttle=1, #action[ActionsEnum.throttle],
+                brake=0, #action[ActionsEnum.brake],
                 steer=steering_dir,
                 hand_brake=False,
                 reverse=tm_control.reverse,
@@ -324,6 +320,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
             # apply goal
             if self.engine.lead is not None:
+
+
                 self.engine.tm_mirror.set_path(self.engine.ego.mirror, [self.engine.lead.mirror.get_location()])
 
             # synchronization real npc with mirror npcs
@@ -346,8 +344,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             #this creates an infinite road to drive on
             if self.engine.map_name == "CUSTOM_STRAIGHT":
                 transform = self.engine.ego.real.get_transform()
-                if transform.location.x > 1900:
-                    print("TELEPORTED")
+                if transform.location.x > 1000:
                     new_location = carla.Location(x=10, y=transform.location.y, z=transform.location.z)
                     self.engine.ego.real.set_location(new_location)
                     self.engine.ego.mirror.set_location(new_location)

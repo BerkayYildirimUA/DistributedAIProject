@@ -70,6 +70,18 @@ class DuoActor:
     def set_real_physics(self, enable: bool):
         self.real.set_simulate_physics(enable)
 
+    def get_velocity(self):
+        return self.real.get_velocity()
+
+    def get_angular_velocity(self):
+        return self.real.get_angular_velocity()
+
+    def set_mirror_velocity(self, velocity: carla.Vector3D):
+        self.mirror.set_target_velocity(velocity)
+
+    def set_mirror_angular_velocity(self, angular_velocity: carla.Vector3D):
+        self.mirror.set_target_angular_velocity(angular_velocity)
+
     def destroy(self):
         if self.real:
             try:

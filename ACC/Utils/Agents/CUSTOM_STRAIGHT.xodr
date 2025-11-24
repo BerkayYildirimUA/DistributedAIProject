@@ -6,7 +6,7 @@
     <road name="StraightRoad" length="2000.0" id="1" junction="-1">
         <link />
         <planView>
-            <geometry s="0.0" x="0.0" y="0.0" hdg="0.0" length="2000.0">
+            <geometry s="0.0" x="0.0" y="0.0" hdg="0.0" length="2300.0">
                 <line />
             </geometry>
         </planView>
