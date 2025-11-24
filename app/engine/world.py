@@ -51,7 +51,6 @@ class World:
         settings.synchronous_mode = False
         # settings.fixed_delta_seconds = self.delta
         self.world.apply_settings(settings)
-        self.client.load_world(self.world_name)
 
     def get_vehicle_bps(self):
         blueprint_library = self.world.get_blueprint_library()
