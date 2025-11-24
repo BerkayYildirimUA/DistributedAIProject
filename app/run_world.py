@@ -13,17 +13,6 @@ import constants
 from engine.world import World
 from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
 
-# Create carla world and memory buffers
-world = World()
-rgb_camera_memory = RGBCameraMemory().get_write_access()
-depht_camera_memory = DepthCameraMemory().get_write_access()
-vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
-radar_memory = RadarMemory().get_write_access()
-camera_calibration_memory = CameraCalibrationMemory().get_write_access()
-rgb_camera_queue, radar_queue = world.expose_queues()
-K = world.calculate_camera_intrinsic()
-cam_mats = np.zeros((2, 4, 4), dtype=np.float64)
-cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
 
 # Define transforms for handling camera data
 def camera_callback(image):
@@ -129,17 +118,21 @@ def process_radar_data():
 
 
 if __name__ == "__main__":
-
-    vehicle_state_memory = VehicleStateMemory().get_write_access()
-    MAX_STEER_RAD = math.radians(60)  # ruwe schatting
-
-
     # Create carla world and memory buffers
     world = World()
     rgb_camera_memory = RGBCameraMemory().get_write_access()
-    depht_camera_memory = DepthCameraMemory().get_write_access()
+    #depht_camera_memory = DepthCameraMemory().get_write_access()
     vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
-    rgb_camera_queue, depth_camera_queue = world.expose_queues()
+    radar_memory = RadarMemory().get_write_access()
+    camera_calibration_memory = CameraCalibrationMemory().get_write_access()
+    rgb_camera_queue, radar_queue = world.expose_queues()
+
+    K = world.calculate_camera_intrinsic()
+    cam_mats = np.zeros((2, 4, 4), dtype=np.float64)
+    cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
+
+    vehicle_state_memory = VehicleStateMemory().get_write_access()
+    MAX_STEER_RAD = math.radians(60)  # ruwe schatting
 
     # Start threads
     rgb_thread = threading.Thread(target=process_rgb_images, daemon=True)

@@ -19,7 +19,7 @@ from data_processors.radar_points_projector import RadarPointsProjector
 
 # Attach to shared memory
 rgb_camera_memory = RGBCameraMemory().get_read_access()
-depth_camera_memory = DepthCameraMemory().get_read_access()
+#depth_camera_memory = DepthCameraMemory().get_read_access()
 #vehicle_distance_memory = VehicleDistanceMemory().get_write_access()
 radar_memory = RadarMemory().get_read_access()
 camera_calibration_memory = CameraCalibrationMemory().get_read_access()
@@ -50,7 +50,7 @@ try:
     while True:
         # Convert to Torch tensor and normalize
         frame = rgb_camera_memory.read()
-        depth_map = depth_camera_memory.read()
+        #depth_map = depth_camera_memory.read()
         radar_data = radar_memory.read()
         if np.count_nonzero(frame) == 0:
             continue
