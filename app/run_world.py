@@ -2,25 +2,24 @@ import queue
 import numpy as np
 import cv2
 import threading
+import subprocess
+import sys
+import argparse
 import carla
 import math
 import constants
 
 
 from engine.world import World
-from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory,RadarMemory,CameraCalibrationMemory
+from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
 
 # Create carla world and memory buffers
 world = World()
 rgb_camera_memory = RGBCameraMemory().get_write_access()
 depht_camera_memory = DepthCameraMemory().get_write_access()
-#vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
-radar_memory = RadarMemory().get_write_access()
-camera_calibration_memory = CameraCalibrationMemory().get_write_access()
-rgb_camera_queue, radar_queue = world.expose_queues()
-K = world.calculate_camera_intrinsic()
-cam_mats = np.zeros((2, 4, 4), dtype=np.float64)
-cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
+vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
+rgb_camera_queue, depth_camera_queue = world.expose_queues()
+
 
 # Define transforms for handling camera data
 def camera_callback(image):
@@ -123,33 +122,57 @@ def process_radar_data():
         except queue.Empty:
             continue
 
-# Start threads
-rgb_thread = threading.Thread(target=process_rgb_images, daemon=True)
-depth_thread = threading.Thread(target=process_depth_images, daemon=True)
-radar_thread = threading.Thread(target=process_radar_data, daemon=True)
-rgb_thread.start()
-depth_thread.start()
-radar_thread.start()
 
 
-# Run the world
-print("World started ticking!")
-try:
-    while True:
-        try:
-            world.tick()
-        except RuntimeError as e:
-            print(f"Tick failed {e}")
+if __name__ == "__main__":
 
-        # TODO: feed this distance data into the reinforcement module to calculate acceleration
-        #distance_vehicle_in_front_m = vehicle_distance_memory[0,0]
-        # print(f"Distance to vehicle in front: {distance_vehicle_in_front_m}m")
-except KeyboardInterrupt:
-    print("Closing simulation!")
-finally:
-    world.cleanup()
+    vehicle_state_memory = VehicleStateMemory().get_write_access()
+    MAX_STEER_RAD = math.radians(60)  # ruwe schatting
 
 
+    # Create carla world and memory buffers
+    world = World()
+    rgb_camera_memory = RGBCameraMemory().get_write_access()
+    depht_camera_memory = DepthCameraMemory().get_write_access()
+    vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
+    rgb_camera_queue, depth_camera_queue = world.expose_queues()
+
+    # Start threads
+    rgb_thread = threading.Thread(target=process_rgb_images, daemon=True)
+    depth_thread = threading.Thread(target=process_depth_images, daemon=True)
+    radar_thread = threading.Thread(target=process_radar_data, daemon=True)
+    rgb_thread.start()
+    depth_thread.start()
+    radar_thread.start()
+
+    try:
+        while True:
+            try:
+                world.tick()
+                # --- we get the state of the vehicle and put into shared memory ---
+                vel = world.ego_vehicle.get_velocity()                          # get the velocity from our car in CARLA
+                speed_ms = float((vel.x ** 2 + vel.y ** 2 + vel.z ** 2) ** 0.5) # calculate the speed
+
+                ctrl = world.ego_vehicle.get_control()                          # get the control applied in the last tick
+                # ctrl.steer in [-1,1] => schaal naar rad
+                steer_rad = -float(ctrl.steer) * MAX_STEER_RAD                  # calculating the steer angle
+
+                vehicle_state_memory.write(np.array([speed_ms, steer_rad], dtype=np.float32))
+                # --------------------------------------
+
+            except RuntimeError as e:
+                print(f"Tick failed {e}")
+
+
+            # TODO: feed this distance data into the reinforcement module to calculate acceleration
+            distance_vehicle_in_front_m = vehicle_distance_memory[0, 0]
+            # print(f"Distance to vehicle in front: {distance_vehicle_in_front_m}m")
+    except KeyboardInterrupt:
+        print("Closing simulation!")
+    finally:
+        world.cleanup()
+
+        print("Cleanup complete.")
 
 
 
