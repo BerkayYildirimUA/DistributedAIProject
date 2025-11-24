@@ -163,9 +163,6 @@ if __name__ == "__main__":
 
             # TODO: feed this distance data into the reinforcement module to calculate acceleration
             distance_vehicle_in_front_m = vehicle_distance_memory[0, 0]
-            if distance_vehicle_in_front_m != np.inf or distance_vehicle_in_front_m != 0.0:
-                print("distance to vehicle in front: ", distance_vehicle_in_front_m)
-            # print(f"Distance to vehicle in front: {distance_vehicle_in_front_m}m")
     except KeyboardInterrupt:
         print("Closing simulation!")
     finally:
