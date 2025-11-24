@@ -130,6 +130,8 @@ if __name__ == '__main__':
 
     #training
     parser.add_argument('--do_train', default=False, type=bool, help='Train an RL agent or just run the sim')
+    parser.add_argument('--random_speed_limit', default=False, type=bool, help='Train an RL agent or just run the sim')
+
 
 
     args = parser.parse_args()

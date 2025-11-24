@@ -71,11 +71,21 @@ class DuoActor:
         self.real.set_simulate_physics(enable)
 
     def destroy(self):
-        self.real.destroy()
-        self.mirror.destroy()
+        if self.real:
+            try:
+                if self.real.is_alive:
+                    self.real.destroy()
+            except RuntimeError:
+                pass  # It's already dead, who cares.
+            self.real = None
 
-        self.real = None
-        self.mirror = None
+        if self.mirror:
+            try:
+                if self.mirror.is_alive:
+                    self.mirror.destroy()
+            except RuntimeError:
+                pass  # It's already dead.
+            self.mirror = None
 
 
 

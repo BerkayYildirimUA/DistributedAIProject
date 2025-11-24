@@ -1,7 +1,6 @@
 # https://mushroomrl.readthedocs.io/en/latest/?badge=latest
 
-
-from ACC.Training.Env import CarlaEnv, GymnasiumToGymWrapper
+from ACC.Training.Env import CarlaEnv, GymnasiumToGymWrapper, FrameStackWrapper
 from mushroom_rl.core import Core, Logger
 from mushroom_rl.algorithms.actor_critic import PPO, TD3
 from mushroom_rl.policy import GaussianTorchPolicy
@@ -100,15 +99,19 @@ class TD3CriticNetwork(nn.Module):
 
 
 
+def seconds_to_loops(seconds):
+    loops_per_second = 199999 / (42 * 60 + 45)
+    return int(loops_per_second * seconds)
 
 def train_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
                      map_name=args.map, number_of_npc=0)
     env = CarlaEnv(args, scene)
 
-    env.set_rewards(reward_geforce=False, reward_safe_distance=False, reward_crash=False)
+    env.set_rewards(reward_geforce=False, reward_safe_distance=False)
 
     env = GymnasiumToGymWrapper(env)
+    #env = FrameStackWrapper(env, num_stack=4)
 
     episode_over = False
     total_reward = 0
@@ -146,10 +149,11 @@ def train_loop(args):
     # TD3 uses TWO critics (Twin) to prevent over-optimism
     critic_params = dict(
         network=TD3CriticNetwork,
-        optimizer={'class': optim.AdamW, 'params': {'lr': 1e-3}},
+        optimizer={'class': optim.AdamW, 'params': {'lr': 3e-4}},
         loss=nn.MSELoss(),
         input_shape=env.observation_space.shape,
         output_shape=env.action_space.shape
+        #,use_cuda = True
     )
 
 
@@ -161,13 +165,13 @@ def train_loop(args):
         actor_params=actor_params,
         actor_optimizer={'class': optim.AdamW, 'params': {'lr': 1e-3}},
         critic_params=critic_params,
-        batch_size=100,  # TD3 likes larger batches
+        batch_size=256,  # TD3 likes larger batches
         initial_replay_size=1000,  # Drive random for 1000 steps to fill memory
         max_replay_size=100000,  # Remember last 100k steps
         tau=0.005,  # Soft update factor (Standard for TD3)
         policy_delay=2,  # Update actor half as often as critic
         noise_std=0.1,  # Exploration noise (10% jitter)
-        noise_clip=0.5  # Don't jitter more than 50%
+        noise_clip=0.2  # Don't jitter more than 50%
     )
 
 
@@ -180,9 +184,9 @@ def train_loop(args):
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
-    model_path = os.path.join(project_root, "ACC", "Utils", "Agents", "models", "251122_015813.msh")
+    model_path = os.path.join(project_root, "ACC", "Utils", "Agents", "models", "251124_172805.msh")
 
-    logger.info(f"loading from: {model_path}")
+    #logger.info(f"loading from: {model_path}")
     agent = agent.load(model_path)
     core = Core(agent, env, callbacks_fit=[collect_dataset])
 
@@ -190,7 +194,9 @@ def train_loop(args):
 
     #core.learn(n_steps=100000, n_steps_per_fit=2048)
 
-    core.learn(n_steps=3000000, n_steps_per_fit=1)
+    #core.learn(n_steps=2000000, n_steps_per_fit=1)
+
+    #core.learn(n_steps=seconds_to_loops(1*60*60), n_steps_per_fit=1)
 
     # Evaluate trained agent
     print("Evaluating...")
@@ -208,10 +214,6 @@ def train_loop(args):
 
 
 if __name__ == '__main__':
-
-    if torch.cuda.is_available():
-        torch.set_default_device('cuda')
-        print(f"Training on: {torch.cuda.get_device_name(0)}")
 
     parser = argparse.ArgumentParser(description='CARLA ACC Dual Simulation (Mirror TM Only)')
 
@@ -242,7 +244,10 @@ if __name__ == '__main__':
                         help='Port for MIRROR Traffic Manager (default: 9000)')
 
     # Simulation Settings
-    parser.add_argument('--map', default='random', help='Map to load (should match both servers) (default: Town04)')
+    parser.add_argument('--map', default='random', help='Map to load (default: random)')
+    parser.add_argument('--spawn_point', default='random', help='Spawn point of the ego (default: random)')
+
+
     parser.add_argument('--delta-seconds', default=0.05, type=float,
                         help='Fixed delta seconds for simulation (default: 0.05)')
     parser.add_argument('--num-npcs', default=2, type=int, help='Number of NPC vehicles to spawn (default: 2)')
@@ -253,8 +258,10 @@ if __name__ == '__main__':
 
     # training
     parser.add_argument('--do_train', default=False, type=bool, help='Train an RL agent or just run the sim')
+    parser.add_argument('--horizon', default=20000, help='max sim length before resetting')
 
     parser.add_argument('--no_display', action='store_true', help='Disable rendering for SSH')
+    parser.add_argument('--random_speed_limit', action='store_true', help='to train better at this')
 
     args = parser.parse_args()
 

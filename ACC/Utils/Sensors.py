@@ -1,3 +1,4 @@
+import random
 import weakref
 import collections
 
@@ -16,13 +17,14 @@ class CarlaWorldStateSensor(StateSensor):
 
         self.__safe_time_distance_seconds = 2
         self.counter = 0
-#        self.__collision_sensor = CollisionSensor(ego_vehicle)
-        self.__collision_sensor = None
+        self.__collision_sensor = CollisionSensor(ego_vehicle)
 
+        self.override_speed_limit = False
+        self.speed_limit = 0
     def cleanup(self):
 
         if self.__collision_sensor:
-            self.__collision_sensor.cleanup()
+            self.__collision_sensor.destroy()
 
     def reset(self, ego, world):
 
@@ -30,9 +32,7 @@ class CarlaWorldStateSensor(StateSensor):
         self.__world = world
         self.counter = 0
         if self.__collision_sensor:
-            self.__collision_sensor.reset()
-
-
+            self.__collision_sensor.destroy()
 
 
 
@@ -52,8 +52,7 @@ class CarlaWorldStateSensor(StateSensor):
         ego_velocity_ms = ego_velocity_vec.length()
 
         safe_distance = self.__safe_time_distance_seconds * ego_velocity_ms
-        #has_crashed = self.__collision_sensor.has_collided
-        has_crashed = False
+        has_crashed = self.__collision_sensor.get_last_impact() > 0.0
 
         smallest_dist = 400
         dists = []
@@ -66,22 +65,24 @@ class CarlaWorldStateSensor(StateSensor):
         if len(vehicles) == 0:
             dists.append(400)
 
-        speed_limit = self.__ego.get_speed_limit()
 
-        if speed_limit == 0.0:
-            speed_limit = 30
-
-
-        if self.counter == 100:
+        if self.override_speed_limit and self.counter == 5000:
             self.counter = 0
-            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {speed_limit} km/h, distance to nearest: {smallest_dist}m, safe dist: {safe_distance}m")
-        else:
-            self.counter += 1
+            self.speed_limit = random.randint(10, 140)
+        elif not self.override_speed_limit:
+            self.speed_limit = self.__ego.get_speed_limit()
+
+        if self.speed_limit == 0.0:
+            self.speed_limit = 30
 
 
+        if self.counter % 300 == 0:
+            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {self.speed_limit} km/h, distance to nearest: {smallest_dist}m, safe dist: {safe_distance}m, CRASH: {has_crashed}")
+
+        self.counter += 1
 
 
-        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=speed_limit, distances=dists, safe_following_distance=safe_distance, hasCrashed=has_crashed, light_color=LightColors.green)
+        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=self.speed_limit, distances=dists, safe_following_distance=safe_distance, hasCrashed=has_crashed, light_color=LightColors.green)
 
 
 
@@ -93,8 +94,7 @@ class CarlaLeadStateSensor(StateSensor):
 
         self.__safe_time_distance_seconds = 2
         self.counter = 0
-        #self.__collision_sensor = CollisionSensor(ego_vehicle)
-        self.__collision_sensor = None
+        self.__collision_sensor = CollisionSensor(ego_vehicle)
 
 
     def get_state(self) -> VehicleState:
@@ -108,14 +108,14 @@ class CarlaLeadStateSensor(StateSensor):
 
         safe_distance = self.__safe_time_distance_seconds * ego_velocity_ms
 
-        has_crashed = self.__collision_sensor.has_collided
+        has_crashed = self.__collision_sensor.get_last_impact() > 0.0
 
         speed_limit = self.__ego.get_speed_limit()
 
         if speed_limit == 0.0:
             speed_limit = 30
 
-        if self.counter == 100:
+        if self.counter == 1000:
             self.counter = 0
             logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {speed_limit} km/h, distance to nearest: {distance}m, safe dist: {safe_distance}m")
         else:
@@ -128,59 +128,54 @@ class CarlaLeadStateSensor(StateSensor):
 
 #code form carla examples, from "automatic_control.py"
 class CollisionSensor(object):
-    """ Class for collision sensors """
-
     def __init__(self, parent_actor):
-        """Constructor method"""
         self.sensor = None
         self.history = []
-        self.has_collided = False
         self._parent = parent_actor
+        self.intensity = 0.0  # Store the intensity of the last impact
 
         world = self._parent.get_world()
+        bp = world.get_blueprint_library().find('sensor.other.collision')
 
-        world.tick()
+        # Spawn the sensor attached to the parent
+        self.sensor = world.spawn_actor(bp, carla.Transform(), attach_to=self._parent)
 
-        blueprint = world.get_blueprint_library().find('sensor.other.collision')
-        self.sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=self._parent)
-
-
+        # We use weakref to avoid circular references that prevent garbage collection
         weak_self = weakref.ref(self)
         self.sensor.listen(lambda event: CollisionSensor._on_collision(weak_self, event))
 
-    def get_collision_history(self):
-        """Gets the history of collisions"""
-        history = collections.defaultdict(int)
-        for frame, intensity in self.history:
-            history[frame] += intensity
-        return history
-
     @staticmethod
     def _on_collision(weak_self, event):
-        """On collision method"""
         self = weak_self()
         if not self:
             return
+
+        # Calculate intensity of the collision
         impulse = event.normal_impulse
         intensity = math.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
+
+        # Append to history (Frame number, Intensity)
         self.history.append((event.frame, intensity))
-        self.has_collided = True
+
+        # Update current intensity state
+        self.intensity = intensity
+
+        # Keep history manageable (optional limit)
         if len(self.history) > 4000:
             self.history.pop(0)
 
-    def cleanup(self):
-        """Explicitly stop listening to prevent Stream errors"""
-        if self.sensor is not None:
-            if self.sensor.is_listening:
-                self.sensor.stop()
-            if self.sensor.is_alive:
-                self.sensor.destroy()
-            self.sensor = None
+    def get_last_impact(self):
+        """Returns the intensity of the most recent collision, then resets it."""
+        current_intensity = self.intensity
+        self.intensity = 0.0  # Reset after reading so we don't register the same crash twice
+        return current_intensity
 
-    def reset(self):
-        """Clear the crash data for the next episode"""
-        self.history = []
-        self.has_collided = False
+    def destroy(self):
+        """Clean up the sensor from the server"""
+        if self.sensor is not None:
+            self.sensor.stop()
+            self.sensor.destroy()
+            self.sensor = None
 
 class PygameUI(UI):
     pass

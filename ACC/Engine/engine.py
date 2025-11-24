@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 import traceback
 from typing import Optional, List
@@ -6,7 +7,8 @@ from ACC.Engine.scenario import Scenario
 
 import carla
 from ACC.Engine.duo_classes import DuoActor, DuoClient, DuoWorld
-
+import time
+import gc
 
 class Engine():
 
@@ -27,8 +29,7 @@ class Engine():
 
         temp_map_name = scenario.map if scenario is not None else args.map
 
-        if temp_map_name == "random":
-            temp_map_name = random.choice(["Town01", "Town02", "Town03", "Town04", "Town05"]) #"Town06", "Town07"
+
 
         self.map_name = temp_map_name
         self.delta_seconds = scenario.delta_seconds if scenario is not None else args.delta_seconds
@@ -50,6 +51,90 @@ class Engine():
 
         self.scenario = scenario
 
+    def _load_world_safely(self, client: carla.Client, map_name: str, server_name: str):
+        """
+        Loads a map with patience, verification, and memory cleanup.
+        """
+        logging.info(f"[{server_name}] Preparing to load map: {map_name}...")
+        client.set_timeout(5 * 60)
+
+        if map_name.startswith("CUSTOM_"):
+            file_name = map_name + ".xodr"
+
+            if not os.path.exists(file_name):
+                raise FileNotFoundError(f"[{server_name}] Could not find OpenDRIVE file: {file_name}")
+
+            logging.info(f"[{server_name}] Reading OpenDRIVE file: {file_name}...")
+            with open(file_name, 'r') as f:
+                xodr_content = f.read()
+
+            logging.info(f"[{server_name}] Generating procedural world (No 3D Models)...")
+
+            client.generate_opendrive_world(
+                xodr_content,
+                carla.OpendriveGenerationParameters(
+                    vertex_distance=2.0,
+                    max_road_length=500.0,
+                    wall_height=1.0,  # Invisible walls to keep car on track
+                    additional_width=0.6,  # Wider lanes at junctions
+                    smooth_junctions=True,
+                    enable_mesh_visibility=True
+                )
+            )
+
+        # 2. CHECK CURRENT STATE
+        # If the map is already loaded, don't reload it (saves 5 seconds)
+
+        else:
+            try:
+                current_map = client.get_world().get_map().name
+                if current_map.endswith(map_name):
+                    logging.info(f"[{server_name}] Map {map_name} is already loaded. Skipping reload.")
+                    return client.get_world()
+            except RuntimeError:
+                pass  # World might not exist yet, that's fine
+
+            gc.collect()
+
+            # 4. LOAD THE WORLD
+            logging.info(f"[{server_name}] Sending Load Command...")
+            client.load_world(map_name)
+
+        # 5. VERIFICATION LOOP
+        world = None
+        for i in range(10):
+            try:
+                world = client.get_world()
+
+                if not map_name.startswith("CUSTOM_"):
+                    if world.get_map().name.rsplit('/', 1)[1] == map_name:
+                        logging.info(f"[{server_name}] Map verified successfully.")
+                        break
+
+                else:
+                    if world.get_map() is not None:
+                        logging.info(f"[{server_name}] Custom map generated successfully.")
+                        break
+
+            except RuntimeError:
+                pass
+
+            logging.info(f"[{server_name}] Waiting for map to settle... ({i + 1}/10)")
+            time.sleep(1.0)
+
+        if not world:
+            raise RuntimeError(f"[{server_name}] Failed to load map {map_name} after waiting.")
+
+        # 6. WARM UP TICKS
+        settings = world.get_settings()
+        settings.synchronous_mode = True
+        settings.fixed_delta_seconds = self.delta_seconds
+        world.apply_settings(settings)
+
+        for _ in range(5):
+            world.tick()
+
+        return world
 
     def connect_to_worlds(self):
         client_real = None
@@ -58,18 +143,29 @@ class Engine():
         world_mirror = None
 
         try:
+
+
+
+
             logging.info(f"Connecting to REAL CARLA server at {self.host}:{self.real_port}")
             client_real = carla.Client(self.host, self.real_port)
-            client_real.set_timeout(10.0)
-            logging.info(f"Connection to REAL server successful. Loading map: {self.map_name}...")
-            world_real = client_real.load_world(self.map_name)
+
+            map_name = self.map_name if self.map_name != "random" else random.choice(["Town01", "Town02", "Town03", "Town04", "Town05", "Town06", "Town07"])
+
+
+            logging.info(f"Connection to REAL server successful. Loading map: {map_name}...")
+
+            #world_real = client_real.load_world(map_name)
+            world_real = self._load_world_safely(client_real, map_name, "REAL")
             logging.info(f"Successfully loaded REAL world. Map: {world_real.get_map().name}")
 
             logging.info(f"Connecting to MIRROR CARLA server at {self.host}:{self.mirror_port}")
             client_mirror = carla.Client(self.host, self.mirror_port)
-            client_mirror.set_timeout(10.0)
-            logging.info(f"Connection to MIRROR server successful. Loading map {self.map_name}...")
-            world_mirror = client_mirror.load_world(self.map_name)
+            logging.info(f"Connection to MIRROR server successful. Loading map {map_name}...")
+
+            #world_mirror = client_mirror.load_world(map_name)
+            world_mirror = self._load_world_safely(client_mirror, map_name, "MIRROR")
+
 
             if world_mirror.get_map().name != world_real.get_map().name:
                 raise RuntimeError(
@@ -78,6 +174,7 @@ class Engine():
 
             self.duo_client = DuoClient(client_real, client_mirror)
             self.duo_world = DuoWorld(world_real, world_mirror)
+            self.duo_world.tick()
             logging.info("DuoClient and DuoWorld created successfully.")
 
         except Exception as e:
@@ -159,7 +256,8 @@ class Engine():
             logging.info(f"Putting both worlds in sync mode with delta_seconds={self.delta_seconds}")
             settings_sync = carla.WorldSettings(
                 synchronous_mode=True,
-                fixed_delta_seconds=self.delta_seconds
+                fixed_delta_seconds=self.delta_seconds,
+
             )
             self.duo_world.set_both_worlds_settings(settings_sync)
             self.duo_world.tick()
@@ -180,7 +278,17 @@ class Engine():
             self.blueprints_vehicles = self.blueprint_library.filter('vehicle.*.*')
             self.spawn_points = world_real.get_map().get_spawn_points()
             if not self.spawn_points:
-                raise RuntimeError("Map has no spawn points!")
+                logging.info("Map has no spawn points! Generating waypoint...")
+                waypoint = world_real.get_map().get_waypoint_xodr(road_id=1, lane_id=-1, s=5.0)
+                if waypoint:
+                    transform = waypoint.transform
+                    transform.location.z += 2.0
+                    self.spawn_points = [transform]
+                else:
+                    logging.warning("WARNING: XODR lookup failed. Using hardcoded coordinates.")
+                    self.spawn_points = [carla.Transform(carla.Location(x=0, y=0, z=2.0), carla.Rotation(yaw=0.0))]
+
+
             logging.info(f"Found {len(self.spawn_points)} spawn points.")
             # Use a copy for spawning to avoid modifying the original list if needed later. Was annoying to find
             available_spawn_points = list(self.spawn_points)
@@ -190,8 +298,7 @@ class Engine():
 
             # --- EGO ---
             if not available_spawn_points: raise RuntimeError("Spawn points list is empty.")
-            #ego_spawn_point_index = 100 if 100 < len(available_spawn_points) else random.randrange(len(available_spawn_points))
-            ego_spawn_point_index = random.randrange(len(available_spawn_points))
+            ego_spawn_point_index = int(self.args.spawn_point) if self.args.spawn_point != "random" else random.randrange(len(available_spawn_points))
             ego_spawn_point = available_spawn_points.pop(ego_spawn_point_index)
 
             filter = self.scenario.ego_car_bp_name if self.scenario is not None else 'vehicle.tesla.model3'
