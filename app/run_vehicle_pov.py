@@ -49,10 +49,9 @@ try:
 
         distances = object_distance_calculator.get_radar_distances(
             boxes,
-            box_pad=2.0,
-            robust_pct=0.3,
-            mode="range",  # uses np.linalg.norm(Pc, axis=1)
-            projection=(u, v, z, Pc, kept)
+            (u, v, z, Pc, kept),
+            radar_data,
+            idx
         )
 
         # Visualise
@@ -65,7 +64,6 @@ try:
         )
 
         # visualiser.overlay_radar_points(
-        #     point_radius=2,
         #     projection=(u, v, z, Pc, kept),
         #     velocities=vel
         # )

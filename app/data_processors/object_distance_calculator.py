@@ -23,34 +23,19 @@ class ObjectDistanceCalculator:
             raise Exception("Object distance calculation failed: size mismatch between distances and found object boxes!")
         return distance
 
-    def get_radar_distances(self, object_boxes, projection, box_pad=2.0, robust_pct=0.3, mode='z'):
+    def get_radar_distances(self, object_boxes, projection, radar_data, proj_indices):
         boxes = np.asarray(object_boxes, dtype=np.float64).reshape(-1, 4)
         u, v, z, Pc, kept = projection
-
         if u.size == 0:
             return [float('nan')] * len(boxes)
-
-        # Precompute Euclidean range in camera frame if needed
-        ranges = np.linalg.norm(Pc, axis=1) if mode == 'range' else None
-
+        per_point_dist = radar_data[proj_indices, 3].astype(np.float64)  # det.depth
         distances = []
         for (x1, y1, x2, y2) in boxes:
-            # small padding to absorb tiny calibration/timing errors
-            x1p = x1 - box_pad
-            y1p = y1 - box_pad
-            x2p = x2 + box_pad
-            y2p = y2 + box_pad
-
-            m = (u >= x1p) & (u <= x2p) & (v >= y1p) & (v <= y2p)
+            m = (u >= x1) & (u <= x2) & (v >= y1) & (v <= y2)
             if not np.any(m):
                 distances.append(float('nan'))
                 continue
-
-            arr = ranges[m] if mode == 'range' else z[m]
-            k = max(1, int(robust_pct * arr.size))
-            idx = np.argpartition(arr, k - 1)[:k]
-            distances.append(float(np.median(arr[idx])))
-
+            distances.append(float(np.min(per_point_dist[m])))
         return distances
 
 
