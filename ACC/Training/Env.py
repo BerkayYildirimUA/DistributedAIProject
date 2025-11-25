@@ -245,9 +245,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             speed_diff = state.speed - state.speed_limit
 
             if speed_diff > 0:
-                r_speed = math.exp(speed_diff ** 2)
+                r_speed = math.exp(-(speed_diff ** 2))
             else:
-                r_speed = math.exp((speed_diff ** 2) / 25)
+                r_speed = math.exp(-(speed_diff ** 2) / 25)
 
 
         ############### SAFE DISTANCE ###############
