@@ -7,6 +7,7 @@ from typing import SupportsFloat, Any, Dict
 import carla
 import gymnasium as gym
 import numpy as np
+import torch
 from gymnasium.core import RenderFrame
 
 from ACC.Engine.engine import Engine
@@ -243,11 +244,10 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         if use_speed:
             speed_diff = state.speed - state.speed_limit
 
-            MAX_REWARD = 1.0
             if speed_diff > 0:
-                r_speed = MAX_REWARD - (speed_diff ** 2)
+                r_speed = math.exp(speed_diff ** 2)
             else:
-                r_speed = MAX_REWARD - (MAX_REWARD * (speed_diff ** 2) / 25)
+                r_speed = math.exp((speed_diff ** 2) / 25)
 
 
         ############### SAFE DISTANCE ###############
@@ -285,9 +285,11 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         try:
 
             if not self.engine.ego.is_alive():
-                if not self.engine.ego.mirror.is_alive:
-                    self.engine.revive_ego_pair()
-                raise RuntimeError("Ego vehicle disappeared (Simulation Glitch).")
+                logging.debug("Ego pair incomplete. Attempting revival...")
+                if self.engine.revive_ego_pair():
+                    logging.debug("Ego successfully revived. Continuing step.")
+                else:
+                    raise RuntimeError("Ego vehicle disappeared and revival failed.")
 
 
             # apply control
@@ -297,18 +299,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
             #logging.info(f"throttle: {action[ActionsEnum.throttle]}, brake: {action[ActionsEnum.brake]}")
 
-            state = self.sensor_real.get_state()
-
-            if state.hasCrashed:
-                logging.info("Car Crashed!")
-                # print("Car Crashed!")
-                terminated = True
-
-
-
             final_control = carla.VehicleControl(
-                throttle=1, #action[ActionsEnum.throttle],
-                brake=0, #action[ActionsEnum.brake],
+                throttle=action[ActionsEnum.throttle],
+                brake=action[ActionsEnum.brake],
                 steer=steering_dir,
                 hand_brake=False,
                 reverse=tm_control.reverse,
@@ -320,8 +313,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
             # apply goal
             if self.engine.lead is not None:
-
-
                 self.engine.tm_mirror.set_path(self.engine.ego.mirror, [self.engine.lead.mirror.get_location()])
 
             # synchronization real npc with mirror npcs
@@ -333,8 +324,12 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             # spectator
             self.engine.update_spectator()
 
+            state = self.sensor_real.get_state()
 
-
+            if state.hasCrashed:
+                logging.info("Car Crashed!")
+                terminated = True
+            state.steering_dir = steering_dir
             reward = self._reward()
             obs = self._vehicle_state_to_array(state)
 

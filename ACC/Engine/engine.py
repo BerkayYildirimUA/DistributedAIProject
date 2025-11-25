@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import random
 import traceback
@@ -312,6 +313,8 @@ class Engine():
             logging.info(f"Spawned EGO pair: Real ID {self.ego.real.id}, Mirror ID {self.ego.mirror.id}")
 
             self.tm_mirror.auto_lane_change(self.ego.mirror, False) #turn off lane changes
+            self.tm_mirror.set_respawn_dormant_vehicles(False)
+
 
             # --- LEAD ---
             if self.scenario.lead_car_bp_name != "":
@@ -439,7 +442,7 @@ class Engine():
 
         # Both alive? Nothing to repair.
         if real_alive and mirror_alive:
-            logging.info("Both actors are alive. No repair needed.")
+            logging.debug("Both actors are alive. No repair needed.")
             return True
 
         # Both dead? Can't salvage this one.
@@ -460,6 +463,7 @@ class Engine():
         # Grab transform from the living actor
         try:
             repair_transform = survivor.get_transform()
+            repair_transform.location.z += 0.5
         except Exception as e:
             logging.error(f"Failed to get transform from surviving actor: {e}")
             return False
@@ -472,7 +476,7 @@ class Engine():
             logging.error(f"Failed to infer blueprint from survivor: {e}")
             return False
 
-        logging.info(f"Attempting to respawn {target_side} actor using {blueprint.id} at {repair_transform.location}")
+        logging.debug(f"Attempting to respawn {target_side} actor using {blueprint.id} at {repair_transform.location}")
 
         # Spawn the replacement
         new_actor = self.spawn_actor_sync(target_world, blueprint, repair_transform)
@@ -486,7 +490,7 @@ class Engine():
         else:
             duo_actor.real = new_actor
 
-        logging.info(f"Successfully repaired {target_side} actor. New ID: {new_actor.id}")
+        logging.debug(f"Successfully repaired {target_side} actor. New ID: {new_actor.id}")
         return True
 
     def revive_ego_pair(self) -> bool:
@@ -510,7 +514,7 @@ class Engine():
                     self.tm_mirror.auto_lane_change(self.ego.mirror, False)
                     self.ego.set_mirror_physics(True)
                     self.duo_world.get_mirror_world().tick()
-                    logging.info("Ego mirror actor reconfigured with Traffic Manager settings.")
+                    logging.debug("Ego mirror actor reconfigured with Traffic Manager settings.")
             except Exception as e:
                 logging.warning(f"Failed to reconfigure ego mirror TM settings: {e}")
 

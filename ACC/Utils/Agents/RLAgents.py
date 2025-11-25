@@ -177,17 +177,17 @@ def train_loop(args):
 
 
     timestamp = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
-    logger = Logger(log_name=f'{timestamp}_carla_ppo', results_dir='./logs')
-    agent.set_logger(logger)
+    #logger = Logger(log_name=f'{timestamp}_carla_ppo', results_dir='./logs')
+    #agent.set_logger(logger)
 
     collect_dataset = CollectDataset()
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
-    model_path = os.path.join(project_root, "ACC", "Utils", "Agents", "models", "251124_172805.msh")
+    model_path = os.path.join(project_root, "ACC", "Utils", "Agents", "models", "251124_223722.msh")
 
     #logger.info(f"loading from: {model_path}")
-    agent = agent.load(model_path)
+    #agent = agent.load(model_path)
     core = Core(agent, env, callbacks_fit=[collect_dataset])
 
 
@@ -196,11 +196,11 @@ def train_loop(args):
 
     #core.learn(n_steps=2000000, n_steps_per_fit=1)
 
-    #core.learn(n_steps=seconds_to_loops(1*60*60), n_steps_per_fit=1)
+    core.learn(n_steps=seconds_to_loops(1*60*60), n_steps_per_fit=1)
 
     # Evaluate trained agent
     print("Evaluating...")
-    core.evaluate(n_steps=20000, render=False)
+    core.evaluate(n_steps=40000, render=False)
 
     dataset = collect_dataset.get()
 
@@ -210,7 +210,7 @@ def train_loop(args):
 
     env.close()
 
-    agent.save(f'./models/{timestamp}.msh', full_save=True)
+    agent.save(f'./models/{timestamp}_TD3_Exp_Speed_Reward.msh', full_save=True)
 
 
 if __name__ == '__main__':
@@ -263,8 +263,16 @@ if __name__ == '__main__':
     parser.add_argument('--no_display', action='store_true', help='Disable rendering for SSH')
     parser.add_argument('--random_speed_limit', action='store_true', help='to train better at this')
 
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='Enable verbose logging')
     args = parser.parse_args()
 
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s - %(levelname)s - %(message)s')
+    else:
+        logging.basicConfig(level=logging.INFO,
+                            format='%(asctime)s - %(levelname)s - %(message)s')
     real_server_process = None
     mirror_server_process = None
     server_manager = None
