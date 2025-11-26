@@ -176,8 +176,9 @@ class TL_color_detector:
             out_boxes = out_boxes[keep]
             class_ids = class_ids[keep]
             scores = scores[keep]
+        tl_colors = [self.classes[int(i)] for i in class_ids]
 
-        return out_boxes, class_ids, scores
+        return out_boxes,tl_colors, scores
 
 
 

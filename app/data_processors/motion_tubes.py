@@ -52,7 +52,7 @@ class MotionTubeProjector:
         """
         steer = self._smooth_steer(steer_rad)
         # horizon langer bij hogere snelheid
-        horizon_m = float(np.clip(speed_ms * 2.0, 12.0, self.meters_ahead))
+        horizon_m = float(np.clip(speed_ms * 2.0, 30.0, self.meters_ahead))
         s = np.linspace(0.0, horizon_m, int(horizon_m * 4) + 2)  # ~4 samples/m
 
         kappa = np.tan(steer) / max(self.wb, 1e-6)
@@ -119,11 +119,12 @@ class MotionTubeProjector:
 
         left_pts_cam  = self._veh_to_cam_points(center_xy, +half)
         right_pts_cam = self._veh_to_cam_points(center_xy, -half)
+        center_pts_cam = self._veh_to_cam_points(center_xy, 0)
 
         left_uv  = self._project(left_pts_cam)
         right_uv = self._project(right_pts_cam)
-
-        return self._to_poly(left_uv), self._to_poly(right_uv)
+        center_uv = self._project(center_pts_cam)
+        return self._to_poly(left_uv),self._to_poly(center_uv) ,self._to_poly(right_uv)
 
     def compute_tube_points_img(self, speed_ms: float, steer_rad: float):
         """
