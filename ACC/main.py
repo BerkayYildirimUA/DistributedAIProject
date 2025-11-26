@@ -32,7 +32,7 @@ def main_loop(args):
 
         display = pygame.display.set_mode((args.width, args.height))
         #hud = HUD(args.width, args.height) #HUD initialization
-        hud = HUD(hud_width, hud_height, display)
+        hud = HUD(display, hud_width, hud_height, display)
         engine.duo_world.real_world.on_tick(hud.on_world_tick)
 
 
@@ -45,9 +45,6 @@ def main_loop(args):
 
             # Clock tick MUST come first for accurate FPS reading
             client_clock.tick(60)
-
-            hud_width = 400
-            hud_height = 800
 
             mirror_frame, _ = engine.duo_world.tick()
             hud.tick(engine.duo_world.real_world, engine.ego.real, client_clock)
