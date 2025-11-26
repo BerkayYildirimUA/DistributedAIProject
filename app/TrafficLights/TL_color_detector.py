@@ -70,7 +70,7 @@ class TL_color_detector:
     def make_model(num_classes: int =3):
         m = torchvision.models.resnet18(weights=None)  # "IMAGENET1K_V1", !!!!!!!!!!! weights=None at runtime
         m.fc = nn.Linear(m.fc.in_features,
-                         num_classes)  # we replace the orignal 1000 output by 3 (traffic light colors)"
+                         num_classes)  # we replace the orignal 1000 output by 3 (traffic light colors)
         return m
 
     # @staticmethod
@@ -107,28 +107,23 @@ class TL_color_detector:
     def predict_colors_batch(self,
                     frame_bgr: np.ndarray,                      #frame of the camera (H, W, 3)
                     boxes_xyxy: torch.Tensor | None = None,
-                    conf_threshold: float | None = None,        #filters out low-confidence predictions
+                    conf_threshold: float | None = None,        #filters out low-confidence predictions (not used yet)
                     pad_ratio: float = 0.02):                   #adds padding around the box when cropping
         """
         frame_bgr: np.ndarray HxWx3 (OpenCV BGR)
-        boxes_xyxy: torch.Tensor Nx4 (x1,y1,x2,y2) in pixel coords
+        boxes_xyxy: torch.Tensor Nx4 (x1,y1,x2,y2) in pixel coordinates x1 = left border, x2 = right border, y1 = top border, y2 = bottom border
         returns: list of (label, confidence) for each input box
 
-        Parameters
-        ----------
-        frame_bgr : np.ndarray
-            Full frame in OpenCV BGR format.
-        boxes_xyxy : torch.Tensor or None
-            Nx4 tensor with (x1,y1,x2,y2) in pixel coords. If None or empty,
-            returns empty tensors (like ObjectDetector on no detections).
-        conf_threshold : float or None
-            Optional confidence filter (kept for parity). If set, will drop
-            outputs with score < conf_threshold.
-        pad_ratio : float
-            Padding ratio around each box before cropping (for robustness).
+        Parameters:
+
+        - frame_bgr: np.ndarray, full frame in OpenCV BGR format
+        - boxes_xyxy: torch.Tensor or None, Nx4 tensor with (x1,y1,x2,y2) in pixel coordinates. If None or empty, then it
+            returns empty tensors
+        - conf_threshold: float or None, optional confidence filter
+        - pad_ratio: float, padding ratio around each box before cropping
         """
 
-        # Handle no inputs gracefully, mirroring ObjectDetector behavior
+        # Handle no inputs
         if boxes_xyxy is None or boxes_xyxy.numel() == 0:
             return (torch.empty((0, 4), dtype=torch.float32),
                     torch.empty((0,), dtype=torch.long),

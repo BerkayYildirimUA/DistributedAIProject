@@ -105,9 +105,7 @@ try:
         vehicle_distance_memory.write(closest_vehicle_distance)
 
 
-
-
-        # --- Stage 2: select only traffic lights ---
+        # Only Traffic lights selecting
         if len(class_ids) > 0:
             cls_names = [object_detector.classes[int(c)] for c in class_ids.tolist()]
             is_tl = torch.tensor([n == "traffic light" for n in cls_names],
@@ -116,7 +114,7 @@ try:
         else:
             tl_boxes = torch.empty((0, 4))
 
-        # --- Stage 3: classify traffic light colors ---
+        # Perform the color classification
         tl_boxes_colored, tl_colors, tl_scores = tl_color_detector.predict_colors_batch(frame, tl_boxes)
 
         # Visualise
