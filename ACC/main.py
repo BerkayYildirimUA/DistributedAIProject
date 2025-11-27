@@ -2,6 +2,7 @@ import argparse
 import logging
 import traceback
 import numpy as np
+import subprocess
 #import carla
 #from carla import BlueprintLibrary
 
@@ -128,6 +129,8 @@ if __name__ == '__main__':
                         help='Fixed delta seconds for simulation (default: 0.05)')
     parser.add_argument('--num-npcs', default=2, type=int, help='Number of NPC vehicles to spawn (default: 2)')
 
+    parser.add_argument('--venv', default="../venv_python310", type=str, help='Path to the venv containing python >3.12')
+
     # Camera
     parser.add_argument('--width', default=1280, type=int, help='Camera image width (default: 1280)')
     parser.add_argument('--height', default=720, type=int, help='Camera image height (default: 720)')
@@ -141,6 +144,8 @@ if __name__ == '__main__':
 
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Enable verbose logging')
+
+
     args = parser.parse_args()
 
 
@@ -149,6 +154,8 @@ if __name__ == '__main__':
     server_manager = None
 
     try:
+        subprocess.run(f"source {args.venv}/bin/activate && python run_vehicle_pov.py", shell=True)
+
         server_manager = CarlaServerManager(args.carla_path, args.host)
         server_manager.launch_servers(
             args.real_port,
