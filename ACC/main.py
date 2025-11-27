@@ -155,7 +155,7 @@ if __name__ == '__main__':
 
     try:
         print(f"./{args.venv}/bin/python3.12.exe && python run_vehicle_pov.py")
-        subprocess.run(f"./{args.venv}/bin/python3.12 && python run_vehicle_pov.py", shell=True)
+        subprocess.run([f"./{args.venv}/bin/python3.12", "python run_vehicle_pov.py"])
 
         server_manager = CarlaServerManager(args.carla_path, args.host)
         server_manager.launch_servers(
