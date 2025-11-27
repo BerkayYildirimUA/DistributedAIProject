@@ -89,8 +89,11 @@ try:
         lane_2 = [tuple(p[0]) for p in lanes[2]]
         lane_1_x = np.array([x[0] for x in lane_1])
         lane_2_x = np.array([x[0] for x in lane_2])
-        min_lane_distance = abs(max(lane_1_x)-min(lane_2_x))
-        is_intersected=intersection_detector.is_intersecting_list_trajectory_based(boxes,lanes[1],min_lane_distance/2,0.1*min_lane_distance)
+        if len(lane_1_x) ==0 or len(lane_2_x) == 0:
+            is_intersected=[False]*len(boxes)
+        else:
+            min_lane_distance = abs(max(lane_1_x)-min(lane_2_x))
+            is_intersected=intersection_detector.is_intersecting_list_trajectory_based(boxes,lanes[1],min_lane_distance/2,0.1*min_lane_distance)
         # is_intersected=intersection_detector.is_intersecting_list(lanes[0],lanes[1],boxes)
 
         # Write distance of closest vehicle in lane to shared memory
