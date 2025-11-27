@@ -8,3 +8,10 @@
 .venv
 .idea
 .idea/
+/.idea
+app/__pycache__
+/app/data_processors/model/tusimple_18.pth
+/app/TrafficLights/data/
+/app/TrafficLights/Models/
+/app/TrafficLights/dataset_creator.py
+/app/TrafficSigns/archive (1)/
