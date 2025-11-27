@@ -1,7 +1,7 @@
 import argparse
 import logging
 import traceback
-
+import numpy as np
 #import carla
 #from carla import BlueprintLibrary
 
@@ -10,6 +10,7 @@ from ACC.Engine.start_words import CarlaServerManager
 from ACC.Utils.Sensors import CarlaLeadStateSensor, CarlaWorldStateSensor
 from ACC.Agents.SimpleAgent import SimpleAccAgent
 from ACC.Engine.engine import Engine
+from app.memory.shared_memory import VehicleStateMemory
 
 """
 RL FEEDBACK 
@@ -32,8 +33,6 @@ maybe change action space center if need be, like 0 =! do nothing, perhabs.
 """
 
 
-
-
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
                      map_name=args.map, number_of_npc=0)
@@ -53,7 +52,8 @@ def main_loop(args):
 
         decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
 
-
+        # Create needed memory access to sync carla data from sensors to newer python env
+        vehicle_state_memory = VehicleStateMemory().get_write_access()
 
         while True:
             mirror_frame, _ = engine.duo_world.tick()
@@ -77,6 +77,9 @@ def main_loop(args):
             # spectator
             engine.update_spectator()
 
+            # Get state and write to shared memory
+            real_ego_state = sensor_real.get_state()
+            vehicle_state_memory.write(np.array([real_ego_state.speed, real_ego_state.steering_dir], dtype=np.float32))
 
     except KeyboardInterrupt:
         print("\nSimulation stopped by user (KeyboardInterrupt).")
