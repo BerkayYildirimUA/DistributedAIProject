@@ -7,7 +7,7 @@ import numpy as np
 
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
-from ACC.Utils.Sensors import CarlaLeadStateSensor, CarlaWorldStateSensor
+from ACC.Utils.Sensors import CarlaLeadStateSensor, CarlaVBWorldStateSensor
 from ACC.Agents.SimpleAgent import SimpleAccAgent
 from ACC.Engine.engine import Engine
 from app.memory.shared_memory import VehicleStateMemory
@@ -48,7 +48,7 @@ def main_loop(args):
         # if engine.lead is not None:
         #     sensor_real = CarlaLeadStateSensor(engine.ego.real, engine.lead.real)
         # else:
-        sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+        sensor_real = CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
 
         decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
 

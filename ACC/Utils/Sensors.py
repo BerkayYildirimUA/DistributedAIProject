@@ -11,7 +11,7 @@ import logging
 import numpy as np
 
 from ACC.Utils.abstractions import StateSensor, UI, VehicleState, LightColors
-from app import constants
+import app.constants  as constants
 from app.memory.shared_memory import RGBCameraMemory, VehicleDistanceMemory, RadarMemory, CameraCalibrationMemory
 
 
@@ -28,21 +28,6 @@ class CarlaWorldStateSensor(StateSensor):
         self.override_speed_limit = False
         self.speed_limit = 0
 
-        # Create Sensors
-        self.create_ego_sensors()
-
-        # Create sensor memories
-        self.rgb_camera_memory = RGBCameraMemory().get_write_access()
-        # depht_camera_memory = DepthCameraMemory().get_write_access()
-        self.vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
-        self.radar_memory = RadarMemory().get_write_access()
-        self.camera_calibration_memory = CameraCalibrationMemory().get_write_access()
-        # Create camera properties
-        K = self.calculate_camera_intrinsic()
-        self.cam_mats = np.zeros((2, 4, 4), dtype=np.float64)
-        self.cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
-
-        self.MAX_STEER_RAD = math.radians(60)  # ruwe schatting
     def cleanup(self):
 
         if self.__collision_sensor:
@@ -75,7 +60,7 @@ class CarlaWorldStateSensor(StateSensor):
 
         ctrl = self.__ego.get_control()  # get the control applied in the last tick
         # ctrl.steer in [-1,1] => schaal naar rad
-        steer_rad = -float(ctrl.steer) * self.MAX_STEER_RAD
+        steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
 
         safe_distance = self.__safe_time_distance_seconds * ego_velocity_ms
         has_crashed = self.__collision_sensor.get_last_impact() > 0.0
@@ -109,6 +94,64 @@ class CarlaWorldStateSensor(StateSensor):
 
 
         return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=self.speed_limit, distances=dists, safe_following_distance=safe_distance, hasCrashed=has_crashed, light_color=LightColors.green,steering_dir=steer_rad)
+
+class CarlaVBWorldStateSensor(StateSensor):
+
+    def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World):
+        self.__ego = ego_vehicle
+        self.__world = world
+
+        self.__safe_time_distance_seconds = 2
+        self.counter = 0
+
+        self.override_speed_limit = False
+        self.speed_limit = 0
+
+        # Create Sensors
+        self.create_ego_sensors()
+
+        # Create sensor memories
+        self.rgb_camera_memory = RGBCameraMemory().get_write_access()
+        # depht_camera_memory = DepthCameraMemory().get_write_access()
+        self.vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
+        self.radar_memory = RadarMemory().get_write_access()
+        self.camera_calibration_memory = CameraCalibrationMemory().get_write_access()
+        # Create camera properties
+        K = self.calculate_camera_intrinsic()
+        self.cam_mats = np.zeros((2, 4, 4), dtype=np.float64)
+        self.cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
+
+        self.start_sensor_threads()
+
+    def cleanup(self):
+        pass
+
+    def reset(self, ego, world):
+
+        self.__ego = ego
+        self.__world = world
+        self.counter = 0
+
+    def get_state(self) -> VehicleState:
+        ego_velocity_vec: Vector3D = self.__ego.get_velocity()
+        ego_velocity_ms = ego_velocity_vec.length()
+
+        ctrl = self.__ego.get_control()  # get the control applied in the last tick
+        # ctrl.steer in [-1,1] => schaal naar rad
+        steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
+
+        safe_distance = self.__safe_time_distance_seconds * ego_velocity_ms
+
+        self.speed_limit = self.__ego.get_speed_limit()
+
+        distance= self.vehicle_distance_memory.read()
+
+        if self.counter % 300 == 0:
+            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {self.speed_limit} km/h, distance to nearest: {distance}m, safe dist: {safe_distance}m, CRASH: {has_crashed}")
+
+        self.counter += 1
+        # TODO add traffic light logic
+        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=self.speed_limit, distances=distance, safe_following_distance=safe_distance, hasCrashed=False, light_color=LightColors.green,steering_dir=steer_rad)
 
     def create_ego_sensors(self):
         sensor_location = carla.Location(x=constants.SENSOR_POS_X, z=constants.SENSOR_POS_Z)
