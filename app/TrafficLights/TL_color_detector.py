@@ -38,7 +38,7 @@ class TL_color_detector:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = torch.device(device)
         # model setup
-        self.model = self.load_tl_model("TrafficLights/Models/traffic_light_classifier2.pth", self.device)
+        self.model = self.load_tl_model("app/TrafficLights/Models/traffic_light_classifier2.pth", self.device)
         #self.model = self.make_model(num_classes=len(self.classes)).to(self.device)
         #self._load_weights(ckpt_path)
         self.model.eval()
