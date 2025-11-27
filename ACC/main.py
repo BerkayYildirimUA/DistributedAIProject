@@ -30,9 +30,9 @@ def main_loop(args):
         hud_width = 400
         hud_height = 800
 
-        display = pygame.display.set_mode((args.width, args.height))
+        display = pygame.display.set_mode((hud_width, hud_height))
         #hud = HUD(args.width, args.height) #HUD initialization
-        hud = HUD(display, hud_width, hud_height, display)
+        hud = HUD(hud_width, hud_height)
         engine.duo_world.real_world.on_tick(hud.on_world_tick)
 
 
