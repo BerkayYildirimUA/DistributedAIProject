@@ -3,7 +3,7 @@ import numpy as np
 
 import app.constants as constants
 
-from data_processors.lane_detector import LaneDetector
+from app.data_processors.lane_detector import LaneDetector
 from app.data_processors.intersection_detector import IntersectionDetector
 import torch
 from app.TrafficLights.TL_color_detector import TL_color_detector
