@@ -27,8 +27,8 @@ def main_loop(args):
         #Initialize Pygame HUD Display
         pygame.init() #initialize pygame modules
 
-        hud_width = 300
-        hud_height = 600
+        hud_width = 200
+        hud_height = 400
 
         display = pygame.display.set_mode((hud_width, hud_height))
         #hud = HUD(args.width, args.height) #HUD initialization
