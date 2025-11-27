@@ -35,7 +35,7 @@ maybe change action space center if need be, like 0 =! do nothing, perhabs.
 
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=0)
+                     map_name=args.map, number_of_npc=0,lead_car_bp_name='vehicle.tesla.model3')
     engine = Engine(args, scene)
 
     try:
@@ -45,10 +45,10 @@ def main_loop(args):
             raise RuntimeError("Engine setup failed. Exiting.")
 
         # sensor and agent Setup (Real World)
-        if engine.lead is not None:
-            sensor_real = CarlaLeadStateSensor(engine.ego.real, engine.lead.real)
-        else:
-            sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+        # if engine.lead is not None:
+        #     sensor_real = CarlaLeadStateSensor(engine.ego.real, engine.lead.real)
+        # else:
+        sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
 
         decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
 

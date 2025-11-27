@@ -1,10 +1,8 @@
 import torch
-import numpy as np
 import torchvision.transforms as transforms
 from PIL import Image
-from torchvision.ops.misc import interpolate
 
-from .model.model import parsingNet
+from app.data_processors.model.model import parsingNet
 import torch.nn.functional as F
 import numpy as np
 

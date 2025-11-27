@@ -1,21 +1,20 @@
 import cv2
 import numpy as np
-from sympy.physics.units import velocity
 
-import constants
+import app.constants as constants
 
 from data_processors.lane_detector import LaneDetector
-from data_processors.intersection_detector import IntersectionDetector
+from app.data_processors.intersection_detector import IntersectionDetector
 import torch
-from TrafficLights.TL_color_detector import TL_color_detector
-from data_processors.object_detector import ObjectDetector
-from data_processors.object_distance_calculator import ObjectDistanceCalculator
-from memory.shared_memory import (
+from app.TrafficLights.TL_color_detector import TL_color_detector
+from app.data_processors.object_detector import ObjectDetector
+from app.data_processors.object_distance_calculator import ObjectDistanceCalculator
+from app.memory.shared_memory import (
     RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory, CameraCalibrationMemory
 )
-from data_processors.motion_tubes import MotionTubeProjector
-from engine.pov_visualiser import POVVisualiser
-from data_processors.radar_points_projector import RadarPointsProjector
+from app.data_processors.motion_tubes import MotionTubeProjector
+from app.engine.pov_visualiser import POVVisualiser
+from app.data_processors.radar_points_projector import RadarPointsProjector
 
 # Attach to shared memory
 rgb_camera_memory = RGBCameraMemory().get_read_access()
