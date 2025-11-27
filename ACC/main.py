@@ -104,25 +104,26 @@ if __name__ == '__main__':
     # Server Ports
     parser.add_argument('--host', default='127.0.0.1', help='IP of the host server (default: 127.0.0.1)')
 
-    #real ports
+    # real ports
     parser.add_argument('--real-port', default=2000, type=int,
                         help='TCP port for the REAL CARLA server (default: 2000)')
     parser.add_argument('--real-stream-port', default=2001, type=int,
                         help='Streaming port for the REAL CARLA server (default: 2001)')
 
-    #mirror ports
+    # mirror ports
     parser.add_argument('--mirror-port', default=4000, type=int,
                         help='TCP port for the MIRROR CARLA server (default: 4000)')
     parser.add_argument('--mirror-stream-port', default=4001, type=int,
                         help='Streaming port for the MIRROR CARLA server (default: 4001)')
-
 
     # Traffic Manager Ports
     parser.add_argument('--tm-mirror-port', default=9000, type=int,
                         help='Port for MIRROR Traffic Manager (default: 9000)')
 
     # Simulation Settings
-    parser.add_argument('--map', default='Town03', help='Map to load (should match both servers) (default: Town04)')
+    parser.add_argument('--map', default='random', help='Map to load (default: random)')
+    parser.add_argument('--spawn_point', default='random', help='Spawn point of the ego (default: random)')
+
     parser.add_argument('--delta-seconds', default=0.05, type=float,
                         help='Fixed delta seconds for simulation (default: 0.05)')
     parser.add_argument('--num-npcs', default=2, type=int, help='Number of NPC vehicles to spawn (default: 2)')
@@ -131,12 +132,15 @@ if __name__ == '__main__':
     parser.add_argument('--width', default=1280, type=int, help='Camera image width (default: 1280)')
     parser.add_argument('--height', default=720, type=int, help='Camera image height (default: 720)')
 
-    #training
+    # training
     parser.add_argument('--do_train', default=False, type=bool, help='Train an RL agent or just run the sim')
-    parser.add_argument('--random_speed_limit', default=False, type=bool, help='Train an RL agent or just run the sim')
+    parser.add_argument('--horizon', default=20000, help='max sim length before resetting')
 
+    parser.add_argument('--no_display', action='store_true', help='Disable rendering for SSH')
+    parser.add_argument('--random_speed_limit', action='store_true', help='to train better at this')
 
-
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='Enable verbose logging')
     args = parser.parse_args()
 
 
