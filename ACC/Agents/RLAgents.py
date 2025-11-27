@@ -1,25 +1,37 @@
 # https://mushroomrl.readthedocs.io/en/latest/?badge=latest
+import logging
 
 from ACC.Training.Env import CarlaEnv, GymnasiumToGymWrapper, FrameStackWrapper
 from mushroom_rl.core import Core, Logger
-from mushroom_rl.algorithms.actor_critic import PPO, TD3
-from mushroom_rl.policy import GaussianTorchPolicy
+from mushroom_rl.algorithms.actor_critic import TD3
 from mushroom_rl.utils.callbacks import CollectDataset
+from mushroom_rl.utils.dataset import compute_J
 import torch.nn as nn
 import torch.optim as optim
 import torch
 
-import argparse
-import logging
-import traceback
-import numpy
-
 from ACC.Engine.scenario import Scenario
-from ACC.Engine.start_words import CarlaServerManager
 import datetime
 from mushroom_rl.policy import DeterministicPolicy
 import os
-#class RLagent()
+import numpy as np
+
+class TD3Config:
+    # Training
+    BATCH_SIZE = 256
+    LR_ACTOR = 1e-3
+    LR_CRITIC = 3e-4
+    TAU = 0.005
+    POLICY_DELAY = 2
+    NOISE_STD = 0.1
+    NOISE_CLIP = 0.2
+
+    # Replay Buffer
+    INITIAL_REPLAY_SIZE = 1000
+    MAX_REPLAY_SIZE = 100_000
+
+    # Timing / steps logic
+    LOOPS_PER_SECOND = int(199999 / 2565) #something on my PC specifically
 
 class TD3ActorNetwork(nn.Module):
     def __init__(self, input_shape, output_shape, **kwargs):
@@ -60,195 +72,118 @@ class TD3CriticNetwork(nn.Module):
         return self.net(x).squeeze(1)
 
 
+class ACC_TD3Agent():
 
-def seconds_to_loops(seconds):
-    loops_per_second = 199999 / (42 * 60 + 45)
-    return int(loops_per_second * seconds)
+    def __init__(self, args, load_model_name=None):
+        self.args = args
+        self.dataset_callback = CollectDataset()
+        self.env = None
+        self.agent = None
+        self.core = None
 
-def train_loop(args):
-    scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=0, lead_car_bp_name="vehicle.tesla.model3")
-    env = CarlaEnv(args, scene)
+        # Path setup
+        self.project_root = self._get_project_root()
+        self.models_dir = os.path.join(self.project_root, "ACC", "Agents", "models")
+        os.makedirs(self.models_dir, exist_ok=True)
 
+        # Initialize
+        self._setup_env()
+        self._setup_agent(load_model_name)
+        self._setup_core()
 
+    def _get_project_root(self):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        return os.path.dirname(os.path.dirname(script_dir))
 
-    env.set_rewards(reward_geforce=False, reward_safe_distance=False)
-
-    env = GymnasiumToGymWrapper(env)
-    #env = FrameStackWrapper(env, num_stack=4)
-
-    episode_over = False
-    total_reward = 0
-
-    actor_params = dict(
-        network=TD3ActorNetwork,
-        input_shape=env.observation_space.shape,
-        output_shape=env.action_space.shape
-    )
-
-    # TD3 uses TWO critics (Twin) to prevent over-optimism
-    critic_params = dict(
-        network=TD3CriticNetwork,
-        optimizer={'class': optim.AdamW, 'params': {'lr': 3e-4}},
-        loss=nn.MSELoss(),
-        input_shape=env.observation_space.shape,
-        output_shape=env.action_space.shape
-        #,use_cuda = True
-    )
-
-
-    agent = TD3(
-        mdp_info=env.info,
-        policy_class=DeterministicPolicy,
-        policy_params={},
-
-        actor_params=actor_params,
-        actor_optimizer={'class': optim.AdamW, 'params': {'lr': 1e-3}},
-        critic_params=critic_params,
-        batch_size=256,  # TD3 likes larger batches
-        initial_replay_size=1000,  # Drive random for 1000 steps to fill memory
-        max_replay_size=100000,  # Remember last 100k steps
-        tau=0.005,  # Soft update factor (Standard for TD3)
-        policy_delay=2,  # Update actor half as often as critic
-        noise_std=0.1,  # Exploration noise (10% jitter)
-        noise_clip=0.2  # Don't jitter more than 50%
-    )
-
-
-
-    timestamp = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
-    #logger = Logger(log_name=f'{timestamp}_carla_ppo', results_dir='./logs')
-    #agent.set_logger(logger)
-
-    collect_dataset = CollectDataset()
-
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(os.path.dirname(script_dir))
-    model_path = os.path.join(project_root, "ACC", "Agents", "models", "251125_182052_TD3_Exp_Speed_Reward.msh")
-
-    #logger.info(f"loading from: {model_path}")
-
-    agent = agent.load(model_path)
-    core = Core(agent, env, callbacks_fit=[collect_dataset])
-
-
-
-    #core.learn(n_steps=100000, n_steps_per_fit=2048)
-
-    #core.learn(n_steps=2000000, n_steps_per_fit=1)
-
-
-
-    core.learn(n_steps=seconds_to_loops(8*1.5*60*60), n_steps_per_fit=1)
-
-    # Evaluate trained agent
-    print("Evaluating...")
-
-    core.evaluate(n_steps=80000, render=False)
-
-    dataset = collect_dataset.get()
-
-    rewards = [item[2] for item in dataset]
-
-    print(f"Average reward: {numpy.mean(rewards)}")
-
-    env.close()
-
-    agent.save(f'./models/{timestamp}_TD3_Exp_Speed_Reward.msh', full_save=True)
-
-
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser(description='CARLA ACC Dual Simulation (Mirror TM Only)')
-
-    # CARLA
-    parser.add_argument(
-        '--carla-path',
-        required=True,  # Make it mandatory unless you have a reliable default
-        help='Path to the CARLA executable (CarlaUE4.sh or CarlaUE4.exe)'
-    )
-
-    # Server Ports
-    parser.add_argument('--host', default='127.0.0.1', help='IP of the host server (default: 127.0.0.1)')
-
-    # real ports
-    parser.add_argument('--real-port', default=2000, type=int,
-                        help='TCP port for the REAL CARLA server (default: 2000)')
-    parser.add_argument('--real-stream-port', default=2001, type=int,
-                        help='Streaming port for the REAL CARLA server (default: 2001)')
-
-    # mirror ports
-    parser.add_argument('--mirror-port', default=4000, type=int,
-                        help='TCP port for the MIRROR CARLA server (default: 4000)')
-    parser.add_argument('--mirror-stream-port', default=4001, type=int,
-                        help='Streaming port for the MIRROR CARLA server (default: 4001)')
-
-    # Traffic Manager Ports
-    parser.add_argument('--tm-mirror-port', default=9000, type=int,
-                        help='Port for MIRROR Traffic Manager (default: 9000)')
-
-    # Simulation Settings
-    parser.add_argument('--map', default='random', help='Map to load (default: random)')
-    parser.add_argument('--spawn_point', default='random', help='Spawn point of the ego (default: random)')
-
-
-    parser.add_argument('--delta-seconds', default=0.05, type=float,
-                        help='Fixed delta seconds for simulation (default: 0.05)')
-    parser.add_argument('--num-npcs', default=2, type=int, help='Number of NPC vehicles to spawn (default: 2)')
-
-    # Camera
-    parser.add_argument('--width', default=1280, type=int, help='Camera image width (default: 1280)')
-    parser.add_argument('--height', default=720, type=int, help='Camera image height (default: 720)')
-
-    # training
-    parser.add_argument('--do_train', default=False, type=bool, help='Train an RL agent or just run the sim')
-    parser.add_argument('--horizon', default=20000, help='max sim length before resetting')
-
-    parser.add_argument('--no_display', action='store_true', help='Disable rendering for SSH')
-    parser.add_argument('--random_speed_limit', action='store_true', help='to train better at this')
-
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='Enable verbose logging')
-    args = parser.parse_args()
-
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG,
-                            format='%(asctime)s - %(levelname)s - %(message)s')
-    else:
-        logging.basicConfig(level=logging.INFO,
-                            format='%(asctime)s - %(levelname)s - %(message)s')
-    real_server_process = None
-    mirror_server_process = None
-    server_manager = None
-
-    try:
-        server_manager = CarlaServerManager(args.carla_path, args.host)
-        server_manager.launch_servers(
-            args.real_port,
-            args.real_stream_port,
-            args.mirror_port,
-            args.mirror_stream_port,
-            no_render=args.no_display
+    def _setup_env(self):
+        """Initialize the Carla Environment and Wrappers."""
+        logging.info("Initializing Environment...")
+        scene = Scenario(
+            'vehicle.tesla.model3',
+            delta_seconds=self.args.delta_seconds,
+            map_name=self.args.map,
+            number_of_npc=0,
+            lead_car_bp_name="vehicle.tesla.model3"
         )
 
-        logging.info("Servers launched successfully. Starting main simulation loop...")
-        print("-" * 30)
+        raw_env = CarlaEnv(self.args, scene)
+        raw_env.set_rewards(reward_geforce=False)
 
-        if not args.do_train:
-            print("skipppppp")
-            # main_loop(args)
-        train_loop(args)
+        self.env = GymnasiumToGymWrapper(raw_env)
 
+    def _setup_agent(self, load_model_name):
+        logging.info("Initializing TD3 Agent...")
 
-    except Exception as e:
-        print(f"\nAn unexpected error occurred: {e}")
-        traceback.print_exc()
+        actor_params = dict(
+            network=TD3ActorNetwork,
+            input_shape=self.env.observation_space.shape,
+            output_shape=self.env.action_space.shape
+        )
 
-    finally:
-        # --- Terminate Servers ---
-        if server_manager:
-            server_manager.terminate_servers()
-        else:
-            print("Server manager was not initialized, skipping server termination.")
+        critic_params = dict(
+            network=TD3CriticNetwork,
+            optimizer={'class': optim.AdamW, 'params': {'lr': TD3Config.LR_CRITIC}},
+            loss=nn.MSELoss(),
+            input_shape=self.env.observation_space.shape,
+            output_shape=self.env.action_space.shape
+        )
 
-    print("Script finished.")
+        self.agent = TD3(
+            mdp_info=self.env.info,
+            policy_class=DeterministicPolicy,
+            policy_params={},
+            actor_params=actor_params,
+            actor_optimizer={'class': optim.AdamW, 'params': {'lr': TD3Config.LR_ACTOR}},
+            critic_params=critic_params,
+            batch_size=TD3Config.BATCH_SIZE,
+            initial_replay_size=TD3Config.INITIAL_REPLAY_SIZE,
+            max_replay_size=TD3Config.MAX_REPLAY_SIZE,
+            tau=TD3Config.TAU,
+            policy_delay=TD3Config.POLICY_DELAY,
+            noise_std=TD3Config.NOISE_STD,
+            noise_clip=TD3Config.NOISE_CLIP
+        )
+
+        if load_model_name:
+            load_path = os.path.join(self.models_dir, load_model_name)
+            logging.info(f"Loading model from: {load_path}")
+            self.agent = self.agent.load(load_path)
+
+    def _setup_core(self):
+        self.core = Core(self.agent, self.env, callbacks_fit=[self.dataset_callback])
+
+    def train(self, duration_hours=12):
+        seconds_to_train = duration_hours * 60 * 60
+        n_steps = int(TD3Config.LOOPS_PER_SECOND * seconds_to_train)
+
+        logging.info(f"Starting training for {n_steps} steps...")
+        self.core.learn(n_steps=n_steps, n_steps_per_fit=1)
+        logging.info("Training complete.")
+
+    def evaluate(self, n_steps=80000):
+        """Evaluate the current policy."""
+        logging.info("Evaluating...")
+
+        # Reset dataset to get clean stats
+        self.dataset_callback.clean()
+
+        self.core.evaluate(n_steps=n_steps, render=False)
+
+        # Retrieve data
+        dataset = self.dataset_callback.get()
+        J = compute_J(dataset, self.env.info.gamma)
+        logging.info(f"Average Reward (J): {np.mean(J)}")
+
+        self.save_model()
+
+    def save_model(self, suffix="Exp_Speed_Reward"):
+        timestamp = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
+        filename = f'{timestamp}_TD3_{suffix}.msh'
+        save_path = os.path.join(self.models_dir, filename)
+
+        logging.info(f"Saving agent to {save_path}...")
+        self.agent.save(save_path, full_save=True)
+
+    def close(self):
+        if self.env:
+            self.env.close()

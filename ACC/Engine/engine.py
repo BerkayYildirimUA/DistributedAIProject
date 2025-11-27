@@ -520,6 +520,36 @@ class Engine():
 
         return success
 
+    def revive_lead_pair(self, speed_limit = 0) -> bool:
+        """
+        Specialized repair function for the lead vehicle.
+        Handles lead-specific configuration after resurrection (e.g., TM settings).
+        """
+        if not self.lead:
+            logging.error("No lead actor exists to revive.")
+            return False
+
+        was_mirror_dead = self.lead.mirror is None or not self.lead.mirror.is_alive
+
+        success = self.repair_actor_pair(self.lead)
+
+        if success and was_mirror_dead:
+            # Reconfigure the mirror lead with TM settings
+            try:
+                if self.tm_mirror and self.lead.mirror:
+                    self.lead.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
+                    self.lead.set_mirror_physics(True)
+                    self.duo_world.get_mirror_world().tick()
+
+                    if speed_limit > 0:
+                        self.lead.set_mirror_target_velocity(speed_limit, self.mirror_traffic_manager_port)
+
+                    logging.debug("Lead mirror actor reconfigured with Traffic Manager settings.")
+            except Exception as e:
+                logging.warning(f"Failed to reconfigure lead mirror TM settings: {e}")
+
+        return success
+
 
     def cleanup(self):
         logging.info('Initiating cleanup...')

@@ -89,7 +89,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             ,horizon=int(self.eng_args.horizon)
         )
 
-        #self.set_rewards()
+        self.lead_speed_limit = 0
 
     def _vehicle_state_to_array(self, state: VehicleState) -> np.ndarray:
         distances = state.distances if state.distances else []
@@ -221,7 +221,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         ############### CRASH ###############
         if use_crash and state.hasCrashed:
             logging.info("Car Crashed!")
-            return -0.01 * int(self.eng_args.horizon)
+            return -15
 
         ############### G-FORCE ###############
         #TODO: simply, make continuous
@@ -250,16 +250,15 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
 
         ############### SAFE DISTANCE ###############
-        # TODO: simply, make continuous
         r_dist = 0
         if use_dist:
             if state.distances is not None and len(state.distances) > 0:
                 min_front_distance = min(state.distances)
                 safe_distance = state.safe_following_distance
 
-                if min_front_distance < safe_distance:
-                    penalty = math.exp((safe_distance - min_front_distance) / safe_distance) - 1
-                    r_dist -= 5 * penalty
+                safety_margin = min_front_distance / (safe_distance + 1e-5)
+
+                r_dist = 1 - 2 * math.exp(-4 * safety_margin * safety_margin)
 
 
 
@@ -289,6 +288,14 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                     logging.debug("Ego successfully revived. Continuing step.")
                 else:
                     raise RuntimeError("Ego vehicle disappeared and revival failed.")
+
+            if not self.engine.lead.is_alive():
+                logging.debug("Lead pair incomplete. Attempting revival...")
+                if self.engine.revive_lead_pair(self.lead_speed_limit):
+                    logging.debug("Ego successfully revived. Continuing step.")
+                else:
+                    raise RuntimeError("Ego vehicle disappeared and revival failed.")
+
 
 
             # apply control
@@ -349,6 +356,10 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                         self.engine.lead.real.set_location(lead_location)
                         self.engine.lead.mirror.set_location(lead_location)
 
+                        self.lead_speed_limit = state.speed_limit + random.randint(-15, 15)
+
+                        self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
+
 
 
 
@@ -357,7 +368,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             print(f"\nAn critical error occurred during step in traing env: {e}")
             traceback.print_exc()
             terminated = True
-            #reward = -100.0
 
         return obs, reward, terminated, truncated, info
 
