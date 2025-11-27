@@ -75,7 +75,7 @@ class POVVisualiser:
         tl_boxes_colored, tl_colors, tl_scores = self.traffic_line_info
         for (box, color, conf) in zip(tl_boxes_colored.tolist(), tl_colors, tl_scores.tolist()):
             x1, y1, x2, y2 = map(int, box)
-            color_map = {"red": (0, 0, 255), "yellow": (0, 255, 255), "green": (0, 255, 0)}
+            color_map = {"green": (0, 255, 0) ,"yellow": (0, 255, 255), "red": (0, 0, 255)}
             cv2.rectangle(frame, (x1, y1), (x2, y2), color_map[color], 2)
 
             # place TL color ABOVE the class label (which is at y1-5)
