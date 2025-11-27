@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-import constants
+import app.constants
 
 class _SharedMemory(np.memmap):
     def write(self,data):
