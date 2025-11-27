@@ -205,8 +205,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         self.engine.cleanup()
 
 
-    def _reward(self) -> SupportsFloat:
-        state : VehicleState = self.sensor_real.get_state()
+    def _reward(self, state : VehicleState) -> SupportsFloat:
 
         #self.engine.ego.real
         self.__g_force_calculator.update_speed(state.speed)
@@ -330,7 +329,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 logging.info("Car Crashed!")
                 terminated = True
             state.steering_dir = steering_dir
-            reward = self._reward()
+            reward = self._reward(state)
             obs = self._vehicle_state_to_array(state)
 
             self.engine.duo_world.tick()
@@ -343,6 +342,14 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                     new_location = carla.Location(x=10, y=transform.location.y, z=transform.location.z)
                     self.engine.ego.real.set_location(new_location)
                     self.engine.ego.mirror.set_location(new_location)
+                    if self.engine.lead is not None:
+                        lead_transform = self.engine.lead.real.get_transform()
+                        distances_to_ego = lead_transform.location.x - transform.location.x
+                        lead_location = carla.Location(x=distances_to_ego + new_location.x, y=lead_transform.location.y, z=lead_transform.location.z)
+                        self.engine.lead.real.set_location(lead_location)
+                        self.engine.lead.mirror.set_location(lead_location)
+
+
 
 
 

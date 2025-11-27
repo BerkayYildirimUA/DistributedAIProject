@@ -8,7 +8,7 @@ import traceback
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
 from ACC.Utils.Sensors import CarlaLeadStateSensor, CarlaWorldStateSensor
-from ACC.Utils.Agents.SimpleAgent import SimpleAccAgent
+from ACC.Agents.SimpleAgent import SimpleAccAgent
 from ACC.Engine.engine import Engine
 
 """

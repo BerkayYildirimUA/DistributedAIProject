@@ -20,43 +20,6 @@ import datetime
 from mushroom_rl.policy import DeterministicPolicy
 import os
 #class RLagent()
-class BiasedActorNetwork(nn.Module):
-    def __init__(self, input_shape, output_shape, **kwargs):
-        super().__init__()
-        n_input = input_shape[0]
-        n_output = output_shape[0]
-
-        self.network = nn.Sequential(
-            nn.Linear(n_input, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, n_output),
-            nn.Tanh()
-        )
-
-
-
-    def forward(self, x, **kwargs):
-        return self.network(x)
-
-
-class CriticNetwork(nn.Module):
-    def __init__(self, input_shape, output_shape, **kwargs):
-        super().__init__()
-        n_input = input_shape[0]
-        self._model = nn.Sequential(
-            nn.Linear(n_input, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, 1)
-
-        )
-
-    def forward(self, x, **kwargs):
-        return self._model(x)
-
 
 class TD3ActorNetwork(nn.Module):
     def __init__(self, input_shape, output_shape, **kwargs):
@@ -83,13 +46,12 @@ class TD3CriticNetwork(nn.Module):
         n_input = input_shape[0]
         n_action = output_shape[0]
 
-        # Critic takes STATE + ACTION as input
         self.net = nn.Sequential(
             nn.Linear(n_input + n_action, 256),
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.ReLU(),
-            nn.Linear(256, 1)  # Outputs Q-value
+            nn.Linear(256, 1)
         )
 
     def forward(self, state, action, **kwargs):
@@ -105,8 +67,10 @@ def seconds_to_loops(seconds):
 
 def train_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=0)
+                     map_name=args.map, number_of_npc=0, lead_car_bp_name="vehicle.tesla.model3")
     env = CarlaEnv(args, scene)
+
+
 
     env.set_rewards(reward_geforce=False, reward_safe_distance=False)
 
@@ -116,30 +80,6 @@ def train_loop(args):
     episode_over = False
     total_reward = 0
 
-    #policy = GaussianTorchPolicy(
-    #    network=BiasedActorNetwork,
-    #    input_shape=env.observation_space.shape,
-    #    output_shape=env.action_space.shape,
-    #    use_cuda=True
-    #)
-#
-    #agent = PPO(
-    #    mdp_info=env.info,
-    #    policy=policy,
-    #    actor_optimizer={'class': optim.AdamW, 'params': {'lr': 3e-4}},
-    #    critic_params={
-    #        'network': CriticNetwork,
-    #        'optimizer': {'class': optim.AdamW, 'params': {'lr': 1e-3}},
-    #        'loss': nn.MSELoss(),
-    #        'input_shape': env.observation_space.shape,
-    #        'output_shape': (1,)
-    #    },
-    #    n_epochs_policy=10,
-    #    batch_size=64,
-    #    eps_ppo=0.2,
-    #    lam=0.95,
-    #    ent_coeff=0.1
-    #)
     actor_params = dict(
         network=TD3ActorNetwork,
         input_shape=env.observation_space.shape,
@@ -183,8 +123,8 @@ def train_loop(args):
     collect_dataset = CollectDataset()
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
-    model_path = os.path.join(project_root, "ACC", "Utils", "Agents", "models", "251125_182052_TD3_Exp_Speed_Reward.msh")
+    project_root = os.path.dirname(os.path.dirname(script_dir))
+    model_path = os.path.join(project_root, "ACC", "Agents", "models", "251125_182052_TD3_Exp_Speed_Reward.msh")
 
     #logger.info(f"loading from: {model_path}")
 
