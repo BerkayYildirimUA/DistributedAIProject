@@ -154,7 +154,7 @@ if __name__ == '__main__':
     server_manager = None
 
     try:
-        subprocess.run([f"./{args.venv}/bin/python3.12", "python3.12 ./app/run_vehicle_pov.py"])
+        subprocess.run([f"./{args.venv}/bin/python3.12", "./app/run_vehicle_pov.py"])
 
         server_manager = CarlaServerManager(args.carla_path, args.host)
         server_manager.launch_servers(
