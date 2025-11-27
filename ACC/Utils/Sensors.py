@@ -147,7 +147,7 @@ class CarlaVBWorldStateSensor(StateSensor):
         distance= self.vehicle_distance_memory.read()
 
         if self.counter % 300 == 0:
-            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {self.speed_limit} km/h, distance to nearest: {distance}m, safe dist: {safe_distance}m, CRASH: {has_crashed}")
+            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {self.speed_limit} km/h, distance to nearest: {distance}m, safe dist: {safe_distance}m, CRASH: nvt")
 
         self.counter += 1
         # TODO add traffic light logic
