@@ -154,10 +154,10 @@ if __name__ == '__main__':
     server_manager = None
 
     try:
-        subprocess.run([f"./{args.venv}/bin/python3.12","-m", "app.run_vehicle_pov.py"], stdout=subprocess.DEVNULL,
-    stderr=subprocess.DEVNULL,
-    stdin=subprocess.DEVNULL,
-    close_fds=True)
+        subprocess.Popen([f"./{args.venv}/bin/python3.12","-m", "app.run_vehicle_pov.py"], stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+        close_fds=True)
 
         server_manager = CarlaServerManager(args.carla_path, args.host)
         server_manager.launch_servers(
