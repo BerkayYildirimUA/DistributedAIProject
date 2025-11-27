@@ -37,7 +37,6 @@ class CarlaWorldStateSensor(StateSensor):
         self.vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
         self.radar_memory = RadarMemory().get_write_access()
         self.camera_calibration_memory = CameraCalibrationMemory().get_write_access()
-        self.rgb_camera_queue, radar_queue = world.expose_queues()
         # Create camera properties
         K = world.calculate_camera_intrinsic()
         self.cam_mats = np.zeros((2, 4, 4), dtype=np.float64)
@@ -161,8 +160,6 @@ class CarlaWorldStateSensor(StateSensor):
         print("Camera attrs:", self.rgb_camera.attributes)
         print("Radar attrs:", self.radar.attributes)
 
-    def expose_queues(self):
-        return self.rgb_camera_queue, self.radar_queue
 
     def calculate_camera_extrinsic(self):
         # World -> camera in Unreal frame (X forward, Y right, Z up)
