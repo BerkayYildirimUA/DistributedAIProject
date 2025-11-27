@@ -184,10 +184,11 @@ def train_loop(args):
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(script_dir)))
-    model_path = os.path.join(project_root, "ACC", "Utils", "Agents", "models", "251124_223722.msh")
+    model_path = os.path.join(project_root, "ACC", "Utils", "Agents", "models", "251125_182052_TD3_Exp_Speed_Reward.msh")
 
     #logger.info(f"loading from: {model_path}")
-    #agent = agent.load(model_path)
+
+    agent = agent.load(model_path)
     core = Core(agent, env, callbacks_fit=[collect_dataset])
 
 
@@ -196,11 +197,14 @@ def train_loop(args):
 
     #core.learn(n_steps=2000000, n_steps_per_fit=1)
 
-    core.learn(n_steps=seconds_to_loops(1*60*60), n_steps_per_fit=1)
+
+
+    core.learn(n_steps=seconds_to_loops(8*1.5*60*60), n_steps_per_fit=1)
 
     # Evaluate trained agent
     print("Evaluating...")
-    core.evaluate(n_steps=40000, render=False)
+
+    core.evaluate(n_steps=80000, render=False)
 
     dataset = collect_dataset.get()
 

@@ -222,7 +222,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         ############### CRASH ###############
         if use_crash and state.hasCrashed:
             logging.info("Car Crashed!")
-            return -5.0 * int(self.eng_args.horizon)
+            return -0.01 * int(self.eng_args.horizon)
 
         ############### G-FORCE ###############
         #TODO: simply, make continuous
@@ -245,9 +245,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             speed_diff = state.speed - state.speed_limit
 
             if speed_diff > 0:
-                r_speed = math.exp(-(speed_diff ** 2))
+                r_speed = 1.5 * math.exp(-(speed_diff ** 2) / 2.5) - 0.5 - 0.01 * speed_diff # maybe 0.05?
             else:
-                r_speed = math.exp(-(speed_diff ** 2) / 25)
+                r_speed = math.exp(-(speed_diff ** 2) / 25) + 0.01 * speed_diff
 
 
         ############### SAFE DISTANCE ###############
