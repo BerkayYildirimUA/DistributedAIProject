@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-import constants
+import app.constants as constants
 
 class _SharedMemory(np.memmap):
     def write(self,data):
@@ -49,7 +49,7 @@ class DepthCameraMemory(SharedMemory):
 class VehicleDistanceMemory(SharedMemory):
     def __init__(self):
         filename = "VEHICLE_DISTANCE_MEMORY.dat"
-        shape = (1, 1)
+        shape = (1,)
         dtype = np.float32
         super().__init__(filename,shape,dtype)
 

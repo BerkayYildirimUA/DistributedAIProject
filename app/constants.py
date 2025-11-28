@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 # Sensor constants 
@@ -26,3 +28,5 @@ RADAR_MAX_DETECTIONS = 50000
 
 # Queue constants
 QUEUE_MAXSIZE = 10
+
+MAX_STEER_RAD=math.radians(60)
