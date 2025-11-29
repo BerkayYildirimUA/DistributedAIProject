@@ -8,10 +8,14 @@ import argparse
 import carla
 import math
 import constants
-
+from app.constants import ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE, ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE
 
 from engine.world import World
-from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
+from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory, FrameIdMemory
+from data_processors.objects_in_front_calculator import ObjectsInFrontCalculator
+from data_processors.metrics_logger import MetricsLogger
+
+
 
 
 # Define transforms for handling camera data
@@ -86,6 +90,7 @@ def radar_callback(radar_data):
     camera_calibration_memory.write(cam_mats)
 
 
+
 # ---------------------------
 # Threaded data processing
 # ---------------------------
@@ -125,6 +130,7 @@ if __name__ == "__main__":
     vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
     radar_memory = RadarMemory().get_write_access()
     camera_calibration_memory = CameraCalibrationMemory().get_write_access()
+    frame_id_memory = FrameIdMemory().get_write_access()
     rgb_camera_queue, radar_queue = world.expose_queues()
 
     K = world.calculate_camera_intrinsic()
@@ -133,6 +139,12 @@ if __name__ == "__main__":
 
     vehicle_state_memory = VehicleStateMemory().get_write_access()
     MAX_STEER_RAD = math.radians(60)  # ruwe schatting
+
+    objects_in_front_calculator = ObjectsInFrontCalculator(world, world.ego_vehicle, max_distance=20.0)
+    actual_object_count_metrics_logger = MetricsLogger(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
+    actual_vehicle_distance_in_front_logger = MetricsLogger(ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
+    estimated_vehicle_distance_in_front_logger = MetricsLogger(ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
+
 
     # Start threads
     rgb_thread = threading.Thread(target=process_rgb_images, daemon=True)
@@ -145,7 +157,7 @@ if __name__ == "__main__":
     try:
         while True:
             try:
-                world.tick()
+                frame_id = world.tick()
                 # --- we get the state of the vehicle and put into shared memory ---
                 vel = world.ego_vehicle.get_velocity()                          # get the velocity from our car in CARLA
                 speed_ms = float((vel.x ** 2 + vel.y ** 2 + vel.z ** 2) ** 0.5) # calculate the speed
@@ -157,12 +169,19 @@ if __name__ == "__main__":
                 vehicle_state_memory.write(np.array([speed_ms, steer_rad], dtype=np.float32))
                 # --------------------------------------
 
+                # Fetch CARLA ground-truth of object detection and distance to vehicle in front
+                object_count = objects_in_front_calculator.count_objects_in_front()
+                actual_object_count = object_count["total"]
+                actual_object_count_metrics_logger.log(frame_id, actual_object_count)
+                vehicle_in_front, actual_vehicle_distance_in_front_m = objects_in_front_calculator.get_lead_vehicle_in_lane()
+                actual_vehicle_distance_in_front_logger.log(frame_id, actual_vehicle_distance_in_front_m)
+                estimated_distance_vehicle_in_front_m = vehicle_distance_memory[0, 0]
+                estimated_vehicle_distance_in_front_logger.log(frame_id, estimated_distance_vehicle_in_front_m)
+
+                frame_id_memory.write(frame_id)
             except RuntimeError as e:
                 print(f"Tick failed {e}")
 
-
-            # TODO: feed this distance data into the reinforcement module to calculate acceleration
-            distance_vehicle_in_front_m = vehicle_distance_memory[0, 0]
     except KeyboardInterrupt:
         print("Closing simulation!")
     finally:

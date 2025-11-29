@@ -11,11 +11,14 @@ from TrafficLights.TL_color_detector import TL_color_detector
 from data_processors.object_detector import ObjectDetector
 from data_processors.object_distance_calculator import ObjectDistanceCalculator
 from memory.shared_memory import (
-    RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory, CameraCalibrationMemory
+    RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory, CameraCalibrationMemory, FrameIdMemory
 )
 from data_processors.motion_tubes import MotionTubeProjector
 from engine.pov_visualiser import POVVisualiser
 from data_processors.radar_points_projector import RadarPointsProjector
+from data_processors.metrics_logger import MetricsLogger
+from data_processors.statistics_calculator import MetricsPlotter
+
 
 # Attach to shared memory
 rgb_camera_memory = RGBCameraMemory().get_read_access()
@@ -23,6 +26,7 @@ rgb_camera_memory = RGBCameraMemory().get_read_access()
 vehicle_distance_memory = VehicleDistanceMemory().get_write_access()
 radar_memory = RadarMemory().get_read_access()
 camera_calibration_memory = CameraCalibrationMemory().get_read_access()
+frame_id_memory = FrameIdMemory().get_read_access()
 
 object_detector = ObjectDetector()
 state_memory = VehicleStateMemory().get_read_access()
@@ -41,13 +45,14 @@ tube_projector = MotionTubeProjector(
 intersection_detector=IntersectionDetector()
 tl_color_detector = TL_color_detector()
 # lane_detector=LaneDetector()
-
-
 radar_points_projector = RadarPointsProjector()
+estimated_object_count_metrics_logger = MetricsLogger(constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE)
+
 try:
     import time
 
     while True:
+        frame_id = frame_id_memory.read()
         # Convert to Torch tensor and normalize
         frame = rgb_camera_memory.read()
         #depth_map = depth_camera_memory.read()
@@ -141,6 +146,8 @@ try:
 
         # if len(lanes) > 0:
         #     bird_eye_visualiser.show(boxes,class_ids,lanes)
+
+        estimated_object_count_metrics_logger.log(frame_id, len(boxes))
 
 finally:
     cv2.destroyAllWindows()
