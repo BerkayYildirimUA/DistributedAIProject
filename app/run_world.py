@@ -190,7 +190,7 @@ if __name__ == "__main__":
                     gt_lead_distance=actual_vehicle_distance_in_front_m,
                 )
 
-                estimated_distance_vehicle_in_front_m = vehicle_distance_memory[0, 0]
+                estimated_distance_vehicle_in_front_m = float(vehicle_distance_memory[0, 0])
 
                 estimated_vehicle_distance_in_front_logger.log(
                     frame_id=frame_id,
