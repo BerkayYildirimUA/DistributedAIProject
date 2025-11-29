@@ -51,7 +51,7 @@ try:
     import time
 
     while True:
-        frame_id = frame_id_memory.read()
+        frame_id = int(frame_id_memory.read()[0])
         # Convert to Torch tensor and normalize
         frame = rgb_camera_memory.read()
         #depth_map = depth_camera_memory.read()
