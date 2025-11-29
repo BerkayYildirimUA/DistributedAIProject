@@ -108,13 +108,13 @@ class ObjectsInFrontCalculator:
         if ego_wp is None:
             return None, None  # ego is off-road somehow
 
-        vehicles = world.get_actors().filter("vehicle.*")
+        vehicles = self.world.get_actors().filter("vehicle.*")
 
         best_vehicle: Optional[carla.Vehicle] = None
         best_distance: float = max_distance
 
         for v in vehicles:
-            if v.id == ego_vehicle.id:
+            if v.id == self.ego_vehicle.id:
                 continue
 
             v_loc = v.get_location()
