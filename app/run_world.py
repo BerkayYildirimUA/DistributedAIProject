@@ -8,12 +8,15 @@ import argparse
 import carla
 import math
 import constants
-from app.constants import ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE, ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE
 
 from engine.world import World
 from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory, FrameIdMemory
 from data_processors.objects_in_front_calculator import ObjectsInFrontCalculator
 from data_processors.metrics_logger import MetricsLogger
+from data_processors.metrics_logger import iter_metrics
+from data_processors.metrics_logger import clear_metrics_file
+from data_processors.statistics_calculator import StatisticsCalculator
+
 
 
 
@@ -142,8 +145,8 @@ if __name__ == "__main__":
 
     objects_in_front_calculator = ObjectsInFrontCalculator(world, world.ego_vehicle, max_distance=20.0)
     actual_object_count_metrics_logger = MetricsLogger(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
-    actual_vehicle_distance_in_front_logger = MetricsLogger(ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
-    estimated_vehicle_distance_in_front_logger = MetricsLogger(ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
+    actual_vehicle_distance_in_front_logger = MetricsLogger(constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
+    estimated_vehicle_distance_in_front_logger = MetricsLogger(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
 
 
     # Start threads
@@ -186,8 +189,34 @@ if __name__ == "__main__":
         print("Closing simulation!")
     finally:
         world.cleanup()
+        print("World clean up complete")
+        stats = StatisticsCalculator(reader_fn=iter_metrics)
 
-        print("Cleanup complete.")
+        stats.add_metric_from_files(
+            name="lead_distance_m",
+            actual_file=constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE,
+            estimated_file=constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE,
+            actual_key="Ground-truth distance",
+            estimated_key="Estimated radar distance",
+            frame_key="frame_id",
+        )
+
+        stats.add_metric_from_files(
+            name="objects_in_front_count",
+            actual_file=constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE,
+            estimated_file=constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE,
+            actual_key="Ground-truth objects",
+            estimated_key="Estimated YOLO objects",
+            frame_key="frame_id",
+        )
+
+        stats.plot_all("run_001_metrics.png", suptitle="Run 001 metrics")
+
+        clear_metrics_file(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE)
+        clear_metrics_file(constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE)
+        clear_metrics_file(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE)
+
+        print("Statistics clean up complete")
 
 
 

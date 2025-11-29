@@ -3,6 +3,7 @@ import json
 import gzip
 import time
 from typing import Any, Dict, Optional, Iterable
+import os
 
 
 class MetricsLogger:
@@ -105,3 +106,9 @@ def iter_metrics(path: str, *, compressed: Optional[bool] = None) -> Iterable[Di
             if not line:
                 continue
             yield json.loads(line)
+
+def clear_metrics_file(path: str) -> None:
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass

@@ -10,15 +10,55 @@
 # - Learnt following distance vs comfortable following distance
 
 
-# metrics_plotter.py
+# statistics_calculator.py
+from typing import Any, Callable, Dict, Optional, Iterable
+
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Dict, Sequence, Optional
+
+
+Record = Dict[str, Any]
+MetricsReaderFn = Callable[[str], Iterable[Record]]
+
+
+def _load_series_from_reader(
+    reader_fn: MetricsReaderFn,
+    path: str,
+    value_key: str,
+    frame_key: str = "frame_id",
+) -> Dict[int, float]:
+    """
+    Uses the provided reader_fn (e.g. metrics_logger.iter_metrics) to read a file
+    and returns a dict: frame_id -> value.
+
+    Only lines that contain both frame_key and value_key are used.
+    """
+    series: Dict[int, float] = {}
+
+    for rec in reader_fn(path):
+        if frame_key not in rec or value_key not in rec:
+            continue
+
+        frame_id = rec[frame_key]
+        value = rec[value_key]
+
+        try:
+            frame_id_int = int(frame_id)
+            value_float = float(value)
+        except (ValueError, TypeError):
+            # Skip non-numeric or malformed entries
+            continue
+
+        series[frame_id_int] = value_float
+
+    return series
 
 
 class StatisticsCalculator:
     """
-    Collects time series for multiple metrics and plots:
+    Reads metrics from files via a reader function (e.g. metrics_logger.iter_metrics),
+    aligns actual vs estimated by frame_id, and plots:
+
       - actual vs estimated vs frame_id
       - percentage error vs frame_id
 
@@ -26,38 +66,15 @@ class StatisticsCalculator:
       [estimated vs actual]  [percentage error]
     """
 
-    def __init__(self) -> None:
+    def __init__(self, reader_fn: MetricsReaderFn) -> None:
+        """
+        Args:
+            reader_fn: A function that takes a path and yields dict records.
+                       Typically metrics_logger.iter_metrics.
+        """
+        self._reader_fn = reader_fn
         # name -> data dict
         self._metrics: Dict[str, Dict[str, np.ndarray]] = {}
-
-    def add_metric(
-        self,
-        name: str,
-        frame_ids: Sequence[int],
-        actual: Sequence[float],
-        estimated: Sequence[float],
-    ) -> None:
-        """
-        Register a metric time series.
-
-        Args:
-            name: Metric name, e.g. "lead_distance", "objects_in_front".
-            frame_ids: Sequence of frame indices (or timestamps).
-            actual: Ground truth values.
-            estimated: Estimated/predicted values.
-        """
-        frame_ids = np.asarray(frame_ids)
-        actual = np.asarray(actual, dtype=float)
-        estimated = np.asarray(estimated, dtype=float)
-
-        if not (len(frame_ids) == len(actual) == len(estimated)):
-            raise ValueError("frame_ids, actual, and estimated must have same length")
-
-        self._metrics[name] = {
-            "frame_ids": frame_ids,
-            "actual": actual,
-            "estimated": estimated,
-        }
 
     @staticmethod
     def _percentage_error(actual: np.ndarray, estimated: np.ndarray) -> np.ndarray:
@@ -70,6 +87,68 @@ class StatisticsCalculator:
             err = (estimated - actual) / actual * 100.0
             err[~np.isfinite(err)] = np.nan  # inf, -inf, nan -> nan
         return err
+
+    def add_metric_from_files(
+        self,
+        name: str,
+        actual_file: str,
+        estimated_file: str,
+        *,
+        actual_key: str,
+        estimated_key: str,
+        frame_key: str = "frame_id",
+    ) -> None:
+        """
+        Register a metric stored in two files.
+
+        Args:
+            name:
+                Metric name, e.g. "lead_distance_m".
+            actual_file:
+                Path to file with ground-truth values (JSONL / JSONL.gz).
+            estimated_file:
+                Path to file with estimated values (JSONL / JSONL.gz).
+                Can be the same file if keys differ.
+            actual_key:
+                JSON key for the actual value, e.g. 'gt_lead_distance'.
+            estimated_key:
+                JSON key for estimated value, e.g. 'radar_lead_distance'.
+            frame_key:
+                JSON key for frame id, default 'frame_id'.
+        """
+        actual_series = _load_series_from_reader(
+            self._reader_fn, actual_file, actual_key, frame_key
+        )
+        est_series = _load_series_from_reader(
+            self._reader_fn, estimated_file, estimated_key, frame_key
+        )
+
+        if not actual_series:
+            raise ValueError(
+                f"No actual data found in {actual_file} for key '{actual_key}'"
+            )
+        if not est_series:
+            raise ValueError(
+                f"No estimated data found in {estimated_file} for key '{estimated_key}'"
+            )
+
+        # Align by common frame_ids
+        common_frames = sorted(set(actual_series.keys()) & set(est_series.keys()))
+        if not common_frames:
+            raise ValueError(
+                f"No common frame_ids between actual_file={actual_file} "
+                f"and estimated_file={estimated_file}"
+            )
+
+        frame_ids = np.array(common_frames, dtype=int)
+        actual = np.array([actual_series[f] for f in common_frames], dtype=float)
+        estimated = np.array([est_series[f] for f in common_frames], dtype=float)
+
+        self._metrics[name] = {
+            "frame_ids": frame_ids,
+            "actual": actual,
+            "estimated": estimated,
+        }
 
     def plot_all(
         self,
@@ -90,10 +169,11 @@ class StatisticsCalculator:
             dpi: Resolution of saved figure.
         """
         if not self._metrics:
-            raise RuntimeError("No metrics added. Call add_metric() first.")
+            raise RuntimeError(
+                "No metrics added. Call add_metric_from_files() first."
+            )
 
         n_metrics = len(self._metrics)
-        # Height scales with number of metrics
         fig_height = 3.0 * n_metrics
         fig, axes = plt.subplots(
             nrows=n_metrics,
@@ -123,8 +203,6 @@ class StatisticsCalculator:
             ax_err.set_xlabel("frame_id")
             ax_err.set_ylabel("error [%]")
             ax_err.set_title(f"{name}: % error (estimated vs actual)")
-
-            # Optional: y=0 reference line
             ax_err.axhline(0.0, linestyle=":", linewidth=1)
 
         if suptitle:
