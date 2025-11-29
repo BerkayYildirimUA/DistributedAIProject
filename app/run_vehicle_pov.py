@@ -17,7 +17,6 @@ from data_processors.motion_tubes import MotionTubeProjector
 from engine.pov_visualiser import POVVisualiser
 from data_processors.radar_points_projector import RadarPointsProjector
 from data_processors.metrics_logger import MetricsLogger
-from data_processors.statistics_calculator import MetricsPlotter
 
 
 # Attach to shared memory

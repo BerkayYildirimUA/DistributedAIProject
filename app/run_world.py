@@ -175,11 +175,27 @@ if __name__ == "__main__":
                 # Fetch CARLA ground-truth of object detection and distance to vehicle in front
                 object_count = objects_in_front_calculator.count_objects_in_front()
                 actual_object_count = object_count["total"]
-                actual_object_count_metrics_logger.log(frame_id, actual_object_count)
-                vehicle_in_front, actual_vehicle_distance_in_front_m = objects_in_front_calculator.get_lead_vehicle_in_lane()
-                actual_vehicle_distance_in_front_logger.log(frame_id, actual_vehicle_distance_in_front_m)
+
+                actual_object_count_metrics_logger.log(
+                    frame_id=frame_id,
+                    gt_objects_in_front=actual_object_count,
+                )
+
+                vehicle_in_front, actual_vehicle_distance_in_front_m = (
+                    objects_in_front_calculator.get_lead_vehicle_in_lane()
+                )
+
+                actual_vehicle_distance_in_front_logger.log(
+                    frame_id=frame_id,
+                    gt_lead_distance=actual_vehicle_distance_in_front_m,
+                )
+
                 estimated_distance_vehicle_in_front_m = vehicle_distance_memory[0, 0]
-                estimated_vehicle_distance_in_front_logger.log(frame_id, estimated_distance_vehicle_in_front_m)
+
+                estimated_vehicle_distance_in_front_logger.log(
+                    frame_id=frame_id,
+                    radar_lead_distance=estimated_distance_vehicle_in_front_m,
+                )
 
                 frame_id_memory.write(frame_id)
             except RuntimeError as e:
