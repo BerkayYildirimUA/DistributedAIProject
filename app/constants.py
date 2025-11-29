@@ -30,5 +30,5 @@ QUEUE_MAXSIZE = 10
 # Filename constants
 ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE = "actual_objects_in_front_count.gz"
 ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE = "estimated_objects_in_front_count.gz"
-ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE = "actual_objects_in_front_count.gz"
+ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE = "actual_vehicle_distance_in_front.gz"
 ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE = "estimated_vehicle_distance_in_front.gz"
