@@ -143,7 +143,7 @@ if __name__ == "__main__":
     vehicle_state_memory = VehicleStateMemory().get_write_access()
     MAX_STEER_RAD = math.radians(60)  # ruwe schatting
 
-    objects_in_front_calculator = ObjectsInFrontCalculator(world, world.ego_vehicle, max_distance=20.0)
+    objects_in_front_calculator = ObjectsInFrontCalculator(world.world, world.ego_vehicle, max_distance=20.0)
     actual_object_count_metrics_logger = MetricsLogger(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
     actual_vehicle_distance_in_front_logger = MetricsLogger(constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
     estimated_vehicle_distance_in_front_logger = MetricsLogger(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
