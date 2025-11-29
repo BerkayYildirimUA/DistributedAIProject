@@ -36,9 +36,10 @@ class World:
         self.spectator = self.world.get_spectator()
 
     def tick(self):
-        self.world.tick()
+        frame_id = self.world.tick()
         # Update spectator view
         self.update_spectator()
+        return frame_id
 
     def create_world(self):
         self.client = carla.Client('localhost', self.port)
