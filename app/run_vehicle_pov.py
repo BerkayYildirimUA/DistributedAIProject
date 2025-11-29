@@ -45,7 +45,7 @@ intersection_detector=IntersectionDetector()
 tl_color_detector = TL_color_detector()
 # lane_detector=LaneDetector()
 radar_points_projector = RadarPointsProjector()
-estimated_object_count_metrics_logger = MetricsLogger(constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE)
+estimated_object_count_metrics_logger = MetricsLogger(constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE, compress=True)
 
 try:
     import time
@@ -146,7 +146,10 @@ try:
         # if len(lanes) > 0:
         #     bird_eye_visualiser.show(boxes,class_ids,lanes)
 
-        estimated_object_count_metrics_logger.log(frame_id, len(boxes))
+        estimated_object_count_metrics_logger.log(
+            frame_id=frame_id,
+            gt_objects_in_front=len(boxes)
+        )
 
 finally:
     cv2.destroyAllWindows()
