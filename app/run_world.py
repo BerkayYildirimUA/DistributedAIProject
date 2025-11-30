@@ -116,8 +116,6 @@ def process_depth_images():
             #depth_callback(depth_image)
         except queue.Empty:
             continue
-        finally:
-            print("Unable to process depth image")
     
 def process_radar_data():
     while True:
