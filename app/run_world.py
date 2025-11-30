@@ -178,7 +178,7 @@ if __name__ == "__main__":
 
                 actual_object_count_metrics_logger.log(
                     frame_id=frame_id,
-                    gt_objects_in_front=actual_object_count,
+                    ground_truth_objects=actual_object_count,
                 )
 
                 vehicle_in_front, actual_vehicle_distance_in_front_m = (
@@ -187,14 +187,14 @@ if __name__ == "__main__":
 
                 actual_vehicle_distance_in_front_logger.log(
                     frame_id=frame_id,
-                    gt_lead_distance=actual_vehicle_distance_in_front_m,
+                    ground_truth_distance=actual_vehicle_distance_in_front_m,
                 )
 
                 estimated_distance_vehicle_in_front_m = float(vehicle_distance_memory[0, 0])
 
                 estimated_vehicle_distance_in_front_logger.log(
                     frame_id=frame_id,
-                    radar_lead_distance=estimated_distance_vehicle_in_front_m,
+                    estimated_radar_distance=estimated_distance_vehicle_in_front_m,
                 )
 
                 frame_id_memory.write(frame_id)
@@ -221,8 +221,8 @@ if __name__ == "__main__":
             name="lead_distance_m",
             actual_file=constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE,
             estimated_file=constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE,
-            actual_key="Ground-truth distance",
-            estimated_key="Estimated radar distance",
+            actual_key="ground_truth_distance",
+            estimated_key="estimated_radar_distance",
             frame_key="frame_id",
         )
 
@@ -230,8 +230,8 @@ if __name__ == "__main__":
             name="objects_in_front_count",
             actual_file=constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE,
             estimated_file=constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE,
-            actual_key="Ground-truth objects",
-            estimated_key="Estimated YOLO objects",
+            actual_key="ground_truth_objects",
+            estimated_key="estimated_yolo_objects",
             frame_key="frame_id",
         )
 

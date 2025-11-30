@@ -148,7 +148,7 @@ try:
 
         estimated_object_count_metrics_logger.log(
             frame_id=frame_id,
-            gt_objects_in_front=len(boxes)
+            estimated_yolo_objects=len(boxes)
         )
 
 finally:
