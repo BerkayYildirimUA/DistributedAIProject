@@ -21,18 +21,14 @@ Record = Dict[str, Any]
 MetricsReaderFn = Callable[[str], Iterable[Record]]
 
 
+import numpy as np
+
 def _load_series_from_reader(
     reader_fn: MetricsReaderFn,
     path: str,
     value_key: str,
     frame_key: str = "frame_id",
 ) -> Dict[int, float]:
-    """
-    Uses the provided reader_fn (e.g. metrics_logger.iter_metrics) to read a file
-    and returns a dict: frame_id -> value.
-
-    Only lines that contain both frame_key and value_key are used.
-    """
     series: Dict[int, float] = {}
 
     for rec in reader_fn(path):
@@ -40,18 +36,28 @@ def _load_series_from_reader(
             continue
 
         frame_id = rec[frame_key]
-        value = rec[value_key]
+        val = rec[value_key]
 
         try:
             frame_id_int = int(frame_id)
-            value_float = float(value)
         except (ValueError, TypeError):
-            # Skip non-numeric or malformed entries
             continue
 
-        series[frame_id_int] = value_float
+        if val is None:
+            # No data (e.g., no lead vehicle) -> represent as NaN
+            series[frame_id_int] = float("nan")
+            continue
+
+        try:
+            val_float = float(val)
+        except (ValueError, TypeError):
+            # cannot convert to float, skip this record
+            continue
+
+        series[frame_id_int] = val_float
 
     return series
+
 
 
 class StatisticsCalculator:

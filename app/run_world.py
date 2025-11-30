@@ -105,6 +105,8 @@ def process_rgb_images():
             camera_callback(image_carla)
         except queue.Empty:
             continue
+        finally:
+            print("Unable to process RGB image")
 
 def process_depth_images():
     while True:
@@ -114,6 +116,8 @@ def process_depth_images():
             #depth_callback(depth_image)
         except queue.Empty:
             continue
+        finally:
+            print("Unable to process depth image")
     
 def process_radar_data():
     while True:
@@ -122,6 +126,8 @@ def process_radar_data():
             radar_callback(raw_data)
         except queue.Empty:
             continue
+        finally:
+            print("Unable to process radar data")
 
 
 
