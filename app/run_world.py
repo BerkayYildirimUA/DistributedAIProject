@@ -206,6 +206,15 @@ if __name__ == "__main__":
     finally:
         world.cleanup()
         print("World clean up complete")
+
+        try:
+            actual_object_count_metrics_logger.close()
+            actual_vehicle_distance_in_front_logger.close()
+            estimated_vehicle_distance_in_front_logger.close()
+            print("Loggers closed")
+        except Exception as e:
+            print(f"Error closing loggers: {e}")
+
         stats = StatisticsCalculator(reader_fn=iter_metrics)
 
         stats.add_metric_from_files(
@@ -233,6 +242,7 @@ if __name__ == "__main__":
         clear_metrics_file(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE)
 
         print("Statistics clean up complete")
+
 
 
 
