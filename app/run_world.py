@@ -211,7 +211,7 @@ if __name__ == "__main__":
             actual_object_count_metrics_logger.close()
             actual_vehicle_distance_in_front_logger.close()
             estimated_vehicle_distance_in_front_logger.close()
-            print("Loggers closed")
+            print("Loggers closed in old_env")
         except Exception as e:
             print(f"Error closing loggers: {e}")
 

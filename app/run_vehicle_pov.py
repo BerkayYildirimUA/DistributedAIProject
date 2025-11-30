@@ -152,6 +152,11 @@ try:
         )
 
 finally:
+    try:
+        estimated_object_count_metrics_logger.close()
+        print("Loggers closed in new_env")
+    except Exception as e:
+        print(f"Error closing loggers: {e}")
     cv2.destroyAllWindows()
 
 
