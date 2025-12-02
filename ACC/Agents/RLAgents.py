@@ -74,7 +74,7 @@ class TD3CriticNetwork(nn.Module):
 
 class ACC_TD3Agent():
 
-    def __init__(self, args, load_model_name=None):
+    def __init__(self, args, load_model_path=None, scene=None):
         self.args = args
         self.dataset_callback = CollectDataset()
         self.env = None
@@ -86,9 +86,20 @@ class ACC_TD3Agent():
         self.models_dir = os.path.join(self.project_root, "ACC", "Agents", "models")
         os.makedirs(self.models_dir, exist_ok=True)
 
+        if scene is None:
+            self.scene = Scenario(
+                'vehicle.tesla.model3',
+                delta_seconds=self.args.delta_seconds,
+                map_name=self.args.map,
+                number_of_npc=0,
+                lead_car_bp_name="vehicle.tesla.model3"
+            )
+        else:
+            self.scene = scene
+
         # Initialize
         self._setup_env()
-        self._setup_agent(load_model_name)
+        self._setup_agent(load_model_path)
         self._setup_core()
 
     def _get_project_root(self):
@@ -98,20 +109,12 @@ class ACC_TD3Agent():
     def _setup_env(self):
         """Initialize the Carla Environment and Wrappers."""
         logging.info("Initializing Environment...")
-        scene = Scenario(
-            'vehicle.tesla.model3',
-            delta_seconds=self.args.delta_seconds,
-            map_name=self.args.map,
-            number_of_npc=0,
-            lead_car_bp_name="vehicle.tesla.model3"
-        )
 
-        raw_env = CarlaEnv(self.args, scene)
-        raw_env.set_rewards(reward_geforce=False)
-
+        raw_env = CarlaEnv(self.args, self.scene)
+        raw_env.set_rewards(reward_geforce=False, reward_safe_distance=False)
         self.env = GymnasiumToGymWrapper(raw_env)
 
-    def _setup_agent(self, load_model_name):
+    def _setup_agent(self, load_model_path):
         logging.info("Initializing TD3 Agent...")
 
         actor_params = dict(
@@ -144,17 +147,19 @@ class ACC_TD3Agent():
             noise_clip=TD3Config.NOISE_CLIP
         )
 
-        if load_model_name:
-            load_path = os.path.join(self.models_dir, load_model_name)
-            logging.info(f"Loading model from: {load_path}")
-            self.agent = self.agent.load(load_path)
+        if load_model_path and os.path.exists(load_model_path):
+            logging.info(f"Loading model from: {load_model_path}")
+            self.agent = self.agent.load(load_model_path)
+        elif load_model_path:
+            logging.warning(f"Model path {load_model_path} not found! Starting from scratch.")
 
     def _setup_core(self):
         self.core = Core(self.agent, self.env, callbacks_fit=[self.dataset_callback])
 
-    def train(self, duration_hours=12):
-        seconds_to_train = duration_hours * 60 * 60
-        n_steps = int(TD3Config.LOOPS_PER_SECOND * seconds_to_train)
+    def train(self, duration_seconds=None):
+        if duration_seconds is None:
+            duration_seconds = 12 * 60 * 60
+        n_steps = int(TD3Config.LOOPS_PER_SECOND * duration_seconds)
 
         logging.info(f"Starting training for {n_steps} steps...")
         self.core.learn(n_steps=n_steps, n_steps_per_fit=1)
@@ -183,6 +188,8 @@ class ACC_TD3Agent():
 
         logging.info(f"Saving agent to {save_path}...")
         self.agent.save(save_path, full_save=True)
+
+        return save_path
 
     def close(self):
         if self.env:

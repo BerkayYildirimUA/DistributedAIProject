@@ -4,8 +4,71 @@ import argparse
 import logging
 import traceback
 
+from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
 from ACC.Agents.RLAgents import ACC_TD3Agent
+
+
+class loop_info:
+    def __init__(self, duration_seconds, name):
+        self.duration = duration_seconds
+        self.name = name
+
+def training_loop(args):
+
+    scenarios_list = [
+        (
+            loop_info(2 * 60 * 60, "keep_speed"),
+            Scenario(
+                'vehicle.tesla.model3',
+                delta_seconds=args.delta_seconds,
+                map_name=args.map,
+                number_of_npc=0
+            )
+        ),
+        (
+            loop_info(2 * 60 * 60, "Speed_limit_and_safe_dist"),
+            Scenario(
+                'vehicle.tesla.model3',
+                delta_seconds=args.delta_seconds,
+                map_name=args.map,
+                number_of_npc=0,
+                lead_car_bp_name='vehicle.tesla.model3'
+            )
+        )
+    ]
+
+    current_model_path = None
+
+    for info, scene in scenarios_list:
+        logging.info(f"========================================")
+        logging.info(f"STARTING SCENARIO: {info.name}")
+        logging.info(f"Loading from: {current_model_path if current_model_path else 'Scratch'}")
+        logging.info(f"========================================")
+
+        try:
+            manager = ACC_TD3Agent(args, load_model_path=current_model_path, scene=scene)
+
+            manager.train(duration_seconds=info.duration)
+
+            current_model_path = manager.save_model(suffix=info.name)
+
+            logging.info(f"Scenario {info.name} finished. Model saved to {current_model_path}")
+
+        except Exception as e:
+            logging.error(f"Error during scenario {info.name}: {e}")
+            traceback.print_exc()
+            break
+
+        finally:
+            if 'manager' in locals():
+                manager.close()
+
+
+
+
+
+
 
 if __name__ == '__main__':
 
@@ -84,14 +147,11 @@ if __name__ == '__main__':
         logging.info("Servers launched successfully. Starting main simulation loop...")
         print("-" * 30)
 
-
         if not args.do_train:
             manager = ACC_TD3Agent(args, load_model_name="")
             manager.evaluate()
         else:
-            manager = ACC_TD3Agent(args)
-            manager.train(40*60)
-            manager.save_model("speed_and_distance")
+            training_loop(args)
 
 
     except Exception as e:

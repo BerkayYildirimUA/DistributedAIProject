@@ -129,7 +129,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         throttle = 0.0
         brake = 0.0
 
-        if action >= -0.5:
+        if val >= -0.5:
             throttle = (val + 0.5) / 1.5
         else:
             brake = abs(val + 0.5) / 0.5
@@ -253,12 +253,13 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         r_dist = 0
         if use_dist:
             if state.distances is not None and len(state.distances) > 0:
+                logging.info(f"len(state.distances) = {len(state.distances)}")
                 min_front_distance = min(state.distances)
                 safe_distance = state.safe_following_distance
 
                 safety_margin = min_front_distance / (safe_distance + 1e-5)
 
-                r_dist = 1 - 2 * math.exp(-4 * safety_margin * safety_margin)
+                r_dist = - 2 * math.exp(-6 * safety_margin * safety_margin) + 0.002 * safety_margin
 
 
 
@@ -289,12 +290,13 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 else:
                     raise RuntimeError("Ego vehicle disappeared and revival failed.")
 
-            if not self.engine.lead.is_alive():
-                logging.debug("Lead pair incomplete. Attempting revival...")
-                if self.engine.revive_lead_pair(self.lead_speed_limit):
-                    logging.debug("Ego successfully revived. Continuing step.")
-                else:
-                    raise RuntimeError("Ego vehicle disappeared and revival failed.")
+            if self.engine.lead is not None:
+                if not self.engine.lead.is_alive():
+                    logging.debug("Lead pair incomplete. Attempting revival...")
+                    if self.engine.revive_lead_pair(self.lead_speed_limit):
+                        logging.debug("Ego successfully revived. Continuing step.")
+                    else:
+                        raise RuntimeError("Ego vehicle disappeared and revival failed.")
 
 
 
