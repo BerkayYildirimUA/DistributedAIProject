@@ -18,22 +18,30 @@ def training_loop(args):
 
     scenarios_list = [
         (
-            loop_info(2 * 60 * 60, "keep_speed"),
-            Scenario(
-                'vehicle.tesla.model3',
-                delta_seconds=args.delta_seconds,
-                map_name=args.map,
-                number_of_npc=0
-            )
-        ),
-        (
-            loop_info(2 * 60 * 60, "Speed_limit_and_safe_dist"),
+            loop_info(2 * 60 * 60, "keep_speed_TEST"),
             Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
                 map_name=args.map,
                 number_of_npc=0,
-                lead_car_bp_name='vehicle.tesla.model3'
+                reward_geforce=False,
+                reward_safe_distance=False,
+                reward_crash=True,
+                reward_speed_limit=True
+            )
+        ),
+        (
+            loop_info(2 * 60 * 60, "Speed_limit_and_safe_dist_TEST"),
+            Scenario(
+                'vehicle.tesla.model3',
+                delta_seconds=args.delta_seconds,
+                map_name=args.map,
+                number_of_npc=0,
+                lead_car_bp_name='vehicle.tesla.model3',
+                reward_geforce=False,
+                reward_safe_distance=True,
+                reward_crash=True,
+                reward_speed_limit=True
             )
         )
     ]

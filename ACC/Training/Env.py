@@ -253,7 +253,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         r_dist = 0
         if use_dist:
             if state.distances is not None and len(state.distances) > 0:
-                logging.info(f"len(state.distances) = {len(state.distances)}")
                 min_front_distance = min(state.distances)
                 safe_distance = state.safe_following_distance
 

@@ -31,7 +31,7 @@ class TD3Config:
     MAX_REPLAY_SIZE = 100_000
 
     # Timing / steps logic
-    LOOPS_PER_SECOND = int(199999 / 2565) #something on my PC specifically
+    LOOPS_PER_SECOND = int(554400 / 4800) #something on my PC specifically
 
 class TD3ActorNetwork(nn.Module):
     def __init__(self, input_shape, output_shape, **kwargs):
@@ -111,7 +111,7 @@ class ACC_TD3Agent():
         logging.info("Initializing Environment...")
 
         raw_env = CarlaEnv(self.args, self.scene)
-        raw_env.set_rewards(reward_geforce=False, reward_safe_distance=False)
+        #raw_env.set_rewards(reward_geforce=False, reward_safe_distance=False)
         self.env = GymnasiumToGymWrapper(raw_env)
 
     def _setup_agent(self, load_model_path):
