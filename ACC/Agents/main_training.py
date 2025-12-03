@@ -8,7 +8,7 @@ from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
 from ACC.Agents.RLAgents import ACC_TD3Agent
 import wandb
-
+import time
 class loop_info:
     def __init__(self, duration_seconds, name):
         self.duration = duration_seconds
@@ -48,32 +48,78 @@ def training_loop(args):
 
     current_model_name= "251203_025405_TD3_keep_speed.msh"
 
+    try:
+        from ACC.Agents.RLAgents import TD3Config
+        loops_per_second = TD3Config.LOOPS_PER_SECOND
+    except ImportError:
+        loops_per_second = int(554400 / 4800)
+
+    chunk_duration_seconds = 30 * 60
+
 
     for info, scene in scenarios_list:
         scene.name = info.name
+        total_duration = info.duration
+        elapsed_duration = 0
+
         logging.info(f"========================================")
         logging.info(f"STARTING SCENARIO: {info.name}")
         logging.info(f"Loading from: {current_model_name if current_model_name else 'Scratch'}")
         logging.info(f"========================================")
 
-        try:
-            manager = ACC_TD3Agent(args, load_model_name=current_model_name, scene=scene)
-            manager.reset_buffer()
+        while elapsed_duration < total_duration:
+            remaining_time = total_duration - elapsed_duration
+            current_chunk_duration = min(chunk_duration_seconds, remaining_time)
 
-            manager.train(duration_seconds=info.duration)
+            logging.info(f"Starting training chunk: {current_chunk_duration}s. Elapsed: {elapsed_duration}s / {total_duration}s")
+            logging.info(f"Loading from: {current_model_name if current_model_name else 'Scratch'}")
 
-            current_model_name = manager.save_model(suffix=info.name)
+            server_manager = None
+            manager = None
 
-            logging.info(f"Scenario {info.name} finished. Model saved to {current_model_name}")
+            try:
+                server_manager = CarlaServerManager(args.carla_path, args.host)
+                server_manager.launch_servers(
+                    args.real_port,
+                    args.real_stream_port,
+                    args.mirror_port,
+                    args.mirror_stream_port,
+                    no_render=args.no_display
+                )
 
-        except Exception as e:
-            logging.error(f"Error during scenario {info.name}: {e}")
-            traceback.print_exc()
-            break
+                manager = ACC_TD3Agent(args, load_model_name=current_model_name, scene=scene)
 
-        finally:
-            if 'manager' in locals():
-                manager.close()
+                if elapsed_duration == 0:
+                    manager.reset_buffer()
+
+                manager.train(duration_seconds=current_chunk_duration)
+
+                checkpoint_suffix = f"{info.name}_chunk_{int(elapsed_duration + current_chunk_duration)}"
+                current_model_name = manager.save_model(suffix=checkpoint_suffix)
+                logging.info(f"Chunk finished. Model saved to {current_model_name}")
+
+                elapsed_duration += current_chunk_duration
+
+            except Exception as e:
+                logging.error(f"Crash detected during training chunk: {e}")
+                traceback.print_exc()
+                logging.info("Attempting to restart servers and resume from last checkpoint...")
+                time.sleep(5)
+
+            finally:
+                if manager:
+                    try:
+                        manager.close()
+                    except:
+                        pass
+                if server_manager:
+                    try:
+                        server_manager.terminate_servers()
+                    except:
+                        pass
+                import gc
+                gc.collect()
+        logging.info(f"Scenario {info.name} COMPLETED.")
 
 
 
@@ -146,23 +192,22 @@ if __name__ == '__main__':
     server_manager = None
 
     try:
-        server_manager = CarlaServerManager(args.carla_path, args.host)
-        server_manager.launch_servers(
-            args.real_port,
-            args.real_stream_port,
-            args.mirror_port,
-            args.mirror_stream_port,
-            no_render=args.no_display
-        )
-
-        logging.info("Servers launched successfully. Starting main simulation loop...")
-        print("-" * 30)
-
-
 
         if not args.do_train:
+            server_manager = CarlaServerManager(args.carla_path, args.host)
+            server_manager.launch_servers(
+                args.real_port,
+                args.real_stream_port,
+                args.mirror_port,
+                args.mirror_stream_port,
+                no_render=args.no_display
+            )
+
+            logging.info("Servers launched successfully. Starting main simulation loop...")
+            print("-" * 30)
             manager = ACC_TD3Agent(args, load_model_name="")
             manager.evaluate()
+            if server_manager: server_manager.terminate_servers()
         else:
             training_loop(args)
 
@@ -170,12 +215,5 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}")
         traceback.print_exc()
-
-    finally:
-        # --- Terminate Servers ---
-        if server_manager:
-            server_manager.terminate_servers()
-        else:
-            print("Server manager was not initialized, skipping server termination.")
 
     print("Script finished.")
