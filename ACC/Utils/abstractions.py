@@ -37,7 +37,7 @@ class StateSensor(ABC):
 
     pass
 
-class DecisionAgent(ABC):
+class AbstractDecisionAgent(ABC):
     """Classes to make driving decisions. steering will be done by auto pilote, but acc will later be done with RL"""
 
     @abstractmethod

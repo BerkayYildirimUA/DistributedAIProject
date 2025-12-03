@@ -43,7 +43,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         self.sensor_real = CarlaWorldStateSensor(self.engine.ego.real, self.engine.duo_world.get_real_world())
 
-        self.max_vehicles = 2
+        self.max_vehicles = 2 # ---------------- IF YOU CHANGE THIS, YOU HAVE TO CHANGE RLDecisionAgent !! ----------------
 
         self.eng_args = args
         self.eng_scene: Optional[Scenario] = scene

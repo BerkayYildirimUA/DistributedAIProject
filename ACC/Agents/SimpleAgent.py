@@ -1,9 +1,8 @@
 import carla
 
-from ACC.Utils.abstractions import DecisionAgent, StateSensor
+from ACC.Utils.abstractions import AbstractDecisionAgent, StateSensor
 
-
-class SimpleAccAgent(DecisionAgent):
+class SimpleAccAgent(AbstractDecisionAgent):
 
     def __init__(self, ego_vehicle: carla.Actor, sensor: StateSensor):
         self.__ego = ego_vehicle

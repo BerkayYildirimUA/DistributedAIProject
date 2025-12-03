@@ -36,7 +36,7 @@ maybe change action space center if need be, like 0 =! do nothing, perhabs.
 
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=0)
+                     map_name=args.map, number_of_npc=0, lead_car_bp_name='vehicle.tesla.model3')
     engine = Engine(args, scene)
 
     try:
@@ -46,10 +46,7 @@ def main_loop(args):
             raise RuntimeError("Engine setup failed. Exiting.")
 
         # sensor and agent Setup (Real World)
-        if engine.lead is not None:
-            sensor_real = CarlaLeadStateSensor(engine.ego.real, engine.lead.real)
-        else:
-            sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+        sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
 
         decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
 
@@ -101,37 +98,45 @@ if __name__ == '__main__':
     # Server Ports
     parser.add_argument('--host', default='127.0.0.1', help='IP of the host server (default: 127.0.0.1)')
 
-    #real ports
+    # real ports
     parser.add_argument('--real-port', default=2000, type=int,
                         help='TCP port for the REAL CARLA server (default: 2000)')
     parser.add_argument('--real-stream-port', default=2001, type=int,
                         help='Streaming port for the REAL CARLA server (default: 2001)')
 
-    #mirror ports
+    # mirror ports
     parser.add_argument('--mirror-port', default=4000, type=int,
                         help='TCP port for the MIRROR CARLA server (default: 4000)')
     parser.add_argument('--mirror-stream-port', default=4001, type=int,
                         help='Streaming port for the MIRROR CARLA server (default: 4001)')
-
 
     # Traffic Manager Ports
     parser.add_argument('--tm-mirror-port', default=9000, type=int,
                         help='Port for MIRROR Traffic Manager (default: 9000)')
 
     # Simulation Settings
-    parser.add_argument('--map', default='Town03', help='Map to load (should match both servers) (default: Town04)')
+    parser.add_argument('--map', default='random', help='Map to load (default: random)')
+    parser.add_argument('--spawn_point', default='random', help='Spawn point of the ego (default: random)')
+
     parser.add_argument('--delta-seconds', default=0.05, type=float,
                         help='Fixed delta seconds for simulation (default: 0.05)')
     parser.add_argument('--num-npcs', default=2, type=int, help='Number of NPC vehicles to spawn (default: 2)')
+
+    #parser.add_argument('--venv', default="../venv_python310", type=str, help='Path to the venv containing python >3.12')
 
     # Camera
     parser.add_argument('--width', default=1280, type=int, help='Camera image width (default: 1280)')
     parser.add_argument('--height', default=720, type=int, help='Camera image height (default: 720)')
 
-    #training
+    # training
     parser.add_argument('--do_train', default=False, type=bool, help='Train an RL agent or just run the sim')
-    parser.add_argument('--random_speed_limit', default=False, type=bool, help='Train an RL agent or just run the sim')
+    parser.add_argument('--horizon', default=20000, help='max sim length before resetting')
 
+    parser.add_argument('--no_display', action='store_true', help='Disable rendering for SSH')
+    parser.add_argument('--random_speed_limit', action='store_true', help='to train better at this')
+
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='Enable verbose logging')
 
 
     args = parser.parse_args()

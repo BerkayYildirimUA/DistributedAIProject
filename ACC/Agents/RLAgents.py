@@ -1,6 +1,8 @@
 # https://mushroomrl.readthedocs.io/en/latest/?badge=latest
 import logging
 
+import carla
+
 import wandb
 #
 from ACC.Training.Env import CarlaEnv, GymnasiumToGymWrapper
@@ -17,6 +19,10 @@ import datetime
 from mushroom_rl.policy import DeterministicPolicy
 import os
 import numpy as np
+from mushroom_rl.core import Agent
+from ACC.Utils.abstractions import AbstractDecisionAgent, StateSensor
+from ACC.Utils.abstractions import ActionsEnum
+from ACC.Utils.abstractions import VehicleState
 
 class TD3Config:
     # Training
@@ -74,7 +80,7 @@ class TD3CriticNetwork(nn.Module):
         return self.net(x).squeeze(1)
 
 
-class ACC_TD3Agent():
+class ACC_TD3Agent(AbstractDecisionAgent):
 
     def __init__(self, args, load_model_name=None, scene=None):
         self.args = args
@@ -222,7 +228,101 @@ class ACC_TD3Agent():
 
         return save_path
 
+    def make_decision(self, temp) -> carla.VehicleControl:
+        pass
 
     def close(self):
         if self.env:
             self.env.close()
+
+
+class RLDecisionAgent(AbstractDecisionAgent):
+    """
+    Wrapper that connects a CARLA StateSensor to a pre-trained MushroomRL Agent.
+    """
+
+    def __init__(self, sensor: StateSensor, model_path: str):
+        self.sensor = sensor
+
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model not found at: {model_path}")
+
+        logging.info(f"Loading RL Agent from {model_path}...")
+        self.max_vehicles = 2 # ---------------- IF YOU CHANGE THIS, YOU HAVE TO CHANGE RLDecisionAgent !! ----------------
+
+        self.agent = Agent.load(model_path)
+
+        # Set to eval mode
+        self.agent.policy.eval()
+        logging.info("RL Agent loaded and set to Eval mode.")
+
+    def _vehicle_state_to_array(self, state: VehicleState) -> np.ndarray:
+        distances = state.distances if state.distances else []
+        padded_distances = list(distances) + [1000.0] * (self.max_vehicles - len(distances))
+        padded_distances = padded_distances[:self.max_vehicles]
+
+        # normilze
+        norm_speed = state.speed / 130
+        speed_ratio = state.speed / (state.speed_limit + 1e-5)
+        norm_limit = state.speed_limit / 130.0
+
+        norm_distances = np.array(padded_distances, dtype=np.float32) / 1000.0
+        norm_distances = np.clip(norm_distances, 0.0, 1.0)
+
+        norm_safe_dist = state.safe_following_distance / 100.0
+
+        norm_light = float(state.light_color.value) / 2.0
+
+        norm_steering = float(state.steering_dir)
+
+        obs = np.array([
+            norm_speed,
+            norm_limit,
+            speed_ratio,
+            *norm_distances,
+            norm_safe_dist,
+            1.0 if state.hasCrashed else 0.0,
+            norm_light,
+            norm_steering
+        ], dtype=np.float32)
+
+        return obs
+
+    def _array_to_action(self, action: np.ndarray) -> dict[ActionsEnum, float]:
+        val = float(action[0])
+
+        throttle = 0.0
+        brake = 0.0
+
+        if val >= -0.5:
+            throttle = (val + 0.5) / 1.5
+        else:
+            brake = abs(val + 0.5) / 0.5
+
+        return {
+            ActionsEnum.throttle: throttle,
+            ActionsEnum.brake: brake,
+        }
+
+    def make_decision(self, tm_control: carla.VehicleControl) -> carla.VehicleControl:
+
+        data = self.sensor.get_state()
+
+        observation = self._vehicle_state_to_array(data)
+
+
+        raw_action = self.agent.policy.draw_action(observation)
+        action = self._array_to_action(raw_action)
+
+
+        final_control = carla.VehicleControl(
+            throttle=action[ActionsEnum.throttle],
+            brake=action[ActionsEnum.brake],
+            steer=tm_control.steer,  # Keep TM steering
+            hand_brake=tm_control.hand_brake,
+            reverse=tm_control.reverse,
+            manual_gear_shift=tm_control.manual_gear_shift,
+            gear=tm_control.gear
+        )
+
+        return final_control
