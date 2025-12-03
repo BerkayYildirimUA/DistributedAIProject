@@ -3,11 +3,14 @@ from __future__ import annotations
 import logging
 import math
 import random
+import time
 from typing import SupportsFloat, Any, Dict
 import carla
 import gymnasium as gym
 import numpy as np
 import torch
+import wandb
+from carla import Vector3D
 from gymnasium.core import RenderFrame
 
 from ACC.Engine.engine import Engine
@@ -172,19 +175,24 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         self.engine = Engine(self.eng_args,self.eng_scene)
         self.engine.connect_to_worlds()
         self.engine.duo_world.tick()
+
+
         if not self.engine.setup():
             raise RuntimeError("Engine setup failed. Exiting.")
 
 
         #self.sensor_real.reset(self.engine.ego.real, self.engine.duo_world.get_real_world())
-
         current_speed_limit = 0.0
+        counter = 0.0
         if self.sensor_real is not None:
             current_speed_limit = self.sensor_real.speed_limit
+            counter = self.sensor_real.counter
             self.sensor_real.cleanup()
             self.sensor_real = None
 
+
         self.sensor_real = CarlaWorldStateSensor(self.engine.ego.real, self.engine.duo_world.get_real_world())
+        self.sensor_real.counter = counter
 
         if self.eng_args.random_speed_limit:
             self.sensor_real.override_speed_limit = True
@@ -197,15 +205,17 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         info: dict[str, Any] = {}
         self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
 
+
+        #self.engine.lead.set_mirror_velocity(Vector3D(x=self.lead_speed_limit, y=0, z=0))
+
         return obs, info
 
     def close(self):
         super().close()
-
         self.engine.cleanup()
 
 
-    def _reward(self, state : VehicleState) -> SupportsFloat:
+    def _reward(self, state : VehicleState) -> tuple[float, dict]:
 
         #self.engine.ego.real
         self.__g_force_calculator.update_speed(state.speed)
@@ -214,17 +224,18 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         rewards_dict = self.eng_scene.rewards
         #print(rewards_dict)
         use_crash = rewards_dict.get("reward_crash", True)
-        use_geforce = rewards_dict.get("reward_geforce", True)
+        use_geforce = rewards_dict.get("reward_geforce", False)
         use_speed = rewards_dict.get("reward_speed_limit", True)
         use_dist = rewards_dict.get("reward_safe_distance", True)
 
         ############### CRASH ###############
+        r_crash = 0
         if use_crash and state.hasCrashed:
             logging.info("Car Crashed!")
-            return -15
+            r_crash = -100
 
         ############### G-FORCE ###############
-        #TODO: simply, make continuous
+        #TODO: VERY OLD; NOT USED ATM, NEED TO BE FULLY REWORKED
         r_geforce = 0
         if use_geforce:
             if g_force is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
@@ -251,14 +262,24 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         ############### SAFE DISTANCE ###############
         r_dist = 0
+        r_dist_weight = 2
+
+        min_front_distance = 0.0
+        safe_distance = 0.0
+        safety_margin = 0.0
         if use_dist:
             if state.distances is not None and len(state.distances) > 0:
                 min_front_distance = min(state.distances)
                 safe_distance = state.safe_following_distance
 
-                safety_margin = min_front_distance / (safe_distance + 1e-5)
+                safety_margin = min(min_front_distance / (safe_distance + 1e-5), 1000)
 
-                r_dist = - 2 * math.exp(-6 * safety_margin * safety_margin) + 0.002 * safety_margin
+                if safety_margin >= 1:
+                    r_dist = math.exp(-1 * (safety_margin-1))
+                else:
+                    r_dist = - 5 * ((safety_margin - 1) ** 2) + 1
+
+                r_dist = r_dist_weight * r_dist
 
 
 
@@ -268,9 +289,22 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         #logging.info(f"  [Speed Limit]   : {'ON' if use_speed else 'OFF'}")
         #logging.info(f"  [Safe Distance] : {'ON' if use_dist else 'OFF'}")
 
-        reward = r_dist + r_geforce + r_speed
+        total_reward = r_crash + r_dist + r_geforce + r_speed if r_crash == 0 else r_crash
 
-        return reward
+        components = {
+            "Reward/Total": total_reward,
+            "Reward/Crash": r_crash,
+            "Reward/GForce": r_geforce,
+            "Reward/Speed": r_speed,
+            "Reward/Distance": r_dist,
+            "State/Speed": state.speed,
+            "State/GForce": g_force if g_force else 0.0,
+            "State/distance/min_front_distance": min_front_distance,
+            "State/distance/safe_distance": safe_distance,
+            "State/distance/safety_margin": safety_margin
+        }
+
+        return total_reward, components
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, SupportsFloat, bool, bool, dict[str, dict[ActionsEnum, float]]]:
         terminated = False
@@ -337,7 +371,19 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 logging.info("Car Crashed!")
                 terminated = True
             state.steering_dir = steering_dir
-            reward = self._reward(state)
+
+            reward, reward_components = self._reward(state)
+
+            if self.engine.lead is not None:
+                v = self.engine.lead.mirror.get_velocity() * 3.6
+                lead_speed = v.length()
+                reward_components["State/LeadSpeed"] = lead_speed
+            else:
+                reward_components["State/LeadSpeed"] = 0.0
+
+            info.update(reward_components)
+
+
             obs = self._vehicle_state_to_array(state)
 
             self.engine.duo_world.tick()
@@ -346,6 +392,19 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             #this creates an infinite road to drive on
             if self.engine.map_name == "CUSTOM_STRAIGHT":
                 transform = self.engine.ego.real.get_transform()
+
+                if self.engine.lead is not None:
+                    lead_transform = self.engine.lead.mirror.get_transform()
+                    dist_to_lead = lead_transform.location.x - transform.location.x
+
+                    if dist_to_lead > 300:
+                        target_catchup_speed = max(0.0, state.speed * random.uniform(0.5, 0.8))
+
+                        # Only update if meaningful change to avoid spamming TM
+                        if abs(self.lead_speed_limit - target_catchup_speed) > 1.0:
+                            self.lead_speed_limit = target_catchup_speed
+                            self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
+
                 if transform.location.x > 1000:
                     new_location = carla.Location(x=10, y=transform.location.y, z=transform.location.z)
                     self.engine.ego.real.set_location(new_location)
@@ -369,7 +428,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             print(f"\nAn critical error occurred during step in traing env: {e}")
             traceback.print_exc()
             terminated = True
-
         return obs, reward, terminated, truncated, info
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
@@ -382,6 +440,7 @@ class GymnasiumToGymWrapper:
         self.env = env
         self.observation_space = env.observation_space
         self.action_space = env.action_space
+        self.step_count = 0
 
     @property
     def info(self):
@@ -409,6 +468,14 @@ class GymnasiumToGymWrapper:
         action = np.clip(action, -1.0, 1.0)
         obs, reward, terminated, truncated, info = self.env.step(action)
         done = terminated or truncated
+
+        if wandb.run is not None:
+            log_dict = {k: v for k, v in info.items() if isinstance(v, (int, float))}
+            log_dict['global_step'] = self.step_count
+            wandb.log(log_dict)
+
+        self.step_count += 1
+
         return obs, reward, done, info
 
     def render(self):
@@ -421,47 +488,3 @@ class GymnasiumToGymWrapper:
     def stop(self):
         return self.env.close()
 
-from collections import deque
-class FrameStackWrapper:
-    def __init__(self, env, num_stack=4):
-        self.env = env
-        self.num_stack = num_stack
-        self.frames = deque(maxlen=num_stack)
-
-        # Calculate new observation space size
-        # We assume flat observations here
-        low = np.tile(env.observation_space.low, num_stack)
-        high = np.tile(env.observation_space.high, num_stack)
-        self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
-        self.action_space = env.action_space
-
-    @property
-    def info(self):
-        return MDPInfo(
-            observation_space=self.observation_space,
-            action_space=self.action_space,
-            gamma=self.env.info.gamma,
-            horizon=self.env.info.horizon
-        )
-
-    def _get_obs(self):
-        assert len(self.frames) == self.num_stack
-        return np.concatenate(list(self.frames))
-
-    def reset(self, state=None):
-        obs = self.env.reset(state)
-
-        for _ in range(self.num_stack):
-            self.frames.append(obs)
-        return self._get_obs()
-
-    def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        self.frames.append(obs)
-        return self._get_obs(), reward, done, info
-
-    def close(self):
-        return self.env.close()
-
-    def stop(self):
-        return self.env.close()

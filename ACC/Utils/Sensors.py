@@ -1,4 +1,5 @@
 import random
+import time
 import weakref
 import collections
 
@@ -15,7 +16,7 @@ class CarlaWorldStateSensor(StateSensor):
         self.__ego = ego_vehicle
         self.__world = world
 
-        self.__safe_time_distance_seconds = 2
+        self.__safe_time_distance_seconds = 3
         self.counter = 0
         self.__collision_sensor = CollisionSensor(ego_vehicle)
 
@@ -23,16 +24,18 @@ class CarlaWorldStateSensor(StateSensor):
         self.speed_limit = 0
     def cleanup(self):
 
-        if self.__collision_sensor:
+        if self.__collision_sensor is not None:
             self.__collision_sensor.destroy()
 
-    def reset(self, ego, world):
+        self.__collision_sensor = None
 
-        self.__ego = ego
-        self.__world = world
-        self.counter = 0
-        if self.__collision_sensor:
-            self.__collision_sensor.destroy()
+#    def reset(self, ego, world):
+#
+#        self.__ego = ego
+#        self.__world = world
+#        self.counter = 0
+#        if self.__collision_sensor:
+#            self.__collision_sensor.destroy()
 
 
 
@@ -54,7 +57,7 @@ class CarlaWorldStateSensor(StateSensor):
         safe_distance = self.__safe_time_distance_seconds * ego_velocity_ms
         has_crashed = self.__collision_sensor.get_last_impact() > 0.0
 
-        smallest_dist = 400
+        smallest_dist = 250
         dists = []
         for dist, vehicle in sorted(vehicles):
             dot = vehicle.get_transform().get_forward_vector().dot(ego_transform.get_forward_vector()) # to see if the car is pointing the same way as the ego
@@ -63,10 +66,10 @@ class CarlaWorldStateSensor(StateSensor):
             dists.append(dist)
 
         if len(vehicles) == 0:
-            dists.append(400)
+            dists.append(250)
 
 
-        if self.override_speed_limit and self.counter == 5000:
+        if self.override_speed_limit and self.counter == 2500:
             self.counter = 0
             self.speed_limit = random.randint(10, 140)
         elif not self.override_speed_limit:
@@ -173,8 +176,16 @@ class CollisionSensor(object):
     def destroy(self):
         """Clean up the sensor from the server"""
         if self.sensor is not None:
-            self.sensor.stop()
-            self.sensor.destroy()
+
+            if self.sensor.is_listening:
+                time.sleep(3)
+                self.sensor.stop()
+
+            time.sleep(3)
+
+            if self.sensor.is_alive:
+                self.sensor.destroy()
+
             self.sensor = None
 
 class PygameUI(UI):

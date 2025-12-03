@@ -7,7 +7,7 @@ import traceback
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
 from ACC.Agents.RLAgents import ACC_TD3Agent
-
+import wandb
 
 class loop_info:
     def __init__(self, duration_seconds, name):
@@ -17,19 +17,19 @@ class loop_info:
 def training_loop(args):
 
     scenarios_list = [
-        (
-            loop_info(4 * 60 * 60, "keep_speed"),
-            Scenario(
-                'vehicle.tesla.model3',
-                delta_seconds=args.delta_seconds,
-                map_name=args.map,
-                number_of_npc=0,
-                reward_geforce=False,
-                reward_safe_distance=False,
-                reward_crash=True,
-                reward_speed_limit=True
-            )
-        ),
+#        (
+#            loop_info(4 * 60 * 60, "keep_speed"),
+#            Scenario(
+#                'vehicle.tesla.model3',
+#                delta_seconds=args.delta_seconds,
+#                map_name=args.map,
+#                number_of_npc=0,
+#                reward_geforce=False,
+#                reward_safe_distance=False,
+#                reward_crash=True,
+#                reward_speed_limit=True
+#            )
+#        ),
         (
             loop_info(4 * 60 * 60, "Speed_limit_and_safe_dist"),
             Scenario(
@@ -46,22 +46,25 @@ def training_loop(args):
         )
     ]
 
-    current_model_path = None
+    current_model_name= "251203_025405_TD3_keep_speed.msh"
+
 
     for info, scene in scenarios_list:
+        scene.name = info.name
         logging.info(f"========================================")
         logging.info(f"STARTING SCENARIO: {info.name}")
-        logging.info(f"Loading from: {current_model_path if current_model_path else 'Scratch'}")
+        logging.info(f"Loading from: {current_model_name if current_model_name else 'Scratch'}")
         logging.info(f"========================================")
 
         try:
-            manager = ACC_TD3Agent(args, load_model_path=current_model_path, scene=scene)
+            manager = ACC_TD3Agent(args, load_model_name=current_model_name, scene=scene)
+            manager.reset_buffer()
 
             manager.train(duration_seconds=info.duration)
 
-            current_model_path = manager.save_model(suffix=info.name)
+            current_model_name = manager.save_model(suffix=info.name)
 
-            logging.info(f"Scenario {info.name} finished. Model saved to {current_model_path}")
+            logging.info(f"Scenario {info.name} finished. Model saved to {current_model_name}")
 
         except Exception as e:
             logging.error(f"Error during scenario {info.name}: {e}")
@@ -154,6 +157,8 @@ if __name__ == '__main__':
 
         logging.info("Servers launched successfully. Starting main simulation loop...")
         print("-" * 30)
+
+
 
         if not args.do_train:
             manager = ACC_TD3Agent(args, load_model_name="")

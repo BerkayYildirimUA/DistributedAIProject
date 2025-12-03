@@ -18,3 +18,5 @@ class Scenario:
         self.rewards["reward_geforce"] = reward_geforce
         self.rewards["reward_speed_limit"] = reward_speed_limit
         self.rewards["reward_safe_distance"] = reward_safe_distance
+
+        self.name = None

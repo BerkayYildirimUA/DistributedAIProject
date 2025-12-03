@@ -61,9 +61,6 @@ class DuoActor:
     def set_mirror_autopilot(self, enable: bool, tm_port: int):
         self.mirror.set_autopilot(enable, tm_port)
 
-    def set_mirror_target_velocity(self, speed: int, tm_port: int):
-        self.mirror.set_target_velocity(speed, tm_port)
-
     def set_real_autopilot(self, enable: bool, tm_port: int):
         self.real.set_autopilot(enable, tm_port)
 

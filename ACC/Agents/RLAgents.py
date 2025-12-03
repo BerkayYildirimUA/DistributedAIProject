@@ -1,7 +1,9 @@
 # https://mushroomrl.readthedocs.io/en/latest/?badge=latest
 import logging
 
-from ACC.Training.Env import CarlaEnv, GymnasiumToGymWrapper, FrameStackWrapper
+import wandb
+#
+from ACC.Training.Env import CarlaEnv, GymnasiumToGymWrapper
 from mushroom_rl.core import Core, Logger
 from mushroom_rl.algorithms.actor_critic import TD3
 from mushroom_rl.utils.callbacks import CollectDataset
@@ -74,17 +76,18 @@ class TD3CriticNetwork(nn.Module):
 
 class ACC_TD3Agent():
 
-    def __init__(self, args, load_model_path=None, scene=None):
+    def __init__(self, args, load_model_name=None, scene=None):
         self.args = args
         self.dataset_callback = CollectDataset()
         self.env = None
         self.agent = None
         self.core = None
 
-        # Path setup
+        # ---- Path setup ----
         self.project_root = self._get_project_root()
         self.models_dir = os.path.join(self.project_root, "ACC", "Agents", "models")
         os.makedirs(self.models_dir, exist_ok=True)
+        load_model_path = os.path.join(self.models_dir, load_model_name)
 
         if scene is None:
             self.scene = Scenario(
@@ -97,7 +100,28 @@ class ACC_TD3Agent():
         else:
             self.scene = scene
 
-        # Initialize
+        # ---- WANDB ----
+        if wandb.run is not None:
+            wandb.finish()
+
+        run_name = scene.rewards.get("name", "Unknown_Scenario") if scene else "ACC_Agent"
+        if scene and hasattr(scene, 'name'):  # If scenario has a name attribute
+            run_name = scene.name
+
+        wandb.init(
+            project="CARLA_ACC_Training",
+            name=f"{run_name}_{datetime.datetime.now().strftime('%H%M')}",
+            config={
+                "delta_seconds": args.delta_seconds,
+                "map": args.map,
+                "lr_actor": TD3Config.LR_ACTOR,
+                "lr_critic": TD3Config.LR_CRITIC,
+                "batch_size": TD3Config.BATCH_SIZE,
+                "scenario": str(scene.__dict__) if scene else "None"
+            }
+        )
+
+        # ---- Initialize ----
         self._setup_env()
         self._setup_agent(load_model_path)
         self._setup_core()
@@ -152,6 +176,12 @@ class ACC_TD3Agent():
             self.agent = self.agent.load(load_model_path)
         elif load_model_path:
             logging.warning(f"Model path {load_model_path} not found! Starting from scratch.")
+
+
+    def reset_buffer(self):
+        if hasattr(self.agent, '_replay_memory'):
+            logging.warning("Reward function changed: Wiping old Replay Memory to avoid contamination.")
+            self.agent = self.agent._replay_memory.reset()
 
     def _setup_core(self):
         self.core = Core(self.agent, self.env, callbacks_fit=[self.dataset_callback])

@@ -364,7 +364,7 @@ class Engine():
                     actor_pair.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
                     actor_pair.set_mirror_physics(True)
 
-            self.duo_world.get_mirror_world().tick()
+            self.duo_world.tick()
             logging.info("Mirror actors configured.")
 
             # Spectator setup
@@ -464,6 +464,9 @@ class Engine():
         try:
             repair_transform = survivor.get_transform()
             repair_transform.location.z += 0.5
+
+            survivor_velocity = survivor.get_velocity()
+            survivor_ang_velocity = survivor.get_angular_velocity()
         except Exception as e:
             logging.error(f"Failed to get transform from surviving actor: {e}")
             return False
@@ -483,6 +486,9 @@ class Engine():
         if not new_actor:
             logging.error(f"Failed to spawn replacement {target_side} actor.")
             return False
+
+        new_actor.set_target_velocity(survivor_velocity)
+        new_actor.set_target_angular_velocity(survivor_ang_velocity)
 
         # Patch up the DuoActor
         if target_side == "MIRROR":
@@ -542,7 +548,7 @@ class Engine():
                     self.duo_world.get_mirror_world().tick()
 
                     if speed_limit > 0:
-                        self.lead.set_mirror_target_velocity(speed_limit, self.mirror_traffic_manager_port)
+                        self.tm_mirror.set_desired_speed(self.lead.mirror, speed_limit * 3.6)
 
                     logging.debug("Lead mirror actor reconfigured with Traffic Manager settings.")
             except Exception as e:
@@ -582,8 +588,8 @@ class Engine():
                 destroyed_count += 1
         logging.info(f"Destroy method called for {destroyed_count} actor pairs.")
 
-        if self.duo_world:
-            self.duo_world.tick()
+        #if self.duo_world:
+        #    self.duo_world.tick()
 
 
 
