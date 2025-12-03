@@ -12,7 +12,7 @@
 
         <planView>
             <geometry s="0.0" x="0.0" y="0.0" hdg="0.0" length="3141.59">
-                <arc curvature="0.002" />
+                <arc curvature="-0.002" />
             </geometry>
         </planView>
 

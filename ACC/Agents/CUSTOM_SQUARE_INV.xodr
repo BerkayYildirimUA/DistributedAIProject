@@ -4,41 +4,41 @@
         <geoReference><![CDATA[+proj=tmerc +lat_0=0 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +geoidgrids=egm96_15.gtx +vunits=m +no_defs]]></geoReference>
     </header>
 
-    <road name="RoundedSquare_Large_CCW_Wide" length="1914.16" id="1" junction="-1">
+    <road name="RoundedSquare_Large_CW_Wide" length="1914.16" id="1" junction="-1">
         <link>
             <successor elementType="road" elementId="1" contactPoint="start" />
         </link>
         <planView>
-            <geometry s="0.0" x="-200.0" y="-250.0" hdg="0.0" length="400.0">
+            <geometry s="0.0" x="-200.0" y="250.0" hdg="0.0" length="400.0">
                 <line />
             </geometry>
 
-            <geometry s="400.0" x="200.0" y="-250.0" hdg="0.0" length="78.54">
-                <arc curvature="0.02" />
+            <geometry s="400.0" x="200.0" y="250.0" hdg="0.0" length="78.54">
+                <arc curvature="-0.02" />
             </geometry>
 
-            <geometry s="478.54" x="250.0" y="-200.0" hdg="1.5708" length="400.0">
+            <geometry s="478.54" x="250.0" y="200.0" hdg="-1.5708" length="400.0">
                 <line />
             </geometry>
 
-            <geometry s="878.54" x="250.0" y="200.0" hdg="1.5708" length="78.54">
-                <arc curvature="0.02" />
+            <geometry s="878.54" x="250.0" y="-200.0" hdg="-1.5708" length="78.54">
+                <arc curvature="-0.02" />
             </geometry>
 
-            <geometry s="957.08" x="200.0" y="250.0" hdg="3.14159" length="400.0">
+            <geometry s="957.08" x="200.0" y="-250.0" hdg="-3.14159" length="400.0">
                 <line />
             </geometry>
 
-            <geometry s="1357.08" x="-200.0" y="250.0" hdg="3.14159" length="78.54">
-                <arc curvature="0.02" />
+            <geometry s="1357.08" x="-200.0" y="-250.0" hdg="-3.14159" length="78.54">
+                <arc curvature="-0.02" />
             </geometry>
 
-            <geometry s="1435.62" x="-250.0" y="200.0" hdg="4.71239" length="400.0">
+            <geometry s="1435.62" x="-250.0" y="-200.0" hdg="-4.71239" length="400.0">
                 <line />
             </geometry>
 
-            <geometry s="1835.62" x="-250.0" y="-200.0" hdg="4.71239" length="78.54">
-                <arc curvature="0.02" />
+            <geometry s="1835.62" x="-250.0" y="200.0" hdg="-4.71239" length="78.54">
+                <arc curvature="-0.02" />
             </geometry>
         </planView>
 

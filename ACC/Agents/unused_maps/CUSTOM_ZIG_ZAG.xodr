@@ -4,7 +4,7 @@
         <geoReference><![CDATA[+proj=tmerc +lat_0=0 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +geoidgrids=egm96_15.gtx +vunits=m +no_defs]]></geoReference>
     </header>
 
-    <road name="SmoothZigZag" length="340.0" id="1" junction="-1">
+    <road name="SmoothZigZag" length="560.0" id="1" junction="-1">
         <link />
         <planView>
             <geometry s="0.0" x="0.0" y="0.0" hdg="0.5" length="100.0">
@@ -24,6 +24,14 @@
             </geometry>
 
             <geometry s="240.0" x="213.82" y="0.0" hdg="0.5" length="100.0">
+                <line />
+            </geometry>
+
+            <geometry s="340.0" x="301.58" y="47.94" hdg="0.5" length="20.0">
+                <arc curvature="-0.05" />
+            </geometry>
+
+            <geometry s="360.0" x="320.73" y="47.94" hdg="-0.5" length="200.0">
                 <line />
             </geometry>
         </planView>
