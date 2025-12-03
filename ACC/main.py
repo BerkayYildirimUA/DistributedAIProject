@@ -10,7 +10,7 @@ from ACC.Engine.start_words import CarlaServerManager
 from ACC.Utils.Sensors import CarlaLeadStateSensor, CarlaWorldStateSensor
 from ACC.Agents.SimpleAgent import SimpleAccAgent
 from ACC.Engine.engine import Engine
-
+from ACC.Agents.RLAgents import RLDecisionAgent
 """
 RL FEEDBACK 
 
@@ -28,7 +28,7 @@ train in steps, don't overcomplicate at first. Turn on rewards as we go
 maybe change action space center if need be, like 0 =! do nothing, perhabs. 
 
 
-
+--no_display
 """
 
 
@@ -36,7 +36,7 @@ maybe change action space center if need be, like 0 =! do nothing, perhabs.
 
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=0, lead_car_bp_name='vehicle.tesla.model3')
+                     map_name=args.map, number_of_npc=0) #lead_car_bp_name='vehicle.tesla.model3'
     engine = Engine(args, scene)
 
     try:
@@ -49,6 +49,7 @@ def main_loop(args):
         sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
 
         decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
+        decisionAgent = RLDecisionAgent(sensor_real, "251203_025405_TD3_keep_speed.msh")
 
 
 

@@ -241,8 +241,13 @@ class RLDecisionAgent(AbstractDecisionAgent):
     Wrapper that connects a CARLA StateSensor to a pre-trained MushroomRL Agent.
     """
 
-    def __init__(self, sensor: StateSensor, model_path: str):
+    def __init__(self, sensor: StateSensor, model_name: str):
         self.sensor = sensor
+
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(script_dir, "models", model_name)
+
 
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model not found at: {model_path}")
@@ -253,7 +258,7 @@ class RLDecisionAgent(AbstractDecisionAgent):
         self.agent = Agent.load(model_path)
 
         # Set to eval mode
-        self.agent.policy.eval()
+        #self.agent.policy
         logging.info("RL Agent loaded and set to Eval mode.")
 
     def _vehicle_state_to_array(self, state: VehicleState) -> np.ndarray:
@@ -307,8 +312,10 @@ class RLDecisionAgent(AbstractDecisionAgent):
     def make_decision(self, tm_control: carla.VehicleControl) -> carla.VehicleControl:
 
         data = self.sensor.get_state()
+        data.steering_dir = tm_control.steer
 
         observation = self._vehicle_state_to_array(data)
+
 
 
         raw_action = self.agent.policy.draw_action(observation)
