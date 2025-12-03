@@ -57,8 +57,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                  0.0, 0.0,  # distances (5 vehicles)
                  0.0,  # safe_following_distance
                  0.0,  # hasCrashed (0 or 1)
-                 0.0,  # light_color (0, 1, 2)
-                 -1.0],  #steering
+                 0.0  # light_color (0, 1, 2)
+                 #,-1.0 #steering
+                 ],
                 dtype=np.float32
             ),
             high=np.array(
@@ -68,8 +69,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                  1.0, 1.0,  # distances (max 1000m)
                  1.0,  # safe_following_distance
                  1.0,  # hasCrashed
-                 1.0, # light_color
-                 1.0], #steering
+                 1.0 # light_color
+                 #,1.0 #steering
+                 ],
                 dtype=np.float32
             ),
             dtype=np.float32,
@@ -110,7 +112,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         norm_light = float(state.light_color.value) / 2.0
 
-        norm_steering = float(state.steering_dir)
+        #norm_steering = float(state.steering_dir)
 
         obs = np.array([
             norm_speed,
@@ -119,8 +121,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             *norm_distances,
             norm_safe_dist,
             1.0 if state.hasCrashed else 0.0,
-            norm_light,
-            norm_steering
+            norm_light
+            #,norm_steering
         ], dtype=np.float32)
 
         return obs
