@@ -9,9 +9,7 @@ class SimpleAccAgent(DecisionAgent):
         self.__ego = ego_vehicle
         self.__sensor = sensor
 
-    def make_decision(self, temp) -> carla.VehicleControl:
-
-        tm_control = temp
+    def make_decision(self, tm_control) -> carla.VehicleControl:
 
         data = self.__sensor.get_state()
 

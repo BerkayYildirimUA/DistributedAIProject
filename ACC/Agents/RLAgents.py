@@ -181,7 +181,7 @@ class ACC_TD3Agent():
     def reset_buffer(self):
         if hasattr(self.agent, '_replay_memory'):
             logging.warning("Reward function changed: Wiping old Replay Memory to avoid contamination.")
-            self.agent = self.agent._replay_memory.reset()
+            self.agent._replay_memory.reset()
 
     def _setup_core(self):
         self.core = Core(self.agent, self.env, callbacks_fit=[self.dataset_callback])
@@ -193,6 +193,7 @@ class ACC_TD3Agent():
 
         logging.info(f"Starting training for {n_steps} steps...")
         self.core.learn(n_steps=n_steps, n_steps_per_fit=1)
+
         logging.info("Training complete.")
 
     def evaluate(self, n_steps=80000):
@@ -220,6 +221,7 @@ class ACC_TD3Agent():
         self.agent.save(save_path, full_save=True)
 
         return save_path
+
 
     def close(self):
         if self.env:

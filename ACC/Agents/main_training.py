@@ -31,7 +31,7 @@ def training_loop(args):
 #            )
 #        ),
         (
-            loop_info(4 * 60 * 60, "Speed_limit_and_safe_dist"),
+            loop_info(8 * 60 * 60, "Speed_limit_and_safe_dist"), #4 * 60 * 60
             Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
@@ -75,7 +75,7 @@ def training_loop(args):
             logging.info(f"Loading from: {current_model_name if current_model_name else 'Scratch'}")
 
             server_manager = None
-            manager = None
+            agent = None
 
             try:
                 server_manager = CarlaServerManager(args.carla_path, args.host)
@@ -87,15 +87,15 @@ def training_loop(args):
                     no_render=args.no_display
                 )
 
-                manager = ACC_TD3Agent(args, load_model_name=current_model_name, scene=scene)
+                agent = ACC_TD3Agent(args, load_model_name=current_model_name, scene=scene)
 
                 if elapsed_duration == 0:
-                    manager.reset_buffer()
+                    agent.reset_buffer()
 
-                manager.train(duration_seconds=current_chunk_duration)
+                agent.train(duration_seconds=current_chunk_duration)
 
                 checkpoint_suffix = f"{info.name}_chunk_{int(elapsed_duration + current_chunk_duration)}"
-                current_model_name = manager.save_model(suffix=checkpoint_suffix)
+                current_model_name = agent.save_model(suffix=checkpoint_suffix)
                 logging.info(f"Chunk finished. Model saved to {current_model_name}")
 
                 elapsed_duration += current_chunk_duration
@@ -107,9 +107,9 @@ def training_loop(args):
                 time.sleep(5)
 
             finally:
-                if manager:
+                if agent:
                     try:
-                        manager.close()
+                        agent.close()
                     except:
                         pass
                 if server_manager:
