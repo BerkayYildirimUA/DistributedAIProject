@@ -60,7 +60,10 @@ class Engine():
         client.set_timeout(5 * 60)
 
         if map_name.startswith("CUSTOM_"):
-            file_name = map_name + ".xodr"
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            acc_dir = os.path.dirname(current_dir)
+            file_name = os.path.join(acc_dir, "Agents", map_name + ".xodr")
+
 
             if not os.path.exists(file_name):
                 raise FileNotFoundError(f"[{server_name}] Could not find OpenDRIVE file: {file_name}")

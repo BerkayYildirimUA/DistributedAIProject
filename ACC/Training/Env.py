@@ -126,7 +126,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         return obs
 
-    def _array_to_action(self, action: np.ndarray) -> dict[ActionsEnum, float]:
+    def _array_to_action(self, action: np.ndarray) -> Dict[ActionsEnum, float]:
         val = float(action[0])
 
         throttle = 0.0
@@ -157,8 +157,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             print("SOMETHING WRONG") #TODO: delete this debug
 
 
-    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> \
-            tuple[np.ndarray, dict[str, Any]]:
+    def reset(self, *, seed: int | None = None, options: Dict[str, Any] | None = None) -> \
+            tuple[np.ndarray, Dict[str, Any]]:
         super().reset(seed=seed)
 
 
@@ -202,7 +202,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         state = self.sensor_real.get_state()
         state.steering_dir = 0.0
         obs = self._vehicle_state_to_array(state)
-        info: dict[str, Any] = {}
+        info: Dict[str, Any] = {}
         self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
 
 
@@ -215,7 +215,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         self.engine.cleanup()
 
 
-    def _reward(self, state : VehicleState) -> tuple[float, dict]:
+    def _reward(self, state : VehicleState) -> tuple[float, Dict]:
 
         #self.engine.ego.real
         self.__g_force_calculator.update_speed(state.speed)

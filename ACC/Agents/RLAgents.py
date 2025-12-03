@@ -13,7 +13,7 @@ from mushroom_rl.utils.dataset import compute_J
 import torch.nn as nn
 import torch.optim as optim
 import torch
-
+from typing import Dict
 from ACC.Engine.scenario import Scenario
 import datetime
 from mushroom_rl.policy import DeterministicPolicy
@@ -288,7 +288,7 @@ class RLDecisionAgent(AbstractDecisionAgent):
 
         return obs
 
-    def _array_to_action(self, action: np.ndarray) -> dict[ActionsEnum, float]:
+    def _array_to_action(self, action: np.ndarray) -> Dict[ActionsEnum, float]:
         val = float(action[0])
 
         throttle = 0.0
