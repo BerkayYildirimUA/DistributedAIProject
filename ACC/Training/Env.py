@@ -121,7 +121,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             norm_safe_dist,
             1.0 if state.hasCrashed else 0.0,
             norm_light,
-            norm_steering
+            0, #norm_steering
         ], dtype=np.float32)
 
         return obs

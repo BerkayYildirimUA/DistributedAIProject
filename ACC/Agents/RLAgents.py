@@ -288,7 +288,7 @@ class RLDecisionAgent(AbstractDecisionAgent):
             norm_safe_dist,
             1.0 if state.hasCrashed else 0.0,
             norm_light,
-            norm_steering
+            0 # steering 0 cause it's to much of pain to train without, and deleting the parameter is more hastle than it's worth
         ], dtype=np.float32)
 
         return obs
