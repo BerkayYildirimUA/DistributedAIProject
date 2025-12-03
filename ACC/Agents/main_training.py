@@ -37,7 +37,7 @@ def training_loop(args):
                 delta_seconds=args.delta_seconds,
                 map_name=args.map, # CIRCLES -> unstable,
                 number_of_npc=0,
-                #lead_car_bp_name='vehicle.tesla.model3',
+                lead_car_bp_name='vehicle.tesla.model3',
                 reward_geforce=False,
                 reward_safe_distance=True,
                 reward_crash=True,
@@ -54,7 +54,7 @@ def training_loop(args):
     except ImportError:
         loops_per_second = int(554400 / 4800)
 
-    chunk_duration_seconds = 30 * 60
+    chunk_duration_seconds = 30 * 60 * loops_per_second
 
 
     for info, scene in scenarios_list:
