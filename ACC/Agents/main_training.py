@@ -35,9 +35,9 @@ def training_loop(args):
             Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
-                map_name=args.map,
+                map_name=args.map, # CIRCLES -> unstable,
                 number_of_npc=0,
-                lead_car_bp_name='vehicle.tesla.model3',
+                #lead_car_bp_name='vehicle.tesla.model3',
                 reward_geforce=False,
                 reward_safe_distance=True,
                 reward_crash=True,

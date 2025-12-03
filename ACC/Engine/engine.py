@@ -77,7 +77,7 @@ class Engine():
             client.generate_opendrive_world(
                 xodr_content,
                 carla.OpendriveGenerationParameters(
-                    vertex_distance=2.0,
+                    vertex_distance=0.2,
                     max_road_length=500.0,
                     wall_height=1.0,  # Invisible walls to keep car on track
                     additional_width=0.6,  # Wider lanes at junctions
@@ -261,8 +261,8 @@ class Engine():
             settings_sync = carla.WorldSettings(
                 synchronous_mode=True,
                 fixed_delta_seconds=self.delta_seconds,
-                max_substep_delta_time=0.01,
-                max_substeps=10
+                max_substep_delta_time=0.005,
+                max_substeps=20
             )
             self.duo_world.set_both_worlds_settings(settings_sync)
             self.duo_world.tick()

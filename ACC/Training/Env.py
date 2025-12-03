@@ -10,7 +10,6 @@ import gymnasium as gym
 import numpy as np
 import torch
 import wandb
-from carla import Vector3D
 from gymnasium.core import RenderFrame
 
 from ACC.Engine.engine import Engine
@@ -206,7 +205,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
 
 
-        #self.engine.lead.set_mirror_velocity(Vector3D(x=self.lead_speed_limit, y=0, z=0))
 
         return obs, info
 
@@ -389,36 +387,12 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             self.engine.duo_world.tick()
 
 
+
+
             #this creates an infinite road to drive on
-            if self.engine.map_name == "CUSTOM_STRAIGHT":
-                transform = self.engine.ego.real.get_transform()
+            if "CUSTOM" in self.engine.map_name:
+                self._custom_maps_tp(state)
 
-                if self.engine.lead is not None:
-                    lead_transform = self.engine.lead.mirror.get_transform()
-                    dist_to_lead = lead_transform.location.x - transform.location.x
-
-                    if dist_to_lead > 300:
-                        target_catchup_speed = max(0.0, state.speed * random.uniform(0.5, 0.8))
-
-                        # Only update if meaningful change to avoid spamming TM
-                        if abs(self.lead_speed_limit - target_catchup_speed) > 1.0:
-                            self.lead_speed_limit = target_catchup_speed
-                            self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
-
-                if transform.location.x > 1000:
-                    new_location = carla.Location(x=10, y=transform.location.y, z=transform.location.z)
-                    self.engine.ego.real.set_location(new_location)
-                    self.engine.ego.mirror.set_location(new_location)
-                    if self.engine.lead is not None:
-                        lead_transform = self.engine.lead.real.get_transform()
-                        distances_to_ego = lead_transform.location.x - transform.location.x
-                        lead_location = carla.Location(x=distances_to_ego + new_location.x, y=lead_transform.location.y, z=lead_transform.location.z)
-                        self.engine.lead.real.set_location(lead_location)
-                        self.engine.lead.mirror.set_location(lead_location)
-
-                        self.lead_speed_limit = state.speed_limit + random.randint(-15, 15)
-
-                        self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
 
 
 
@@ -429,6 +403,145 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             traceback.print_exc()
             terminated = True
         return obs, reward, terminated, truncated, info
+
+    def _custom_maps_tp(self, state):
+        # 1. GET COMMON DATA
+        carla_map = self.engine.duo_world.get_real_world().get_map()
+        ego_transform = self.engine.ego.real.get_transform()
+
+        # We need the waypoint to know where we are on the road (the 's' value)
+        # project_to_road=True ensures we get a valid value even if slightly off-center
+        ego_waypoint = carla_map.get_waypoint(ego_transform.location, project_to_road=True,
+                                              lane_type=carla.LaneType.Driving)
+
+        # --- STRAIGHT MAP ---
+        if self.engine.map_name == "CUSTOM_STRAIGHT":
+            if self.engine.lead is not None:
+                lead_transform = self.engine.lead.mirror.get_transform()
+                dist_to_lead = lead_transform.location.x - ego_transform.location.x
+
+                if dist_to_lead > 300:
+                    target_catchup_speed = max(0.0, state.speed * random.uniform(0.5, 0.8))
+                    if abs(self.lead_speed_limit - target_catchup_speed) > 1.0:
+                        self.lead_speed_limit = target_catchup_speed
+                        self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
+
+            if ego_transform.location.x > 1000:
+                new_location = carla.Location(x=10, y=ego_transform.location.y, z=ego_transform.location.z)
+                self.engine.ego.real.set_location(new_location)
+                self.engine.ego.mirror.set_location(new_location)
+                if self.engine.lead is not None:
+                    lead_transform = self.engine.lead.real.get_transform()
+                    distances_to_ego = lead_transform.location.x - ego_transform.location.x
+                    lead_location = carla.Location(x=distances_to_ego + new_location.x, y=lead_transform.location.y,
+                                                   z=lead_transform.location.z)
+                    self.engine.lead.real.set_location(lead_location)
+                    self.engine.lead.mirror.set_location(lead_location)
+
+                    self.lead_speed_limit = state.speed_limit + random.randint(-15, 15)
+                    self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
+
+        # --- ZIG ZAG MAP ---
+        elif self.engine.map_name == "CUSTOM_ZIG_ZAG":
+            # Length was 560.0 in the extended version
+            LOOP_LENGTH = 560.0
+            # Trigger teleport 20m before end to prevent TM from hitting the "end of road" brake
+            TRIGGER_AT = LOOP_LENGTH - 20.0
+
+            if ego_waypoint.s > TRIGGER_AT:
+                logging.info("Teleporting Ego back to start of ZigZag...")
+
+                # Calculate Gap
+                dist_to_lead = 0.0
+                if self.engine.lead is not None:
+                    lead_transform = self.engine.lead.real.get_transform()
+                    lead_waypoint = carla_map.get_waypoint(lead_transform.location, project_to_road=True)
+                    dist_to_lead = lead_waypoint.s - ego_waypoint.s
+
+                # Teleport Ego to s=10.0 (Safe start)
+                # Using get_waypoint_xodr ensures we stay perfectly in the lane
+                start_waypoint = carla_map.get_waypoint_xodr(road_id=1, lane_id=-1, s=10.0)
+
+                # Apply Transform
+                self._apply_teleport(start_waypoint.transform, self.engine.ego)
+
+                # Teleport Lead
+                if self.engine.lead is not None:
+                    new_lead_s = 10.0 + dist_to_lead
+                    lead_start_waypoint = carla_map.get_waypoint_xodr(road_id=1, lane_id=-1, s=new_lead_s)
+
+                    self._apply_teleport(lead_start_waypoint.transform, self.engine.lead)
+                    self._randomize_lead_speed(state)
+
+        else:
+            if "CUSTOM_SQUARE" in self.engine.map_name:
+                # Identical length to the CW version
+                LOOP_LENGTH = 1914.16
+                TRIGGER_AT = LOOP_LENGTH - 150.0
+            # --- CIRCLE MAP ---
+            elif "CUSTOM_CIRCLE" in self.engine.map_name:
+                LOOP_LENGTH = 3141.59
+                TRIGGER_AT = LOOP_LENGTH - 150.0
+            else:
+                return
+
+
+            if ego_waypoint.s > TRIGGER_AT:
+                logging.info("Teleporting Ego back to start...")
+
+                # Calculate Gap
+                dist_to_lead = 0.0
+                if self.engine.lead is not None:
+                    lead_transform = self.engine.lead.real.get_transform()
+                    lead_s = carla_map.get_waypoint(lead_transform.location, project_to_road=True).s
+                    if lead_s < ego_waypoint.s:
+                        dist_to_lead = (LOOP_LENGTH - ego_waypoint.s) + lead_s
+                    else:
+                        dist_to_lead = lead_s - ego_waypoint.s
+
+                start_waypoint = carla_map.get_waypoint_xodr(road_id=1, lane_id=-1, s=10.0)
+                self._apply_teleport(start_waypoint.transform, self.engine.ego)
+
+                if self.engine.lead is not None:
+                    new_lead_s = 10.0 + dist_to_lead
+                    if new_lead_s > LOOP_LENGTH:
+                        new_lead_s -= LOOP_LENGTH
+
+                    lead_start_waypoint = carla_map.get_waypoint_xodr(road_id=1, lane_id=-1, s=new_lead_s)
+                    self._apply_teleport(lead_start_waypoint.transform, self.engine.lead)
+                    self._randomize_lead_speed(state)
+
+    def _apply_teleport(self, destination_transform, duo_actor):
+        """
+        Teleports an actor to a new transform while preserving its speed
+        but rotating its velocity vector to match the new road direction.
+        """
+        current_transform = duo_actor.real.get_transform()
+        current_velocity = duo_actor.real.get_velocity()
+        current_speed = current_velocity.length()
+
+
+        destination_transform.location.z += 0.5
+
+        duo_actor.real.set_transform(destination_transform)
+        duo_actor.mirror.set_transform(destination_transform)
+
+        new_forward = destination_transform.get_forward_vector()
+
+        new_velocity = carla.Vector3D(
+            x=new_forward.x * current_speed,
+            y=new_forward.y * current_speed,
+            z=new_forward.z * current_speed
+        )
+
+        duo_actor.real.set_target_velocity(new_velocity)
+        duo_actor.mirror.set_target_velocity(new_velocity)
+
+    def _randomize_lead_speed(self, state):
+        self.lead_speed_limit = state.speed_limit + random.randint(-10, 10)
+        # Ensure speed doesn't go too low
+        self.lead_speed_limit = max(10.0, self.lead_speed_limit)
+        self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         pass
