@@ -123,7 +123,7 @@ if __name__ == '__main__':
                         help='Fixed delta seconds for simulation (default: 0.05)')
     parser.add_argument('--num-npcs', default=2, type=int, help='Number of NPC vehicles to spawn (default: 2)')
 
-    #parser.add_argument('--venv', default="../venv_python310", type=str, help='Path to the venv containing python >3.12')
+    parser.add_argument('--venv', default="../venv_python310", type=str, help='Path to the venv containing python >3.12')
 
     # Camera
     parser.add_argument('--width', default=1280, type=int, help='Camera image width (default: 1280)')

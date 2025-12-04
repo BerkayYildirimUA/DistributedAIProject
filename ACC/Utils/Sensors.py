@@ -33,14 +33,11 @@ class CarlaWorldStateSensor(StateSensor):
     def _get_light_color_enum(self, carla_state):
         """Maps CARLA TrafficLightState to your LightColors Enum"""
         if carla_state == carla.TrafficLightState.Red:
-            return LightColors.RED
+            return LightColors.red
         elif carla_state == carla.TrafficLightState.Yellow:
-            return LightColors.YELLOW
-        elif carla_state == carla.TrafficLightState.Green:
-            return LightColors.GREEN
-        elif carla_state == carla.TrafficLightState.Off:
-            return LightColors.OFF
-        return LightColors.UNKNOWN
+            return LightColors.orange
+        else:
+            return LightColors.green
 
     def get_state(self) -> VehicleState:
 
@@ -120,14 +117,12 @@ class CarlaLeadStateSensor(StateSensor):
     def _get_light_color_enum(self, carla_state):
         """Maps CARLA TrafficLightState to your LightColors Enum"""
         if carla_state == carla.TrafficLightState.Red:
-            return LightColors.RED
+            return LightColors.red
         elif carla_state == carla.TrafficLightState.Yellow:
-            return LightColors.YELLOW
-        elif carla_state == carla.TrafficLightState.Green:
-            return LightColors.GREEN
-        elif carla_state == carla.TrafficLightState.Off:
-            return LightColors.OFF
-        return LightColors.UNKNOWN
+            return LightColors.orange
+        else:
+            return LightColors.green
+
 
     def get_state(self) -> VehicleState:
         ego_transform = self.__ego.get_transform()

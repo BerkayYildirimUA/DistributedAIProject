@@ -241,7 +241,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             if g_force is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
                 acc = g_force * 9.81
                 r_geforce = 0.645889 - 0.184412 * math.exp(1.01363 * acc)
-                r_geforce = max(r_geforce, -4)
+                r_geforce = max(r_geforce, -2)
 
 
 
@@ -258,7 +258,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         ############### SAFE DISTANCE ###############
         r_dist = 0
-        r_dist_weight = 2
+        r_dist_weight = 1.5
 
         min_front_distance = 0.0
         safe_distance = 0.0
