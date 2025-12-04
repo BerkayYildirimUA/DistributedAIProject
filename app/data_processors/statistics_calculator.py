@@ -9,18 +9,15 @@
 # - Learnt G-force vs comfortable G-force
 # - Learnt following distance vs comfortable following distance
 
-# statistics_calculator.py
 from typing import Any, Callable, Dict, Optional, Iterable
-
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 Record = Dict[str, Any]
 MetricsReaderFn = Callable[[str], Iterable[Record]]
 
 
-import numpy as np
 
 def _load_series_from_reader(
     reader_fn: MetricsReaderFn,

@@ -2,10 +2,9 @@
 import math
 import carla
 from typing import Dict, Optional, Tuple
-import sys
-sys.path.insert(0, '\..')
-from .. import constants
-
+import sys, os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import constants
 
 class ObjectsInFrontCalculator:
     """
