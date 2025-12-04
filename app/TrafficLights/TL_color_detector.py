@@ -152,16 +152,16 @@ class TL_color_detector:
 
 
 #-----------------------Specify model
-    @staticmethod
-    def make_model(num_classes: int =3):
-        m = torchvision.models.resnet18(weights=None)  # "IMAGENET1K_V1", !!!!!!!!!!! weights=None at runtime
-        m.fc = nn.Linear(m.fc.in_features,
-                         num_classes)  # we replace the orignal 1000 output by 3 (traffic light colors)
-        return m
-
-    @staticmethod
-    def make_model(num_classes: int = 3):
-        return TrafficLightNet(num_classes=num_classes)
+    # @staticmethod
+    # def make_model(num_classes: int =3):
+    #     m = torchvision.models.resnet18(weights=None)  # "IMAGENET1K_V1", !!!!!!!!!!! weights=None at runtime
+    #     m.fc = nn.Linear(m.fc.in_features,
+    #                      num_classes)  # we replace the orignal 1000 output by 3 (traffic light colors)
+    #     return m
+    #
+    # @staticmethod
+    # def make_model(num_classes: int = 3):
+    #     return TrafficLightNet(num_classes=num_classes)
 
     @staticmethod
     def make_model(num_classes: int = 3):
