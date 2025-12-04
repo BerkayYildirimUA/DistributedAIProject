@@ -10,5 +10,5 @@ You need to run it in the root folder (``/DistributedAIProject``) as well. You c
 pass the path to the modern venv  >= python 3.12. Just pass the path to the root folder, ex. on the vnc it would be ../venv_python310.
 
 ``
-python -m ACC.main --carla-path ../../carla/CarlaUE4.sh --map Town02 --venv {your path}
+python -m ACC.main --carla-path {carla path} --map Town02 --venv {your path}
 ``
