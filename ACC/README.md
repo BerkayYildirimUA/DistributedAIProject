@@ -1,6 +1,6 @@
 # Running
 ## VNC
-If on the vnc, do it in folder ``/DistributedAIProject``
+If on the vnc, do it in folder ``/DistributedAIProject`` and make sure you activated the venv of carla.
 
 ``
 python -m ACC.main --carla-path ../../carla/CarlaUE4.sh --map Town02

@@ -159,15 +159,15 @@ class TL_color_detector:
     #                      num_classes)  # we replace the orignal 1000 output by 3 (traffic light colors)
     #     return m
 
-    @staticmethod
-    def make_model(num_classes: int = 3):
-        return TrafficLightNet(num_classes=num_classes)
-
     # @staticmethod
     # def make_model(num_classes: int = 3):
-    #     m = shufflenet_v2_x0_5(weights=None)  # keep None; you load your own ckpt
-    #     m.fc = nn.Linear(m.fc.in_features, num_classes)
-    #     return m
+    #     return TrafficLightNet(num_classes=num_classes)
+
+    @staticmethod
+    def make_model(num_classes: int = 3):
+        m = shufflenet_v2_x0_5(weights=None)  # keep None; you load your own ckpt
+        m.fc = nn.Linear(m.fc.in_features, num_classes)
+        return m
 
     @classmethod
     # at runtime
