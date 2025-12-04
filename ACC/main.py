@@ -128,7 +128,7 @@ if __name__ == '__main__':
                         help='Fixed delta seconds for simulation (default: 0.05)')
     parser.add_argument('--num-npcs', default=2, type=int, help='Number of NPC vehicles to spawn (default: 2)')
 
-    parser.add_argument('--venv', default="../venv_python310", type=str, help='Path to the venv containing python >3.12')
+    parser.add_argument('--venv', default="../venv_python310/bin/python3.12", type=str, help='Path to the venv containing python >3.12')
 
     # Camera
     parser.add_argument('--width', default=1280, type=int, help='Camera image width (default: 1280)')
@@ -154,7 +154,7 @@ if __name__ == '__main__':
 
     try:
         # Start the script to run the vehicle pov in  the modern python env and run it in background
-        subprocess.Popen([f"./{args.venv}/bin/python3.12","-m", "app.run_vehicle_pov.py"], stdout=subprocess.DEVNULL,
+        subprocess.Popen([f"{args.venv}","-m", "app.run_vehicle_pov.py"], stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         stdin=subprocess.DEVNULL,
         close_fds=True)
