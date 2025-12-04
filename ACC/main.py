@@ -47,7 +47,7 @@ def main_loop(args):
             raise RuntimeError("Engine setup failed. Exiting.")
 
         # sensor and agent Setup (Real World)
-        sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+        sensor_real = CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
 
         decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
         decisionAgent = RLDecisionAgent(sensor_real, "251203_025405_TD3_keep_speed.msh")
