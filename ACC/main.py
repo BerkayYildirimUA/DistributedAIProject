@@ -1,16 +1,19 @@
 import argparse
 import logging
 import traceback
-
+import numpy as np
+import subprocess
 #import carla
 #from carla import BlueprintLibrary
 
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
-from ACC.Utils.Sensors import CarlaLeadStateSensor, CarlaWorldStateSensor
+from ACC.Utils.Sensors import CarlaLeadStateSensor, CarlaVBWorldStateSensor
 from ACC.Agents.SimpleAgent import SimpleAccAgent
 from ACC.Engine.engine import Engine
 from ACC.Agents.RLAgents import RLDecisionAgent
+from app.memory.shared_memory import VehicleStateMemory
+
 """
 RL FEEDBACK 
 
@@ -32,11 +35,9 @@ maybe change action space center if need be, like 0 =! do nothing, perhabs.
 """
 
 
-
-
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=0) #lead_car_bp_name='vehicle.tesla.model3'
+                     map_name=args.map, number_of_npc=0,lead_car_bp_name='vehicle.tesla.model3')
     engine = Engine(args, scene)
 
     try:
@@ -51,7 +52,8 @@ def main_loop(args):
         decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
         decisionAgent = RLDecisionAgent(sensor_real, "251203_025405_TD3_keep_speed.msh")
 
-
+        # Create needed memory access to sync carla data from sensors to newer python env
+        vehicle_state_memory = VehicleStateMemory().get_write_access()
 
         while True:
             mirror_frame, _ = engine.duo_world.tick()
@@ -75,6 +77,9 @@ def main_loop(args):
             # spectator
             engine.update_spectator()
 
+            # Get state and write to shared memory
+            real_ego_state = sensor_real.get_state()
+            vehicle_state_memory.write(np.array([real_ego_state.speed, real_ego_state.steering_dir], dtype=np.float32))
 
     except KeyboardInterrupt:
         print("\nSimulation stopped by user (KeyboardInterrupt).")
@@ -123,7 +128,7 @@ if __name__ == '__main__':
                         help='Fixed delta seconds for simulation (default: 0.05)')
     parser.add_argument('--num-npcs', default=2, type=int, help='Number of NPC vehicles to spawn (default: 2)')
 
-    #parser.add_argument('--venv', default="../venv_python310", type=str, help='Path to the venv containing python >3.12')
+    parser.add_argument('--venv', default="../venv_python310", type=str, help='Path to the venv containing python >3.12')
 
     # Camera
     parser.add_argument('--width', default=1280, type=int, help='Camera image width (default: 1280)')
@@ -148,6 +153,12 @@ if __name__ == '__main__':
     server_manager = None
 
     try:
+        # Start the script to run the vehicle pov in  the modern python env and run it in background
+        subprocess.Popen([f"./{args.venv}/bin/python3.12","-m", "app.run_vehicle_pov.py"], stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+        close_fds=True)
+
         server_manager = CarlaServerManager(args.carla_path, args.host)
         server_manager.launch_servers(
             args.real_port,
