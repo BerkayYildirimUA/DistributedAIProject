@@ -239,14 +239,10 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         r_geforce = 0
         if use_geforce:
             if g_force is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
-                if abs(g_force) < (0.56 / 9.81):
-                    r_geforce = 2
-                elif  abs(g_force) < (1.23 / 9.81):
-                    r_geforce = 1
-                elif  abs(g_force) < (2.12 / 9.81):
-                    r_geforce = 2
-                else:
-                    r_geforce = math.exp(9.81) * (abs(g_force) - 2)
+                acc = g_force * 9.81
+                r_geforce = 0.645889 - 0.184412 * math.exp(1.01363 * acc)
+                r_geforce = max(r_geforce, -4)
+
 
 
         ############### SPEED ###############
@@ -390,7 +386,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
 
             #this creates an infinite road to drive on
-            if self.engine.map_name == "CUSTOM_STRAIGHT":
+            if "CUSTOM_STRAIGHT" in self.engine.map_name:
                 transform = self.engine.ego.real.get_transform()
 
                 if self.engine.lead is not None:
