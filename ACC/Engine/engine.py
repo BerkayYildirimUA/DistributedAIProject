@@ -261,8 +261,8 @@ class Engine():
             settings_sync = carla.WorldSettings(
                 synchronous_mode=True,
                 fixed_delta_seconds=self.delta_seconds,
-                max_substep_delta_time=0.005,
-                max_substeps=20
+                max_substep_delta_time=0.01,
+                max_substeps=10
             )
             self.duo_world.set_both_worlds_settings(settings_sync)
             self.duo_world.tick()

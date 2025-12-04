@@ -54,7 +54,7 @@ def training_loop(args):
     except ImportError:
         loops_per_second = int(554400 / 4800)
 
-    chunk_duration_seconds = 30 * 60 * loops_per_second
+    chunk_duration_seconds = 30 * 60
 
 
     for info, scene in scenarios_list:
