@@ -7,7 +7,7 @@ import sys
 import argparse
 import carla
 import math
-import app.constants
+import app.constants as constants
 
 from app.engine.world import World
 from app.memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
 
             # TODO: feed this distance data into the reinforcement module to calculate acceleration
-            distance_vehicle_in_front_m = vehicle_distance_memory[0, 0]
+            distance_vehicle_in_front_m = vehicle_distance_memory[0]
     except KeyboardInterrupt:
         print("Closing simulation!")
     finally:
