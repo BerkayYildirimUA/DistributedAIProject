@@ -151,6 +151,9 @@ try:
 
         dist_arr = np.asarray(distances, dtype=np.float64)
 
+        # TODO: if distance contains nan values, this does not work. We are comparing object counts while relying on distances
+        #       that are not the same (radar vs ground truth), therefore containing two layers of errors. Difference in python
+        #       environments makes this difficult though
         valid_distance_mask = np.isfinite(dist_arr) & (dist_arr <= constants.MAX_OBJECT_DETECT_DISTANCE)
 
         estimated_objects_in_front = int(np.sum(valid_distance_mask))

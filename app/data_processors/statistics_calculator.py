@@ -190,6 +190,16 @@ class StatisticsCalculator:
             estimated = data["estimated"]
             err_pct = self._percentage_error(actual, estimated)
 
+            frame_ids = data["frame_ids"]
+            actual = data["actual"]
+            estimated = data["estimated"]
+            err_pct = self._percentage_error(actual, estimated)
+
+            # Absolute error statistics
+            abs_err = np.abs(estimated - actual)
+            mean_abs_err = np.nanmean(abs_err)
+            max_abs_err = np.nanmax(abs_err)
+
             # Left: actual vs estimated
             ax_val = axes[row_idx, 0]
             ax_val.plot(frame_ids, actual, label="actual")
@@ -198,6 +208,15 @@ class StatisticsCalculator:
             ax_val.set_ylabel(name)
             ax_val.set_title(f"{name}: actual vs estimated")
             ax_val.legend(loc="best")
+            ax_val.text(
+                0.01,
+                0.02,
+                f"Mean |error|: {mean_abs_err:.3f}, Max |error|: {max_abs_err:.3f}",
+                transform=ax_val.transAxes,
+                ha="left",
+                va="bottom",
+                fontsize=8,
+            )
 
             # Right: percentage error
             ax_err = axes[row_idx, 1]
@@ -206,6 +225,18 @@ class StatisticsCalculator:
             ax_err.set_ylabel("error [%]")
             ax_err.set_title(f"{name}: % error (estimated vs actual)")
             ax_err.axhline(0.0, linestyle=":", linewidth=1)
+            mean_err_pct = np.nanmean(err_pct)
+            max_err_pct = np.nanmax(np.abs(err_pct))
+
+            ax_err.text(
+                0.01,
+                0.02,
+                f"Mean % error: {mean_err_pct:.2f}, Max |% error|: {max_err_pct:.2f}",
+                transform=ax_err.transAxes,
+                ha="left",
+                va="bottom",
+                fontsize=8,
+            )
 
         if suptitle:
             fig.suptitle(suptitle, fontsize=14)
