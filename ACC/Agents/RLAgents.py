@@ -271,6 +271,7 @@ class RLDecisionAgent(AbstractDecisionAgent):
         speed_ratio = state.speed / (state.speed_limit + 1e-5)
         norm_limit = state.speed_limit / 130.0
 
+        ########################### CHANGE TO 250!!!!!!!!!!! #############################
         norm_distances = np.array(padded_distances, dtype=np.float32) / 1000.0
         norm_distances = np.clip(norm_distances, 0.0, 1.0)
 
@@ -278,7 +279,8 @@ class RLDecisionAgent(AbstractDecisionAgent):
 
         norm_light = float(state.light_color.value) / 2.0
 
-        norm_steering = float(state.steering_dir)
+
+        norm_light_dist = state.light_dist / 250
 
         obs = np.array([
             norm_speed,
@@ -289,6 +291,8 @@ class RLDecisionAgent(AbstractDecisionAgent):
             1.0 if state.hasCrashed else 0.0,
             norm_light,
             0 # steering 0 cause it's to much of pain to train without, and deleting the parameter is more hastle than it's worth
+            # ------------------- DELETE 0 AND CHANGE TO norm_light_dist ---------------------
+
         ], dtype=np.float32)
 
         return obs

@@ -15,6 +15,7 @@ class CarlaWorldStateSensor(StateSensor):
     def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World):
         self.__ego = ego_vehicle
         self.__world = world
+        self.__map = self.__world.get_map()
 
         self.__safe_time_distance_seconds = 3
         self.counter = 0
@@ -29,26 +30,28 @@ class CarlaWorldStateSensor(StateSensor):
 
         self.__collision_sensor = None
 
-#    def reset(self, ego, world):
-#
-#        self.__ego = ego
-#        self.__world = world
-#        self.counter = 0
-#        if self.__collision_sensor:
-#            self.__collision_sensor.destroy()
-
-
+    def _get_light_color_enum(self, carla_state):
+        """Maps CARLA TrafficLightState to your LightColors Enum"""
+        if carla_state == carla.TrafficLightState.Red:
+            return LightColors.RED
+        elif carla_state == carla.TrafficLightState.Yellow:
+            return LightColors.YELLOW
+        elif carla_state == carla.TrafficLightState.Green:
+            return LightColors.GREEN
+        elif carla_state == carla.TrafficLightState.Off:
+            return LightColors.OFF
+        return LightColors.UNKNOWN
 
     def get_state(self) -> VehicleState:
 
         ego_transform = self.__ego.get_transform()
+        ego_loc = ego_transform.location
 
         vehicles = self.__world.get_actors().filter('vehicle.*')
 
-        dist = lambda l : math.sqrt((l.x - ego_transform.location.x)**2 + (l.y - ego_transform.location.y)
-                             ** 2 + (l.z - ego_transform.location.z)**2)
+        dist_calc = lambda l: math.sqrt((l.x - ego_loc.x)**2 + (l.y - ego_loc.y)**2 + (l.z - ego_loc.z)**2)
 
-        vehicles = [(dist(x.get_location()), x) for x in vehicles if x.id != self.__ego.id]
+        vehicles = [(dist_calc(x.get_location()), x) for x in vehicles if x.id != self.__ego.id]
 
 
         ego_velocity_vec: Vector3D = self.__ego.get_velocity()
@@ -78,6 +81,21 @@ class CarlaWorldStateSensor(StateSensor):
         if self.speed_limit == 0.0:
             self.speed_limit = 30
 
+        # traffic lights dist
+        ego_waypoint = self.__map.get_waypoint(ego_loc)
+        lights_list = self.__world.get_traffic_lights_from_waypoint(ego_waypoint, 150.0)
+
+        traffic_light_dist = 250.0
+        traffic_light_color = LightColors.green
+
+        if len(lights_list) > 0:
+            target_light = lights_list[0]
+
+            light_loc = target_light.get_location()
+            traffic_light_dist = dist_calc(light_loc)
+
+            traffic_light_color = self._get_light_color_enum(target_light.get_state())
+
 
         if self.counter % 300 == 0:
             logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {self.speed_limit} km/h, distance to nearest: {smallest_dist}m, safe dist: {safe_distance}m, CRASH: {has_crashed}")
@@ -85,7 +103,7 @@ class CarlaWorldStateSensor(StateSensor):
         self.counter += 1
 
 
-        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=self.speed_limit, distances=dists, safe_following_distance=safe_distance, hasCrashed=has_crashed, light_color=LightColors.green)
+        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=self.speed_limit, distances=dists, safe_following_distance=safe_distance, hasCrashed=has_crashed, light_color=traffic_light_color, light_dist=traffic_light_dist)
 
 
 
@@ -99,10 +117,23 @@ class CarlaLeadStateSensor(StateSensor):
         self.counter = 0
         self.__collision_sensor = CollisionSensor(ego_vehicle)
 
+    def _get_light_color_enum(self, carla_state):
+        """Maps CARLA TrafficLightState to your LightColors Enum"""
+        if carla_state == carla.TrafficLightState.Red:
+            return LightColors.RED
+        elif carla_state == carla.TrafficLightState.Yellow:
+            return LightColors.YELLOW
+        elif carla_state == carla.TrafficLightState.Green:
+            return LightColors.GREEN
+        elif carla_state == carla.TrafficLightState.Off:
+            return LightColors.OFF
+        return LightColors.UNKNOWN
 
     def get_state(self) -> VehicleState:
         ego_transform = self.__ego.get_transform()
         lead_transform = self.__lead.get_transform()
+        ego_loc = ego_transform.location
+        dist_calc = lambda l: math.sqrt((l.x - ego_loc.x)**2 + (l.y - ego_loc.y)**2 + (l.z - ego_loc.z)**2)
 
         distance = ego_transform.location.distance(lead_transform.location)
 
@@ -124,9 +155,27 @@ class CarlaLeadStateSensor(StateSensor):
         else:
             self.counter += 1
 
+
+        # traffic lights dist
+        ego_waypoint = self.__map.get_waypoint(ego_loc)
+        lights_list = self.__world.get_traffic_lights_from_waypoint(ego_waypoint, 150.0)
+
+        traffic_light_dist = 250.0
+        traffic_light_color = LightColors.green
+
+        if len(lights_list) > 0:
+            target_light = lights_list[0]
+
+            light_loc = target_light.get_location()
+            traffic_light_dist = dist_calc(light_loc)
+
+            traffic_light_color = self._get_light_color_enum(target_light.get_state())
+
+
+
         speed_limit = self.__ego.get_speed_limit()
 
-        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=speed_limit, distances=[distance], safe_following_distance=safe_distance, hasCrashed=has_crashed, light_color=LightColors.green)
+        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=speed_limit, distances=[distance], safe_following_distance=safe_distance, hasCrashed=has_crashed, light_color=traffic_light_color, light_dist=traffic_light_dist)
 
 
 #code form carla examples, from "automatic_control.py"

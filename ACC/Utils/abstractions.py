@@ -20,7 +20,7 @@ class VehicleState: #maybe add steering direction?
     safe_following_distance: float
     hasCrashed: bool
     light_color: LightColors
-    steering_dir: float = -numpy.inf #so it can give error when used while not set. While keeping the ability to not use it.
+    light_dist: float
 
 class ActionsEnum(Enum):
     brake = 1
