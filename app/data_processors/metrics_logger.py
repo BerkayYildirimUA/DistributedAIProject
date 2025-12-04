@@ -88,24 +88,40 @@ class MetricsLogger:
         self.close()
 
 
-def iter_metrics(path: str, *, compressed: Optional[bool] = None) -> Iterable[Dict[str, Any]]:
+def iter_metrics(path):
     """
-    Convenience reader: iterate over records in a metrics file.
+    Iterate over JSONL(-gz) metrics file.
 
-    Args:
-        path: Path to the JSONL or JSONL.GZ file.
-        compressed: If None, infer from file extension ".gz".
+    Robust to:
+    - truncated gzip files (EOFError)
+    - bad JSON lines
     """
-    if compressed is None:
-        compressed = path.endswith(".gz")
+    if not os.path.exists(path):
+        return
 
-    opener = gzip.open if compressed else open
-    with opener(path, mode="rt", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            yield json.loads(line)
+    if path.endswith(".gz"):
+        f_open = lambda p: gzip.open(p, "rt")
+    else:
+        f_open = lambda p: open(p, "rt")
+
+    try:
+        with f_open(path) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    logger.warning("Skipping bad JSON line in %s: %r", path, line[:100])
+                    continue
+    except EOFError:
+        # Truncated gzip – ignore the rest of the file
+        print(
+            "Truncated metrics file %s (EOFError while reading gzip). "
+            "Using partial data up to the truncated point.",
+            path,
+        )
+        return
 
 def clear_metrics_file(path: str) -> None:
     try:

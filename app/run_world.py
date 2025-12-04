@@ -39,6 +39,9 @@ def depth_callback(image):
 
 # Radar callback (manual_control.py logic from PythonAPI/examples)
 def radar_callback(radar_data):
+    if world.rgb_camera is None:
+        return
+
     max_n = constants.RADAR_MAX_DETECTIONS
 
     # We will always write a (max_n, 5) array: [x, y, z, depth, velocity]
