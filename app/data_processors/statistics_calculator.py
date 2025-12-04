@@ -9,7 +9,6 @@
 # - Learnt G-force vs comfortable G-force
 # - Learnt following distance vs comfortable following distance
 
-
 # statistics_calculator.py
 from typing import Any, Callable, Dict, Optional, Iterable
 

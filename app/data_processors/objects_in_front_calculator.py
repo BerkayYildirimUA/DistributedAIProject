@@ -2,6 +2,9 @@
 import math
 import carla
 from typing import Dict, Optional, Tuple
+import sys
+sys.path.insert(0, '\..')
+from .. import constants
 
 
 class ObjectsInFrontCalculator:
@@ -17,7 +20,7 @@ class ObjectsInFrontCalculator:
         self,
         world: carla.World,
         ego_vehicle: carla.Vehicle,
-        max_distance: float = 20.0
+        max_distance: float = constants.MAX_LEAD_ACTOR_DISTANCE
     ) -> None:
         self.world = world
         self.ego_vehicle = ego_vehicle
@@ -85,14 +88,19 @@ class ObjectsInFrontCalculator:
             "total": total,
         }
 
-    def get_lead_vehicle_in_lane(self, max_distance: float = 60.0,) -> Tuple[Optional[carla.Vehicle], Optional[float]]:
+    def get_lead_actor_in_lane(
+            self,
+            max_distance: float = constants.MAX_LEAD_ACTOR_DISTANCE,
+    ) -> Tuple[Optional[carla.Actor], Optional[float]]:
         """
-        Returns the closest vehicle in front of ego in the same lane, within max_distance.
+        Returns the closest obstacle (vehicle or pedestrian) in front of ego
+        in the same lane, within max_distance.
 
-        If no such vehicle exists, returns (None, None).
-
+        "Obstacle" = any actor in ['vehicle.*', 'walker.pedestrian.*'].
         "Same lane" is defined by same road_id and lane_id of the waypoint
         with lane_type=Driving.
+
+        If no such obstacle exists, returns (None, None).
         """
         carla_map = self.world.get_map()
 
@@ -103,39 +111,43 @@ class ObjectsInFrontCalculator:
         ego_wp = carla_map.get_waypoint(
             ego_loc,
             project_to_road=True,
-            lane_type=carla.LaneType.Driving
+            lane_type=carla.LaneType.Driving,
         )
         if ego_wp is None:
             return None, None  # ego is off-road somehow
 
-        vehicles = self.world.get_actors().filter("vehicle.*")
+        actors = self.world.get_actors()
+        vehicles = actors.filter("vehicle.*")
+        pedestrians = actors.filter("walker.pedestrian.*")
 
-        best_vehicle: Optional[carla.Vehicle] = None
+        # Combine both into a single iterable of obstacles
+        obstacles = list(vehicles) + list(pedestrians)
+
+        best_actor: Optional[carla.Actor] = None
         best_distance: float = max_distance
 
-        for v in vehicles:
-            if v.id == self.ego_vehicle.id:
+        for a in obstacles:
+            if a.id == self.ego_vehicle.id:
                 continue
 
-            v_loc = v.get_location()
-            v_wp = carla_map.get_waypoint(
-                v_loc,
+            a_loc = a.get_location()
+            a_wp = carla_map.get_waypoint(
+                a_loc,
                 project_to_road=True,
-                lane_type=carla.LaneType.Driving
+                lane_type=carla.LaneType.Driving,
             )
-            if v_wp is None:
+            if a_wp is None:
                 continue
 
-            # Same road and lane → we're in the same lane in the map sense
-            if v_wp.road_id != ego_wp.road_id or v_wp.lane_id != ego_wp.lane_id:
+            # Same road and lane → same lane in the map sense
+            if a_wp.road_id != ego_wp.road_id or a_wp.lane_id != ego_wp.lane_id:
                 continue
 
-            # Check if it's ahead of ego (projection along ego forward vector)
-            dx = v_loc.x - ego_loc.x
-            dy = v_loc.y - ego_loc.y
-            dz = v_loc.z - ego_loc.z
+            dx = a_loc.x - ego_loc.x
+            dy = a_loc.y - ego_loc.y
+            dz = a_loc.z - ego_loc.z
+
             proj = dx * ego_fwd.x + dy * ego_fwd.y + dz * ego_fwd.z
-
             if proj <= 0.0:
                 # Behind or exactly lateral
                 continue
@@ -143,9 +155,10 @@ class ObjectsInFrontCalculator:
             dist = math.sqrt(dx * dx + dy * dy + dz * dz)
             if dist < best_distance:
                 best_distance = dist
-                best_vehicle = v
+                best_actor = a
 
-        if best_vehicle is None:
+        if best_actor is None:
             return None, None
 
-        return best_vehicle, best_distance
+        return best_actor, best_distance
+

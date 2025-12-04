@@ -103,6 +103,8 @@ try:
         closest_vehicle_distance = np.inf
         for indice in intersecting_box_indices:
             d = distances[indice]
+            if not np.isfinite(d) or d > constants.MAX_LEAD_ACTOR_DISTANCE:
+                continue
             if d < closest_vehicle_distance:
                 closest_vehicle_distance = d
 
@@ -146,10 +148,18 @@ try:
         # if len(lanes) > 0:
         #     bird_eye_visualiser.show(boxes,class_ids,lanes)
 
+
+        dist_arr = np.asarray(distances, dtype=np.float64)
+
+        valid_distance_mask = np.isfinite(dist_arr) & (dist_arr <= constants.MAX_OBJECT_DETECT_DISTANCE)
+
+        estimated_objects_in_front = int(np.sum(valid_distance_mask))
+
         estimated_object_count_metrics_logger.log(
             frame_id=frame_id,
-            estimated_yolo_objects=len(boxes)
+            estimated_yolo_objects=estimated_objects_in_front,
         )
+
 
 finally:
     try:

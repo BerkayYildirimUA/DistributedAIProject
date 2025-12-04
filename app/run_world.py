@@ -2,9 +2,6 @@ import queue
 import numpy as np
 import cv2
 import threading
-import subprocess
-import sys
-import argparse
 import carla
 import math
 import constants
@@ -182,8 +179,11 @@ if __name__ == "__main__":
                 )
 
                 vehicle_in_front, actual_vehicle_distance_in_front_m = (
-                    objects_in_front_calculator.get_lead_vehicle_in_lane()
+                    objects_in_front_calculator.get_lead_actor_in_lane()
                 )
+
+                if actual_vehicle_distance_in_front_m is None:
+                    actual_vehicle_distance_in_front_m = float("inf")
 
                 actual_vehicle_distance_in_front_logger.log(
                     frame_id=frame_id,
@@ -240,6 +240,7 @@ if __name__ == "__main__":
         clear_metrics_file(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE)
         clear_metrics_file(constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE)
         clear_metrics_file(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE)
+        clear_metrics_file(constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE)
 
         print("Statistics clean up complete")
 
