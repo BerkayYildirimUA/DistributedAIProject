@@ -14,16 +14,16 @@ class LightColors(Enum):
 
 @dataclass
 class VehicleState: #maybe add steering direction?
-    speed: float #speed of the geo
-    speed_limit: float #speed limit the geo should follow
-    lead_distance: float #distance to the car in front
-    safe_following_distance: float #safe driving distance from the car in front
+    speed_ms: float #speed of the geo
+    speed_limit_ms: float #speed limit the geo should follow
+    lead_distance_m: float #distance to the car in front
+    safe_following_distance_m: float #safe driving distance from the car in front
     hasCrashed: bool #has crashed or not
     light_color: LightColors #color of lights
-    light_dist: float #distance to nearest light
-    light_speed: float #how fast we are approaching that light
-    acc_ego: float #the g force the ego is experincesing
-    relative_speed: float #the speed diff between ego and car in front
+    light_dist_m: float #distance to nearest light
+    light_speed_ms: float #how fast we are approaching that light
+    g_force_ego: float #the g force the ego is experincesing
+    relative_speed_ms: float #the speed diff between ego and car in front
 
 class ActionsEnum(Enum):
     brake = 1

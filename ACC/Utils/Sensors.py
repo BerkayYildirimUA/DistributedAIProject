@@ -129,12 +129,12 @@ class CarlaWorldStateSensor(StateSensor):
         ego_waypoint = self.__map.get_waypoint(ego_loc, project_to_road=True, lane_type=carla.LaneType.Driving)
 
         target_light_actor = self._get_trafficlight(ego_waypoint)
-        traffic_light_dist = self.min_dist
+        traffic_light_dist_m = self.min_dist
         traffic_light_color = LightColors.green
 
         # Use the actor if found
         if target_light_actor:
-            traffic_light_dist = dist_calc(target_light_actor.get_location())
+            traffic_light_dist_m = dist_calc(target_light_actor.get_location())
             traffic_light_color = self._get_light_color_enum(target_light_actor.get_state())
 
 
@@ -145,7 +145,7 @@ class CarlaWorldStateSensor(StateSensor):
 
         self.__g_force_ego_calculator.update_speed(ego_velocity_ms)
         self.__relative_speed_lead_calculator.update_speed(result_dist_m)
-        self.__speed_light_calculator.update_speed(traffic_light_dist)
+        self.__speed_light_calculator.update_speed(traffic_light_dist_m)
 
         ego_g_force = self.__g_force_ego_calculator.get_latest_g_force()
         relative_speed_ms = self.__relative_speed_lead_calculator.get_latest_g_force()
@@ -162,10 +162,10 @@ class CarlaWorldStateSensor(StateSensor):
 
 
 
-        return VehicleState(speed=ego_velocity_ms, speed_limit=self.speed_limit / 3.6, lead_distance=result_dist_m,
-                            safe_following_distance=safe_distance_m, hasCrashed=has_crashed,
-                            light_color=traffic_light_color, light_dist=traffic_light_dist, acc_ego=ego_g_force,
-                            relative_speed=relative_speed_ms, light_speed=speed_light_ms)
+        return VehicleState(speed_ms=ego_velocity_ms, speed_limit_ms=self.speed_limit / 3.6, lead_distance_m=result_dist_m,
+                            safe_following_distance_m=safe_distance_m, hasCrashed=has_crashed,
+                            light_color=traffic_light_color, light_dist_m=traffic_light_dist_m, g_force_ego=ego_g_force,
+                            relative_speed_ms=relative_speed_ms, light_speed_ms=speed_light_ms)
 
 
 
@@ -237,7 +237,7 @@ class CarlaLeadStateSensor(StateSensor):
 
         speed_limit = self.__ego.get_speed_limit()
 
-        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=speed_limit, lead_distance=[distance], safe_following_distance=safe_distance, hasCrashed=has_crashed, light_color=traffic_light_color, light_dist=traffic_light_dist)
+        return VehicleState(speed_ms=ego_velocity_ms * 3.6, speed_limit_ms=speed_limit, lead_distance_m=[distance], safe_following_distance_m=safe_distance, hasCrashed=has_crashed, light_color=traffic_light_color, light_dist_m=traffic_light_dist)
 
 
 #code form carla examples, from "automatic_control.py"

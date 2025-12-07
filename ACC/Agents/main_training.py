@@ -31,7 +31,7 @@ def training_loop(args):
                 delta_seconds=args.delta_seconds,
                 map_name="CUSTOM_STRAIGHT",
                 number_of_npc=0,
-                reward_geforce=True,
+                reward_geforce=False,
                 reward_safe_distance=False,
                 reward_crash=True,
                 reward_speed_limit=True
