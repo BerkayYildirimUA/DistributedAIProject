@@ -4,11 +4,18 @@ import argparse
 import logging
 import traceback
 
+import numpy as np
+from mushroom_rl.utils.dataset import compute_J
+
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
 from ACC.Agents.RLAgents import ACC_TD3Agent
 import wandb
 import time
+
+from ACC.Utils.EarlyStopper import EarlyStopper
+
+
 class loop_info:
     def __init__(self, duration_seconds, name):
         self.duration = duration_seconds
@@ -17,28 +24,42 @@ class loop_info:
 def training_loop(args):
 
     scenarios_list = [
-#        (
-#            loop_info(4 * 60 * 60, "keep_speed"),
-#            Scenario(
-#                'vehicle.tesla.model3',
-#                delta_seconds=args.delta_seconds,
-#                map_name=args.map,
-#                number_of_npc=0,
-#                reward_geforce=False,
-#                reward_safe_distance=False,
-#                reward_crash=True,
-#                reward_speed_limit=True
-#            )
-#        ),
         (
-            loop_info(1.5 * 60 * 60, "Speed_limit_and_safe_dist"), #4 * 60 * 60
+            loop_info(2 * 60 * 60, "speed"),
             Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
-                map_name=args.map, # CIRCLES -> unstable,
+                map_name="CUSTOM_STRAIGHT",
+                number_of_npc=0,
+                reward_geforce=True,
+                reward_safe_distance=False,
+                reward_crash=True,
+                reward_speed_limit=True
+            )
+        ),
+        (
+            loop_info(2 * 60 * 60, "speed_lead"),
+            Scenario(
+                'vehicle.tesla.model3',
+                delta_seconds=args.delta_seconds,
+                map_name="CUSTOM_STRAIGHT",
                 number_of_npc=0,
                 lead_car_bp_name='vehicle.tesla.model3',
-                reward_geforce=False,
+                reward_geforce=True,
+                reward_safe_distance=True,
+                reward_crash=True,
+                reward_speed_limit=True
+            )
+        ),
+        (
+            loop_info(2 * 60 * 60, "speed_lead"),
+            Scenario(
+                'vehicle.tesla.model3',
+                delta_seconds=args.delta_seconds,
+                map_name="CUSTOM_STRAIGHT_WITH_LIGHTS",
+                number_of_npc=0,
+                lead_car_bp_name='vehicle.tesla.model3',
+                reward_geforce=True,
                 reward_safe_distance=True,
                 reward_crash=True,
                 reward_speed_limit=True
@@ -48,16 +69,11 @@ def training_loop(args):
 
     current_model_name= ""
 
-    try:
-        from ACC.Agents.RLAgents import TD3Config
-        loops_per_second = TD3Config.LOOPS_PER_SECOND
-    except ImportError:
-        loops_per_second = int(554400 / 4800)
-
-    chunk_duration_seconds = 30 * 60
+    chunk_duration_seconds = 15 * 60
 
 
     for info, scene in scenarios_list:
+        stopper = EarlyStopper(patience=4, min_delta=0.5)
         scene.name = info.name
         total_duration = info.duration
         elapsed_duration = 0
@@ -97,11 +113,26 @@ def training_loop(args):
 
                 agent.train(duration_seconds=current_chunk_duration)
 
+                dataset = agent.dataset_callback.get()
+                J_metrics = compute_J(dataset, agent.env.info.gamma)
+                current_avg_reward = np.mean(J_metrics)
+
+                logging.info(f"Chunk Reward Stats: Mean J={current_avg_reward:.2f} | Max J={np.max(J_metrics):.2f}")
+
+                if stopper(current_avg_reward):
+                    checkpoint_suffix = f"{info.name}_CONVERGED"
+                    current_model_name = agent.save_model(suffix=checkpoint_suffix)
+                    agent.close()
+                    server_manager.terminate_servers()
+                    break
+
+
                 checkpoint_suffix = f"{info.name}_chunk_{int(elapsed_duration + current_chunk_duration)}"
                 current_model_name = agent.save_model(suffix=checkpoint_suffix)
                 logging.info(f"Chunk finished. Model saved to {current_model_name}")
 
                 elapsed_duration += current_chunk_duration
+                agent.dataset_callback.clean()
 
             except Exception as e:
                 logging.error(f"Crash detected during training chunk: {e}")

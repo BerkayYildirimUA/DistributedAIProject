@@ -28,20 +28,20 @@ def vehicle_state_to_array(state: VehicleState) -> np.ndarray:
 
 
     #normilze
-    norm_speed = state.speed / 130
+    norm_speed = state.speed / 35
     speed_ratio = state.speed / (state.speed_limit + 1e-5)
-    norm_limit = state.speed_limit / 130.0
+    norm_limit = state.speed_limit / 35
 
-    norm_distance = np.clip(state.lead_distance / 500.0, 0.0, 1.0)
+    norm_distance = np.clip(state.lead_distance / 250.0, 0.0, 1.0)
 
     norm_safe_dist = state.safe_following_distance / 150.0
 
     norm_light = float(state.light_color.value) / 2.0
+    norm_light_dist = float(state.light_dist) / 250
 
-    norm_light_dist = float(state.light_dist) / 500
+    norm_light_speed =np.clip(state.light_speed / 30, -3, 3)
+    norm_speed_lead = np.clip(state.relative_speed / 30, -3, 3)
 
-    norm_light_speed =np.clip(state.light_speed / 10, -1.5, 1.5)
-    norm_speed_lead = np.clip(state.speed_lead / 5, -1.5, 1.5)
     norm_acc_ego = np.clip(state.acc_ego / 5, -1.5, 1.5)
 
     obs = np.array([
@@ -108,8 +108,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                  0.0,  # hasCrashed (0 or 1)
                  0.0,  # light_color (0, 1, 2)
                  0.0,  #light distance
-                 -1.5, # norm_light_speed
-                 -1.5,  # norm_speed_lead
+                 -3, # norm_light_speed
+                 -3,  # norm_speed_lead
                  -1.5], # norm_acc_ego
                 dtype=np.float32
             ),
@@ -122,8 +122,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                  1.0,  # hasCrashed
                  1.0, # light_color
                  1.0, # light_dist (max 250m)
-                 1.5, # norm_light_speed
-                 1.5, # norm_speed_lead
+                 3, # norm_light_speed
+                 3, # norm_speed_lead
                  1.5], # norm_acc_ego
                 dtype=np.float32
             ),
@@ -315,7 +315,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             "State/VehicleState/light_dist": state.light_dist,
             "State/VehicleState/light_speed": state.light_speed,
             "State/VehicleState/acc_ego": state.acc_ego,
-            "State/VehicleState/speed_lead": state.speed_lead
+            "State/VehicleState/speed_lead": state.relative_speed
         }
 
         return total_reward, components

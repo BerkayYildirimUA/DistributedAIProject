@@ -29,10 +29,10 @@ class CarlaWorldStateSensor(StateSensor):
         self.speed_limit = 0
 
         self.__g_force_ego_calculator = GForceCalculator(self.__world.get_settings().fixed_delta_seconds)
-        self.__speed_lead_calculator = GForceCalculator(self.__world.get_settings().fixed_delta_seconds)
+        self.__relative_speed_lead_calculator = GForceCalculator(self.__world.get_settings().fixed_delta_seconds)
         self.__speed_light_calculator = GForceCalculator(self.__world.get_settings().fixed_delta_seconds)
 
-        self.min_dist = 500
+        self.min_dist = 250
 
 
     def cleanup(self):
@@ -99,7 +99,7 @@ class CarlaWorldStateSensor(StateSensor):
         ego_velocity_vec: Vector3D = self.__ego.get_velocity()
         ego_velocity_ms = ego_velocity_vec.length()
 
-        safe_distance = self.__safe_time_distance_seconds * ego_velocity_ms
+        safe_distance_m = self.__safe_time_distance_seconds * ego_velocity_ms
         has_crashed = self.__collision_sensor.get_last_impact() > 0.0
 
         smallest_dist = self.min_dist
@@ -113,7 +113,7 @@ class CarlaWorldStateSensor(StateSensor):
         if len(vehicles) == 0:
             dists.append(smallest_dist)
 
-        result_dist = min(dists)
+        result_dist_m = min(dists)
 
 
         if self.override_speed_limit and self.counter == 2500:
@@ -139,33 +139,33 @@ class CarlaWorldStateSensor(StateSensor):
 
 
         if self.counter % 300 == 0:
-            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {self.speed_limit} km/h, distance to nearest: {smallest_dist}m, safe dist: {safe_distance}m, CRASH: {has_crashed}")
+            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {self.speed_limit} km/h, distance to nearest: {smallest_dist}m, safe dist: {safe_distance_m}m, CRASH: {has_crashed}")
 
         self.counter += 1
 
         self.__g_force_ego_calculator.update_speed(ego_velocity_ms)
-        self.__speed_lead_calculator.update_speed(result_dist)
+        self.__relative_speed_lead_calculator.update_speed(result_dist_m)
         self.__speed_light_calculator.update_speed(traffic_light_dist)
 
         ego_g_force = self.__g_force_ego_calculator.get_latest_g_force()
-        speed_lead = self.__speed_lead_calculator.get_latest_g_force()
-        speed_light = self.__speed_light_calculator.get_latest_g_force()
+        relative_speed_ms = self.__relative_speed_lead_calculator.get_latest_g_force()
+        speed_light_ms = self.__speed_light_calculator.get_latest_g_force()
 
         if ego_g_force is None:
             ego_g_force = 0
 
-        if speed_lead is None:
-            speed_lead = 0
+        if relative_speed_ms is None:
+            relative_speed_ms = 0
 
-        if speed_light is None:
-            speed_light = 0
+        if speed_light_ms is None:
+            speed_light_ms = 0
 
 
 
-        return VehicleState(speed=ego_velocity_ms * 3.6, speed_limit=self.speed_limit, lead_distance=result_dist,
-                            safe_following_distance=safe_distance, hasCrashed=has_crashed,
+        return VehicleState(speed=ego_velocity_ms, speed_limit=self.speed_limit / 3.6, lead_distance=result_dist_m,
+                            safe_following_distance=safe_distance_m, hasCrashed=has_crashed,
                             light_color=traffic_light_color, light_dist=traffic_light_dist, acc_ego=ego_g_force,
-                            speed_lead=speed_lead, light_speed=speed_light)
+                            relative_speed=relative_speed_ms, light_speed=speed_light_ms)
 
 
 
