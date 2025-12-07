@@ -16,7 +16,7 @@ class SimpleAccAgent(AbstractDecisionAgent):
         temp_throttle = 0.0
         hand_break = False
 
-        min_dist = min(data.distances)
+        min_dist = min(data.lead_distance)
 
         if data.speed < data.speed_limit and min_dist > data.safe_following_distance:
             temp_throttle = 0.6
@@ -25,7 +25,7 @@ class SimpleAccAgent(AbstractDecisionAgent):
             temp_throttle = 0
             temp_break = 1
 
-        if min_dist < 10:
+        if min_dist < data.safe_following_distance:
             hand_break = True
             temp_throttle = 0
             temp_break = 1

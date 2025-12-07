@@ -46,7 +46,7 @@ def training_loop(args):
         )
     ]
 
-    current_model_name= "251203_025405_TD3_keep_speed.msh"
+    current_model_name= ""
 
     try:
         from ACC.Agents.RLAgents import TD3Config
@@ -87,7 +87,10 @@ def training_loop(args):
                     no_render=args.no_display
                 )
 
-                agent = ACC_TD3Agent(args, load_model_name=current_model_name, scene=scene)
+                if current_model_name != "":
+                    agent = ACC_TD3Agent(args, load_model_name=current_model_name, scene=scene)
+                else:
+                    agent = ACC_TD3Agent(args, scene=scene)
 
                 if elapsed_duration == 0:
                     agent.reset_buffer()
@@ -162,7 +165,7 @@ if __name__ == '__main__':
     parser.add_argument('--spawn_point', default='random', help='Spawn point of the ego (default: random)')
 
 
-    parser.add_argument('--delta-seconds', default=0.05, type=float,
+    parser.add_argument('--delta-seconds', default=0.01, type=float,
                         help='Fixed delta seconds for simulation (default: 0.05)')
     parser.add_argument('--num-npcs', default=2, type=int, help='Number of NPC vehicles to spawn (default: 2)')
 
@@ -205,7 +208,7 @@ if __name__ == '__main__':
 
             logging.info("Servers launched successfully. Starting main simulation loop...")
             print("-" * 30)
-            manager = ACC_TD3Agent(args, load_model_name="")
+            manager = ACC_TD3Agent(args, load_model_name="251204_122515_TD3_Speed_limit_and_safe_dist_chunk_28800.msh")
             manager.evaluate()
             if server_manager: server_manager.terminate_servers()
         else:

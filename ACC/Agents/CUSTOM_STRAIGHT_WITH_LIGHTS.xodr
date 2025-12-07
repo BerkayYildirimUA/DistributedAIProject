@@ -3,6 +3,7 @@
     <header revMajor="1" revMinor="4" name="" version="1.00" date="Tue Feb 11 12:00:00 2020" north="0.0" south="0.0" east="0.0" west="0.0">
         <geoReference><![CDATA[+proj=tmerc +lat_0=0 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +geoidgrids=egm96_15.gtx +vunits=m +no_defs]]></geoReference>
     </header>
+
     <road name="StraightRoad" length="2300.0" id="1" junction="-1">
         <link />
         <planView>
@@ -10,6 +11,7 @@
                 <line />
             </geometry>
         </planView>
+
         <lanes>
             <laneSection s="0.0">
                 <center>
@@ -34,10 +36,14 @@
         </lanes>
 
         <signals>
-            <signal s="50.0" t="-8.0" id="100" name="TrafficLight01" dynamic="yes" orientation="+" zOffset="0.0" country="OpenDRIVE" type="1000003" subtype="-1" value="0.0" height="0.0" width="0.0" hOffset="0.0" pitch="0.0" roll="0.0">
+            <signal s="500.0" t="-8.0" id="100" name="TrafficLight01" dynamic="yes" orientation="+" zOffset="0.0" country="DEU" type="1000001" subtype="-1" value="0.0" height="0.0" width="0.0" hOffset="0.0" pitch="0.0" roll="0.0">
                 <validity fromLane="-2" toLane="-1" />
             </signal>
         </signals>
-
     </road>
+
+    <controller id="Controller100" name="TrafficLightController">
+        <control signalId="100" type="1000001"/>
+    </controller>
+
 </OpenDRIVE>

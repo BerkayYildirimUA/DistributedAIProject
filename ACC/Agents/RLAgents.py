@@ -5,7 +5,7 @@ import carla
 
 import wandb
 #
-from ACC.Training.Env import CarlaEnv, GymnasiumToGymWrapper
+from ACC.Training.Env import CarlaEnv, GymnasiumToGymWrapper, vehicle_state_to_array, array_to_action
 from mushroom_rl.core import Core, Logger
 from mushroom_rl.algorithms.actor_critic import TD3
 from mushroom_rl.utils.callbacks import CollectDataset
@@ -93,7 +93,10 @@ class ACC_TD3Agent(AbstractDecisionAgent):
         self.project_root = self._get_project_root()
         self.models_dir = os.path.join(self.project_root, "ACC", "Agents", "models")
         os.makedirs(self.models_dir, exist_ok=True)
-        load_model_path = os.path.join(self.models_dir, load_model_name)
+        if load_model_name is not None:
+            load_model_path = os.path.join(self.models_dir, load_model_name)
+        else:
+            load_model_path = None
 
         if scene is None:
             self.scene = Scenario(
@@ -129,7 +132,10 @@ class ACC_TD3Agent(AbstractDecisionAgent):
 
         # ---- Initialize ----
         self._setup_env()
-        self._setup_agent(load_model_path)
+        if load_model_path is not None:
+            self._setup_agent(load_model_path)
+        else:
+            self._setup_agent()
         self._setup_core()
 
     def _get_project_root(self):
@@ -144,7 +150,7 @@ class ACC_TD3Agent(AbstractDecisionAgent):
         #raw_env.set_rewards(reward_geforce=False, reward_safe_distance=False)
         self.env = GymnasiumToGymWrapper(raw_env)
 
-    def _setup_agent(self, load_model_path):
+    def _setup_agent(self, load_model_path=None):
         logging.info("Initializing TD3 Agent...")
 
         actor_params = dict(
@@ -177,10 +183,10 @@ class ACC_TD3Agent(AbstractDecisionAgent):
             noise_clip=TD3Config.NOISE_CLIP
         )
 
-        if load_model_path and os.path.exists(load_model_path):
+        if load_model_path is not None and os.path.exists(load_model_path):
             logging.info(f"Loading model from: {load_model_path}")
             self.agent = self.agent.load(load_model_path)
-        elif load_model_path:
+        elif load_model_path is not None:
             logging.warning(f"Model path {load_model_path} not found! Starting from scratch.")
 
 
@@ -253,7 +259,6 @@ class RLDecisionAgent(AbstractDecisionAgent):
             raise FileNotFoundError(f"Model not found at: {model_path}")
 
         logging.info(f"Loading RL Agent from {model_path}...")
-        self.max_vehicles = 2 # ---------------- IF YOU CHANGE THIS, YOU HAVE TO CHANGE RLDecisionAgent !! ----------------
 
         self.agent = Agent.load(model_path)
 
@@ -261,70 +266,15 @@ class RLDecisionAgent(AbstractDecisionAgent):
         #self.agent.policy
         logging.info("RL Agent loaded and set to Eval mode.")
 
-    def _vehicle_state_to_array(self, state: VehicleState) -> np.ndarray:
-        distances = state.distances if state.distances else []
-        padded_distances = list(distances) + [1000.0] * (self.max_vehicles - len(distances))
-        padded_distances = padded_distances[:self.max_vehicles]
-
-        # normilze
-        norm_speed = state.speed / 130
-        speed_ratio = state.speed / (state.speed_limit + 1e-5)
-        norm_limit = state.speed_limit / 130.0
-
-        ########################### CHANGE TO 250!!!!!!!!!!! #############################
-        norm_distances = np.array(padded_distances, dtype=np.float32) / 1000.0
-        norm_distances = np.clip(norm_distances, 0.0, 1.0)
-
-        norm_safe_dist = state.safe_following_distance / 100.0
-
-        norm_light = float(state.light_color.value) / 2.0
-
-
-        norm_light_dist = state.light_dist / 250
-
-        obs = np.array([
-            norm_speed,
-            norm_limit,
-            speed_ratio,
-            *norm_distances,
-            norm_safe_dist,
-            1.0 if state.hasCrashed else 0.0,
-            norm_light,
-            0 # steering 0 cause it's to much of pain to train without, and deleting the parameter is more hastle than it's worth
-            # ------------------- DELETE 0 AND CHANGE TO norm_light_dist ---------------------
-
-        ], dtype=np.float32)
-
-        return obs
-
-    def _array_to_action(self, action: np.ndarray) -> Dict[ActionsEnum, float]:
-        val = float(action[0])
-
-        throttle = 0.0
-        brake = 0.0
-
-        if val >= -0.5:
-            throttle = (val + 0.5) / 1.5
-        else:
-            brake = abs(val + 0.5) / 0.5
-
-        return {
-            ActionsEnum.throttle: throttle,
-            ActionsEnum.brake: brake,
-        }
-
     def make_decision(self, tm_control: carla.VehicleControl) -> carla.VehicleControl:
 
         data = self.sensor.get_state()
         data.steering_dir = tm_control.steer
 
-        observation = self._vehicle_state_to_array(data)
-
-
+        observation = vehicle_state_to_array(data)
 
         raw_action = self.agent.policy.draw_action(observation)
-        action = self._array_to_action(raw_action)
-
+        action = array_to_action(raw_action)
 
         final_control = carla.VehicleControl(
             throttle=action[ActionsEnum.throttle],
