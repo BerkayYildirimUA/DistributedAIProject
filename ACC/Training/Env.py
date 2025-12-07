@@ -207,7 +207,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         state = self.sensor_real.get_state()
         state.steering_dir = 0.0
-        obs = _vehicle_state_to_array(state)
+        obs = vehicle_state_to_array(state)
         info: Dict[str, Any] = {}
         #self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
 
@@ -350,7 +350,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             # apply control
             tm_control = self.engine.ego.get_mirror_control()
             steering_dir = tm_control.steer
-            action = _array_to_action(action)
+            action = array_to_action(action)
 
             #logging.info(f"throttle: {action[ActionsEnum.throttle]}, brake: {action[ActionsEnum.brake]}")
 
@@ -398,7 +398,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             info.update(reward_components)
 
 
-            obs = _vehicle_state_to_array(state)
+            obs = vehicle_state_to_array(state)
 
             self.engine.duo_world.tick()
 

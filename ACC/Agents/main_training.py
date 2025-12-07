@@ -31,7 +31,7 @@ def training_loop(args):
 #            )
 #        ),
         (
-            loop_info(8 * 60 * 60, "Speed_limit_and_safe_dist"), #4 * 60 * 60
+            loop_info(1.5 * 60 * 60, "Speed_limit_and_safe_dist"), #4 * 60 * 60
             Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
