@@ -1,0 +1,61 @@
+<?xml version="1.0" standalone="yes"?>
+<OpenDRIVE>
+    <header revMajor="1" revMinor="4" name="" version="1.00" date="Tue Feb 11 12:00:00 2020" north="0.0" south="0.0" east="0.0" west="0.0">
+        <geoReference><![CDATA[+proj=tmerc +lat_0=0 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +geoidgrids=egm96_15.gtx +vunits=m +no_defs]]></geoReference>
+    </header>
+
+    <road name="RoundedSquare_Large_CW_Wide" length="1914.16" id="1" junction="-1">
+        <link>
+            <successor elementType="road" elementId="1" contactPoint="start" />
+        </link>
+        <planView>
+            <geometry s="0.0" x="-200.0" y="250.0" hdg="0.0" length="400.0">
+                <line />
+            </geometry>
+
+            <geometry s="400.0" x="200.0" y="250.0" hdg="0.0" length="78.54">
+                <arc curvature="-0.02" />
+            </geometry>
+
+            <geometry s="478.54" x="250.0" y="200.0" hdg="-1.5708" length="400.0">
+                <line />
+            </geometry>
+
+            <geometry s="878.54" x="250.0" y="-200.0" hdg="-1.5708" length="78.54">
+                <arc curvature="-0.02" />
+            </geometry>
+
+            <geometry s="957.08" x="200.0" y="-250.0" hdg="-3.14159" length="400.0">
+                <line />
+            </geometry>
+
+            <geometry s="1357.08" x="-200.0" y="-250.0" hdg="-3.14159" length="78.54">
+                <arc curvature="-0.02" />
+            </geometry>
+
+            <geometry s="1435.62" x="-250.0" y="-200.0" hdg="-4.71239" length="400.0">
+                <line />
+            </geometry>
+
+            <geometry s="1835.62" x="-250.0" y="200.0" hdg="-4.71239" length="78.54">
+                <arc curvature="-0.02" />
+            </geometry>
+        </planView>
+
+        <lanes>
+            <laneSection s="0.0">
+                <center>
+                    <lane id="0" type="none" level="false">
+                        <roadMark sOffset="0.0" type="solid" weight="standard" color="standard" width="0.5"/>
+                    </lane>
+                </center>
+                <right>
+                    <lane id="-1" type="driving" level="false">
+                        <width sOffset="0.0" a="30.0" b="0.0" c="0.0" d="0.0" />
+                        <roadMark sOffset="0.0" type="solid" weight="standard" color="standard" width="0.5"/>
+                    </lane>
+                </right>
+            </laneSection>
+        </lanes>
+    </road>
+</OpenDRIVE>

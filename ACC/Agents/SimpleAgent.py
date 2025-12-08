@@ -1,17 +1,14 @@
 import carla
 
-from ACC.Utils.abstractions import DecisionAgent, StateSensor
+from ACC.Utils.abstractions import AbstractDecisionAgent, StateSensor
 
-
-class SimpleAccAgent(DecisionAgent):
+class SimpleAccAgent(AbstractDecisionAgent):
 
     def __init__(self, ego_vehicle: carla.Actor, sensor: StateSensor):
         self.__ego = ego_vehicle
         self.__sensor = sensor
 
-    def make_decision(self, temp) -> carla.VehicleControl:
-
-        tm_control = temp
+    def make_decision(self, tm_control) -> carla.VehicleControl:
 
         data = self.__sensor.get_state()
 
@@ -19,16 +16,16 @@ class SimpleAccAgent(DecisionAgent):
         temp_throttle = 0.0
         hand_break = False
 
-        min_dist = min(data.distances)
+        min_dist = min(data.lead_distance_m)
 
-        if data.speed < data.speed_limit and min_dist > data.safe_following_distance:
+        if data.speed_ms < data.speed_limit_ms and min_dist > data.safe_following_distance_m:
             temp_throttle = 0.6
             temp_break = 0
         else:
             temp_throttle = 0
             temp_break = 1
 
-        if min_dist < 10:
+        if min_dist < data.safe_following_distance_m:
             hand_break = True
             temp_throttle = 0
             temp_break = 1

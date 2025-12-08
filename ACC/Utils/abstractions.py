@@ -14,13 +14,16 @@ class LightColors(Enum):
 
 @dataclass
 class VehicleState: #maybe add steering direction?
-    speed: float
-    speed_limit: float
-    distances: List[float] #car in front of the Ego
-    safe_following_distance: float
-    hasCrashed: bool
-    light_color: LightColors
-    steering_dir: float = -numpy.inf #so it can give error when used while not set. While keeping the ability to not use it.
+    speed_ms: float #speed of the geo
+    speed_limit_ms: float #speed limit the geo should follow
+    lead_distance_m: float #distance to the car in front
+    safe_following_distance_m: float #safe driving distance from the car in front
+    hasCrashed: bool #has crashed or not
+    light_color: LightColors #color of lights
+    light_dist_m: float #distance to nearest light
+    light_speed_ms: float #how fast we are approaching that light
+    g_force_ego: float #the g force the ego is experincesing
+    relative_speed_ms: float #the speed diff between ego and car in front
 
 class ActionsEnum(Enum):
     brake = 1
@@ -37,7 +40,7 @@ class StateSensor(ABC):
 
     pass
 
-class DecisionAgent(ABC):
+class AbstractDecisionAgent(ABC):
     """Classes to make driving decisions. steering will be done by auto pilote, but acc will later be done with RL"""
 
     @abstractmethod

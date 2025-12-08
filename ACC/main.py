@@ -8,11 +8,11 @@ import subprocess
 
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
-from ACC.Utils.Sensors import CarlaLeadStateSensor, CarlaVBWorldStateSensor
-from ACC.Agents.SimpleAgent import SimpleAccAgent
+from ACC.Utils.Sensors import CarlaVBWorldStateSensor
 from ACC.Engine.engine import Engine
 from app.memory.shared_memory import VehicleStateMemory
 
+from ACC.Agents.RLAgents import RLDecisionAgent
 """
 RL FEEDBACK 
 
@@ -30,7 +30,7 @@ train in steps, don't overcomplicate at first. Turn on rewards as we go
 maybe change action space center if need be, like 0 =! do nothing, perhabs. 
 
 
-
+--no_display
 """
 
 
@@ -51,7 +51,8 @@ def main_loop(args):
         # else:
         sensor_real = CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
 
-        decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
+        #decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
+        decisionAgent = RLDecisionAgent(sensor_real, "251208_032755_TD3_speed_lead_chunk_600.msh")
 
         # Create needed memory access to sync carla data from sensors to newer python env
         vehicle_state_memory = VehicleStateMemory().get_write_access()
@@ -81,6 +82,8 @@ def main_loop(args):
             # Get state and write to shared memory
             real_ego_state = sensor_real.get_state()
             vehicle_state_memory.write(np.array([real_ego_state.speed, real_ego_state.steering_dir], dtype=np.float32))
+
+
 
     except KeyboardInterrupt:
         print("\nSimulation stopped by user (KeyboardInterrupt).")

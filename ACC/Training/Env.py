@@ -7,22 +7,76 @@ from typing import SupportsFloat, Any, Dict
 import carla
 import gymnasium as gym
 import numpy as np
-import torch
+import wandb
+from carla import Vector3D
 from gymnasium.core import RenderFrame
 
 from ACC.Engine.engine import Engine
-from ACC.Utils.GForce_Class import GForceCalculator
-from ACC.Utils.abstractions import ActionsEnum
+from ACC.Utils.abstractions import ActionsEnum, LightColors
 from ACC.Utils.abstractions import VehicleState
 from ACC.Utils.Sensors import CarlaWorldStateSensor
 from ACC.Engine.scenario import Scenario
 from gymnasium import spaces
 import traceback
 
-from mushroom_rl.utils.spaces import Box
 from mushroom_rl.core import MDPInfo
 
 from typing import Optional
+
+
+def vehicle_state_to_array(state: VehicleState) -> np.ndarray:
+
+
+    #normilze
+    norm_speed = state.speed_ms / 35
+    speed_ratio = state.speed_ms / (state.speed_limit_ms + 1e-5)
+    norm_limit = state.speed_limit_ms / 35
+
+    norm_distance = np.clip(state.lead_distance_m / 250.0, 0.0, 1.0)
+
+    norm_safe_dist = state.safe_following_distance_m / 150.0
+
+    norm_light = float(state.light_color.value) / 2.0
+    norm_light_dist = float(state.light_dist_m) / 250
+
+    norm_light_speed =np.clip(state.light_speed_ms / 30, -3, 3)
+    norm_speed_lead = np.clip(state.relative_speed_ms / 30, -3, 3)
+
+    norm_acc_ego = np.clip(state.g_force_ego / 5, -1.5, 1.5)
+
+    obs = np.array([
+        norm_speed,
+        norm_limit,
+        speed_ratio,
+        norm_distance,
+        norm_safe_dist,
+        1.0 if state.hasCrashed else 0.0,
+        norm_light,
+        norm_light_dist,
+        norm_light_speed,
+        norm_speed_lead,
+        norm_acc_ego
+    ], dtype=np.float32)
+
+    return obs
+
+
+def array_to_action(action: np.ndarray) -> Dict[ActionsEnum, float]:
+    val = float(action[0])
+
+    throttle = 0.0
+    brake = 0.0
+
+    if val >= -0.5:
+        throttle = (val + 0.5) / 1.5
+    else:
+        brake = abs(val + 0.5) / 0.5
+
+    return {
+        ActionsEnum.throttle: throttle,
+        ActionsEnum.brake: brake,
+    }
+
 
 class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
@@ -40,34 +94,37 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         self.sensor_real = CarlaWorldStateSensor(self.engine.ego.real, self.engine.duo_world.get_real_world())
 
-        self.max_vehicles = 2
-
         self.eng_args = args
         self.eng_scene: Optional[Scenario] = scene
 
-        # Complete observation space: speed + speed_limit + distances (5) + safe_distance + crashed + light_color
-        # Total: 11 values
+        # Complete observation space
         self.observation_space = spaces.Box(
             low=np.array(
                 [0.0,  # speed
                  0.0,  # speed_limit
                  0.0,  # speed_ratio
-                 0.0, 0.0,  # distances (5 vehicles)
+                 0.0,  # distance to lead
                  0.0,  # safe_following_distance
                  0.0,  # hasCrashed (0 or 1)
                  0.0,  # light_color (0, 1, 2)
-                 -1.0],  #steering
+                 0.0,  #light distance
+                 -3, # norm_light_speed
+                 -3,  # norm_speed_lead
+                 -1.5], # norm_acc_ego
                 dtype=np.float32
             ),
             high=np.array(
                 [1.5,  # speed
                  1.5,  # speed_limit
                  1.5,  # speed ratio
-                 1.0, 1.0,  # distances (max 1000m)
+                 1.0,  # distances (max 250m)
                  1.0,  # safe_following_distance
                  1.0,  # hasCrashed
                  1.0, # light_color
-                 1.0], #steering
+                 1.0, # light_dist (max 250m)
+                 3, # norm_light_speed
+                 3, # norm_speed_lead
+                 1.5], # norm_acc_ego
                 dtype=np.float32
             ),
             dtype=np.float32,
@@ -79,7 +136,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             dtype=np.float32,
         )
 
-        self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
+        #self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
 
         # MDPInfo for Mushroom-RL compatibility
         self._mdp_info = MDPInfo(
@@ -89,73 +146,25 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             ,horizon=int(self.eng_args.horizon)
         )
 
-        #self.set_rewards()
-
-    def _vehicle_state_to_array(self, state: VehicleState) -> np.ndarray:
-        distances = state.distances if state.distances else []
-        padded_distances = list(distances) + [1000.0] * (self.max_vehicles - len(distances))
-        padded_distances = padded_distances[:self.max_vehicles]
-
-        #normilze
-        norm_speed = state.speed / 130
-        speed_ratio = state.speed / (state.speed_limit + 1e-5)
-        norm_limit = state.speed_limit / 130.0
-
-        norm_distances = np.array(padded_distances, dtype=np.float32) / 1000.0
-        norm_distances = np.clip(norm_distances, 0.0, 1.0)
-
-        norm_safe_dist = state.safe_following_distance / 100.0
-
-        norm_light = float(state.light_color.value) / 2.0
-
-        norm_steering = float(state.steering_dir)
-
-        obs = np.array([
-            norm_speed,
-            norm_limit,
-            speed_ratio,
-            *norm_distances,
-            norm_safe_dist,
-            1.0 if state.hasCrashed else 0.0,
-            norm_light,
-            norm_steering
-        ], dtype=np.float32)
-
-        return obs
-
-    def _array_to_action(self, action: np.ndarray) -> dict[ActionsEnum, float]:
-        val = float(action[0])
-
-        throttle = 0.0
-        brake = 0.0
-
-        if action >= -0.5:
-            throttle = (val + 0.5) / 1.5
-        else:
-            brake = abs(val + 0.5) / 0.5
-
-        return {
-            ActionsEnum.throttle: throttle,
-            ActionsEnum.brake: brake,
-        }
+        self.lead_speed_limit = 0
 
     @property
     def info(self):
         return self._mdp_info
 
-    def set_rewards(self, reward_crash=True, reward_geforce=True, reward_speed_limit=True, reward_safe_distance=True):
+    def set_rewards(self, reward_crash=True, reward_geforce=True, reward_speed_limit=True, reward_safe_distance=True, reward_light=True):
 
         if self.eng_scene is not None:
             self.eng_scene.rewards["reward_crash"] = reward_crash
             self.eng_scene.rewards["reward_geforce"] = reward_geforce
             self.eng_scene.rewards["reward_speed_limit"] = reward_speed_limit
             self.eng_scene.rewards["reward_safe_distance"] = reward_safe_distance
-        else:
-            print("SOMETHING WRONG") #TODO: delete this debug
+            self.eng_scene.rewards["reward_light"] = reward_light
 
 
-    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> \
-            tuple[np.ndarray, dict[str, Any]]:
+
+    def reset(self, *, seed: int | None = None, options: Dict[str, Any] | None = None) -> \
+            tuple[np.ndarray, Dict[str, Any]]:
         super().reset(seed=seed)
 
 
@@ -172,19 +181,24 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         self.engine = Engine(self.eng_args,self.eng_scene)
         self.engine.connect_to_worlds()
         self.engine.duo_world.tick()
+
+
         if not self.engine.setup():
             raise RuntimeError("Engine setup failed. Exiting.")
 
 
         #self.sensor_real.reset(self.engine.ego.real, self.engine.duo_world.get_real_world())
-
         current_speed_limit = 0.0
+        counter = 0.0
         if self.sensor_real is not None:
             current_speed_limit = self.sensor_real.speed_limit
+            counter = self.sensor_real.counter
             self.sensor_real.cleanup()
             self.sensor_real = None
 
+
         self.sensor_real = CarlaWorldStateSensor(self.engine.ego.real, self.engine.duo_world.get_real_world())
+        self.sensor_real.counter = counter
 
         if self.eng_args.random_speed_limit:
             self.sensor_real.override_speed_limit = True
@@ -193,74 +207,117 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         state = self.sensor_real.get_state()
         state.steering_dir = 0.0
-        obs = self._vehicle_state_to_array(state)
-        info: dict[str, Any] = {}
-        self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
+        obs = vehicle_state_to_array(state)
+        info: Dict[str, Any] = {}
+        #self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
+
+
+        #self.engine.lead.set_mirror_velocity(Vector3D(x=self.lead_speed_limit, y=0, z=0))
 
         return obs, info
 
     def close(self):
         super().close()
-
+        self.sensor_real.cleanup()
+        self.sensor_real = None
         self.engine.cleanup()
 
 
-    def _reward(self, state : VehicleState) -> SupportsFloat:
+    def _reward(self, state : VehicleState) -> tuple[float, Dict]:
 
         #self.engine.ego.real
-        self.__g_force_calculator.update_speed(state.speed)
-        g_force = self.__g_force_calculator.get_latest_g_force()
+        #self.__g_force_calculator.update_speed(state.speed)
+        #g_force = self.__g_force_calculator.get_latest_g_force()
+
+
 
         rewards_dict = self.eng_scene.rewards
         #print(rewards_dict)
         use_crash = rewards_dict.get("reward_crash", True)
-        use_geforce = rewards_dict.get("reward_geforce", True)
+        use_geforce = rewards_dict.get("reward_geforce", False)
         use_speed = rewards_dict.get("reward_speed_limit", True)
         use_dist = rewards_dict.get("reward_safe_distance", True)
+        use_light = rewards_dict.get("reward_light", True)
+
 
         ############### CRASH ###############
+        r_crash = 0
         if use_crash and state.hasCrashed:
             logging.info("Car Crashed!")
-            return -0.01 * int(self.eng_args.horizon)
+            r_crash = -100 * (1 + abs(state.relative_speed_ms))
 
         ############### G-FORCE ###############
-        #TODO: simply, make continuous
         r_geforce = 0
+        r_geforce_weight = 1
+        g_force_ego = state.g_force_ego
         if use_geforce:
-            if g_force is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
-                if abs(g_force) < (0.56 / 9.81):
-                    r_geforce = 2
-                elif  abs(g_force) < (1.23 / 9.81):
-                    r_geforce = 1
-                elif  abs(g_force) < (2.12 / 9.81):
-                    r_geforce = 2
-                else:
-                    r_geforce = math.exp(9.81) * (abs(g_force) - 2)
+            if g_force_ego is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
+                acc = g_force_ego * 9.81
+                r_geforce = max(min(0.5 - 0.02 * acc, 1.05812 - 0.615337 * acc), -1) - 0.01 * acc
+                r_geforce = r_geforce_weight * r_geforce
+
 
 
         ############### SPEED ###############
         r_speed = 0
+        r_speed_weight = 1.0
         if use_speed:
-            speed_diff = state.speed - state.speed_limit
+            speed_diff = (state.speed_ms - state.speed_limit_ms) * 3.6
 
             if speed_diff > 0:
-                r_speed = 1.5 * math.exp(-(speed_diff ** 2) / 2.5) - 0.5 - 0.01 * speed_diff # maybe 0.05?
+                r_speed = 1.5 * math.exp(-(speed_diff ** 2) / 2.5) - 0.5 - 0.1 * speed_diff # maybe 0.05?
             else:
-                r_speed = math.exp(-(speed_diff ** 2) / 25) + 0.01 * speed_diff
+                r_speed = math.exp(-(speed_diff ** 2) / 25) + 0.1 * speed_diff
+
+            r_speed = r_speed_weight * r_speed
 
 
         ############### SAFE DISTANCE ###############
-        # TODO: simply, make continuous
         r_dist = 0
+        r_dist_weight = 2.5
+
+        safe_distance = 0.0
+        safety_margin = 0.0
+
         if use_dist:
-            if state.distances is not None and len(state.distances) > 0:
-                min_front_distance = min(state.distances)
-                safe_distance = state.safe_following_distance
+            if state.lead_distance_m is not None and state.lead_distance_m > 0:
+                min_front_distance = state.lead_distance_m
+                safe_distance = state.safe_following_distance_m
 
-                if min_front_distance < safe_distance:
-                    penalty = math.exp((safe_distance - min_front_distance) / safe_distance) - 1
-                    r_dist -= 5 * penalty
+                safety_margin = min(min_front_distance / (safe_distance + 1e-5), 100)
 
+                if safety_margin >= 1:
+                    r_dist = math.exp(-1 * (safety_margin-1))
+
+                    if safety_margin >= 3 and (state.speed_ms * 3.6) < ((state.speed_limit_ms * 3.6) - 3):
+                        r_speed = (1 + (safety_margin / 50)) * r_speed
+
+                else:
+                    r_dist = - 7 * ((safety_margin - 1) ** 2) + 1
+                    r_dist = r_dist - r_dist * state.relative_speed_ms
+
+                r_dist = r_dist_weight * r_dist
+
+        ############### TRAFFIC LIGHT ###############
+        r_light = 0.0
+        r_light_weight = 15.0
+        if use_light and (state.light_color.value == LightColors.red or state.light_color.value == LightColors.orange):
+            dist = state.light_dist_m
+            if 0 < dist < 50.0:
+                # RUNNING THE LIGHT PENALTY
+                if dist < 4.0 and state.speed_ms > 2.0:
+                    r_light = -100.0 * (1 + abs(state.speed_ms / 40))
+                    logging.info(f"Red Light Violation! Speed: {state.speed_ms:.2f}")
+                # BRAKING CURVE REWARD
+                else:
+                    target_stop_dist = max(0, dist - 3.0)
+                    desired_speed_at_dist = math.sqrt(2 * 2.0 * target_stop_dist)
+                    speed_excess = max(0, state.speed_ms - desired_speed_at_dist)
+                    r_light = -1.0 * (speed_excess ** 1.5)
+                # STOPPED REWARD
+                if state.speed_ms < 0.1 and dist < 15.0 and dist > 2.0:
+                    r_light += 1.0
+        r_light = r_light * r_light_weight
 
 
         #logging.info(f"rewards: {reward}")
@@ -269,9 +326,32 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         #logging.info(f"  [Speed Limit]   : {'ON' if use_speed else 'OFF'}")
         #logging.info(f"  [Safe Distance] : {'ON' if use_dist else 'OFF'}")
 
-        reward = r_dist + r_geforce + r_speed
+        total_reward = r_crash + r_dist + r_geforce + r_speed + r_light if r_crash == 0 else r_crash
 
-        return reward
+        components = {
+            "Reward/Total": total_reward,
+            "Reward/Crash": r_crash,
+            "Reward/GForce": r_geforce,
+            "Reward/Speed": r_speed,
+            "Reward/Distance": r_dist,
+            "Reward/Lights": r_light,
+            "State/distance/safe_distance": safe_distance,
+            "State/distance/safety_margin": safety_margin,
+
+
+            "State/VehicleState/speed_ms": state.speed_ms,
+            "State/VehicleState/speed_limit_ms": state.speed_limit_ms,
+            "State/VehicleState/lead_distance_m": state.lead_distance_m,
+            "State/VehicleState/safe_following_distance_m": state.safe_following_distance_m,
+            "State/VehicleState/hasCrashed": state.hasCrashed,
+            "State/VehicleState/light_color": state.light_color.value,
+            "State/VehicleState/light_dist_m": state.light_dist_m,
+            "State/VehicleState/light_speed_ms": state.light_speed_ms,
+            "State/VehicleState/g_force_ego": state.g_force_ego,
+            "State/VehicleState/relative_speed_ms": state.relative_speed_ms
+        }
+
+        return total_reward, components
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, SupportsFloat, bool, bool, dict[str, dict[ActionsEnum, float]]]:
         terminated = False
@@ -290,11 +370,20 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 else:
                     raise RuntimeError("Ego vehicle disappeared and revival failed.")
 
+            if self.engine.lead is not None:
+                if not self.engine.lead.is_alive():
+                    logging.debug("Lead pair incomplete. Attempting revival...")
+                    if self.engine.revive_lead_pair(self.lead_speed_limit):
+                        logging.debug("Ego successfully revived. Continuing step.")
+                    else:
+                        raise RuntimeError("Ego vehicle disappeared and revival failed.")
+
+
 
             # apply control
             tm_control = self.engine.ego.get_mirror_control()
             steering_dir = tm_control.steer
-            action = self._array_to_action(action)
+            action = array_to_action(action)
 
             #logging.info(f"throttle: {action[ActionsEnum.throttle]}, brake: {action[ActionsEnum.brake]}")
 
@@ -329,15 +418,45 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 logging.info("Car Crashed!")
                 terminated = True
             state.steering_dir = steering_dir
-            reward = self._reward(state)
-            obs = self._vehicle_state_to_array(state)
+
+            reward, reward_components = self._reward(state)
+
+            if self.engine.lead is not None:
+                v = self.engine.lead.mirror.get_velocity() * 3.6
+                lead_speed = v.length()
+                reward_components["State/LeadSpeed"] = lead_speed
+            else:
+                reward_components["State/LeadSpeed"] = 0.0
+
+            info.update(reward_components)
+
+
+            obs = vehicle_state_to_array(state)
 
             self.engine.duo_world.tick()
 
 
             #this creates an infinite road to drive on
-            if self.engine.map_name == "CUSTOM_STRAIGHT":
+            if "CUSTOM_STRAIGHT" in self.engine.map_name:
                 transform = self.engine.ego.real.get_transform()
+
+                if self.engine.lead is not None and self.engine.lead.is_alive():
+                    lead_transform = self.engine.lead.mirror.get_transform()
+                    dist_to_lead = lead_transform.location.x - transform.location.x
+
+                    if lead_transform.location.x > 1700:
+                        new_location = carla.Location(x=1550, y=lead_transform.location.y, z=lead_transform.location.z)
+                        self.engine.lead.real.set_location(new_location)
+                        self.engine.lead.mirror.set_location(new_location)
+
+                    if dist_to_lead > 300:
+                        target_catchup_speed = max(0.0, state.speed_ms * 3.6 * random.uniform(0.5, 0.8))
+
+                        # Only update if meaningful change to avoid spamming TM
+                        if abs(self.lead_speed_limit - target_catchup_speed) > 1.0:
+                            self.lead_speed_limit = target_catchup_speed
+                            self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
+
                 if transform.location.x > 1000:
                     new_location = carla.Location(x=10, y=transform.location.y, z=transform.location.z)
                     self.engine.ego.real.set_location(new_location)
@@ -349,6 +468,10 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                         self.engine.lead.real.set_location(lead_location)
                         self.engine.lead.mirror.set_location(lead_location)
 
+                        self.lead_speed_limit = state.speed_limit_ms * 3.6 + random.randint(-15, 15)
+
+                        self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
+
 
 
 
@@ -357,8 +480,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             print(f"\nAn critical error occurred during step in traing env: {e}")
             traceback.print_exc()
             terminated = True
-            #reward = -100.0
-
         return obs, reward, terminated, truncated, info
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
@@ -371,6 +492,7 @@ class GymnasiumToGymWrapper:
         self.env = env
         self.observation_space = env.observation_space
         self.action_space = env.action_space
+        self.step_count = 0
 
     @property
     def info(self):
@@ -398,6 +520,14 @@ class GymnasiumToGymWrapper:
         action = np.clip(action, -1.0, 1.0)
         obs, reward, terminated, truncated, info = self.env.step(action)
         done = terminated or truncated
+
+        if wandb.run is not None:
+            log_dict = {k: v for k, v in info.items() if isinstance(v, (int, float))}
+            log_dict['global_step'] = self.step_count
+            wandb.log(log_dict)
+
+        self.step_count += 1
+
         return obs, reward, done, info
 
     def render(self):
@@ -410,47 +540,3 @@ class GymnasiumToGymWrapper:
     def stop(self):
         return self.env.close()
 
-from collections import deque
-class FrameStackWrapper:
-    def __init__(self, env, num_stack=4):
-        self.env = env
-        self.num_stack = num_stack
-        self.frames = deque(maxlen=num_stack)
-
-        # Calculate new observation space size
-        # We assume flat observations here
-        low = np.tile(env.observation_space.low, num_stack)
-        high = np.tile(env.observation_space.high, num_stack)
-        self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
-        self.action_space = env.action_space
-
-    @property
-    def info(self):
-        return MDPInfo(
-            observation_space=self.observation_space,
-            action_space=self.action_space,
-            gamma=self.env.info.gamma,
-            horizon=self.env.info.horizon
-        )
-
-    def _get_obs(self):
-        assert len(self.frames) == self.num_stack
-        return np.concatenate(list(self.frames))
-
-    def reset(self, state=None):
-        obs = self.env.reset(state)
-
-        for _ in range(self.num_stack):
-            self.frames.append(obs)
-        return self._get_obs()
-
-    def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        self.frames.append(obs)
-        return self._get_obs(), reward, done, info
-
-    def close(self):
-        return self.env.close()
-
-    def stop(self):
-        return self.env.close()

@@ -60,7 +60,10 @@ class Engine():
         client.set_timeout(5 * 60)
 
         if map_name.startswith("CUSTOM_"):
-            file_name = map_name + ".xodr"
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            acc_dir = os.path.dirname(current_dir)
+            file_name = os.path.join(acc_dir, "Agents", map_name + ".xodr")
+
 
             if not os.path.exists(file_name):
                 raise FileNotFoundError(f"[{server_name}] Could not find OpenDRIVE file: {file_name}")
@@ -74,14 +77,16 @@ class Engine():
             client.generate_opendrive_world(
                 xodr_content,
                 carla.OpendriveGenerationParameters(
-                    vertex_distance=2.0,
+                    vertex_distance=0.2,
                     max_road_length=500.0,
                     wall_height=1.0,  # Invisible walls to keep car on track
                     additional_width=0.6,  # Wider lanes at junctions
                     smooth_junctions=True,
                     enable_mesh_visibility=True
                 )
+
             )
+            time.sleep(2.0)
 
         # 2. CHECK CURRENT STATE
         # If the map is already loaded, don't reload it (saves 5 seconds)
@@ -127,13 +132,15 @@ class Engine():
             raise RuntimeError(f"[{server_name}] Failed to load map {map_name} after waiting.")
 
         # 6. WARM UP TICKS
+        logging.info(f"[{server_name}] Applying Synchronous Settings...")
         settings = world.get_settings()
         settings.synchronous_mode = True
         settings.fixed_delta_seconds = self.delta_seconds
+
         world.apply_settings(settings)
 
-        for _ in range(5):
-            world.tick()
+
+        world.tick()
 
         return world
 
@@ -317,7 +324,12 @@ class Engine():
 
 
             # --- LEAD ---
-            if self.scenario.lead_car_bp_name != "":
+            lead_is_not_skipped = True
+            if self.args.do_train:
+                lead_is_not_skipped = random.random() > 0.25
+
+
+            if self.scenario.lead_car_bp_name != "" and lead_is_not_skipped:
                 lead_transform = carla.Transform(
                     ego_spawn_point.location + ego_spawn_point.get_forward_vector() * 15.0,
                     ego_spawn_point.rotation
@@ -364,7 +376,7 @@ class Engine():
                     actor_pair.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
                     actor_pair.set_mirror_physics(True)
 
-            self.duo_world.get_mirror_world().tick()
+            self.duo_world.tick()
             logging.info("Mirror actors configured.")
 
             # Spectator setup
@@ -464,6 +476,9 @@ class Engine():
         try:
             repair_transform = survivor.get_transform()
             repair_transform.location.z += 0.5
+
+            survivor_velocity = survivor.get_velocity()
+            survivor_ang_velocity = survivor.get_angular_velocity()
         except Exception as e:
             logging.error(f"Failed to get transform from surviving actor: {e}")
             return False
@@ -483,6 +498,9 @@ class Engine():
         if not new_actor:
             logging.error(f"Failed to spawn replacement {target_side} actor.")
             return False
+
+        new_actor.set_target_velocity(survivor_velocity)
+        new_actor.set_target_angular_velocity(survivor_ang_velocity)
 
         # Patch up the DuoActor
         if target_side == "MIRROR":
@@ -520,6 +538,36 @@ class Engine():
 
         return success
 
+    def revive_lead_pair(self, speed_limit = 0) -> bool:
+        """
+        Specialized repair function for the lead vehicle.
+        Handles lead-specific configuration after resurrection (e.g., TM settings).
+        """
+        if not self.lead:
+            logging.error("No lead actor exists to revive.")
+            return False
+
+        was_mirror_dead = self.lead.mirror is None or not self.lead.mirror.is_alive
+
+        success = self.repair_actor_pair(self.lead)
+
+        if success and was_mirror_dead:
+            # Reconfigure the mirror lead with TM settings
+            try:
+                if self.tm_mirror and self.lead.mirror:
+                    self.lead.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
+                    self.lead.set_mirror_physics(True)
+                    self.duo_world.get_mirror_world().tick()
+
+                    if speed_limit > 0:
+                        self.tm_mirror.set_desired_speed(self.lead.mirror, speed_limit * 3.6)
+
+                    logging.debug("Lead mirror actor reconfigured with Traffic Manager settings.")
+            except Exception as e:
+                logging.warning(f"Failed to reconfigure lead mirror TM settings: {e}")
+
+        return success
+
 
     def cleanup(self):
         logging.info('Initiating cleanup...')
@@ -551,6 +599,16 @@ class Engine():
                 actor_pair.destroy()
                 destroyed_count += 1
         logging.info(f"Destroy method called for {destroyed_count} actor pairs.")
+
+        all_traffic_lights : carla.ActorList = self.duo_world.get_real_world().get_actors()
+        for light in all_traffic_lights:
+            if light.is_alive:
+                light.destroy()
+
+        all_traffic_lights = self.duo_world.get_mirror_world().get_actors()
+        for light in all_traffic_lights:
+            if light.is_alive:
+                light.destroy()
 
         if self.duo_world:
             self.duo_world.tick()
