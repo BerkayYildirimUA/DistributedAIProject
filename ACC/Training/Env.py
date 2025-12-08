@@ -240,48 +240,57 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         r_crash = 0
         if use_crash and state.hasCrashed:
             logging.info("Car Crashed!")
-            r_crash = -100
+            r_crash = -500
 
         ############### G-FORCE ###############
         r_geforce = 0
+        r_geforce_weight = 1
         g_force_ego = state.g_force_ego
         if use_geforce:
             if g_force_ego is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
                 acc = g_force_ego * 9.81
-                r_geforce = 0.645889 - 0.184412 * math.exp(1.01363 * acc)
-                r_geforce = max(r_geforce, -2)
+                r_geforce = max(min(0.5 - 0.02 * acc, 1.05812 - 0.615337 * acc), -1) - 0.01 * acc
+                r_geforce = r_geforce_weight * r_geforce
 
 
 
         ############### SPEED ###############
         r_speed = 0
+        r_speed_weight = 1.0
         if use_speed:
-            speed_diff = state.speed_ms - state.speed_limit_ms
+            speed_diff = (state.speed_ms - state.speed_limit_ms) * 3.6
 
             if speed_diff > 0:
-                r_speed = 1.5 * math.exp(-(speed_diff ** 2) / 2.5) - 0.5 - 0.01 * speed_diff # maybe 0.05?
+                r_speed = 1.5 * math.exp(-(speed_diff ** 2) / 2.5) - 0.5 - 0.1 * speed_diff # maybe 0.05?
             else:
-                r_speed = math.exp(-(speed_diff ** 2) / 25) + 0.01 * speed_diff
+                r_speed = math.exp(-(speed_diff ** 2) / 25) + 0.1 * speed_diff
+
+            r_speed = r_speed_weight * r_speed
 
 
         ############### SAFE DISTANCE ###############
         r_dist = 0
-        r_dist_weight = 1.5
+        r_dist_weight = 2.5
 
-        min_front_distance = 0.0
         safe_distance = 0.0
         safety_margin = 0.0
+
         if use_dist:
             if state.lead_distance_m is not None and state.lead_distance_m > 0:
                 min_front_distance = state.lead_distance_m
                 safe_distance = state.safe_following_distance_m
 
-                safety_margin = min(min_front_distance / (safe_distance + 1e-5), 1000)
+                safety_margin = min(min_front_distance / (safe_distance + 1e-5), 100)
 
                 if safety_margin >= 1:
                     r_dist = math.exp(-1 * (safety_margin-1))
+
+                    if safety_margin >= 3 and (state.speed_ms * 3.6) < ((state.speed_limit_ms * 3.6) - 3):
+                        r_speed = (1 + (safety_margin / 10)) * r_speed
+
                 else:
-                    r_dist = - 5 * ((safety_margin - 1) ** 2) + 1
+                    r_dist = - 7 * ((safety_margin - 1) ** 2) + 1
+                    r_dist = r_dist - r_dist * state.relative_speed_ms
 
                 r_dist = r_dist_weight * r_dist
 
@@ -305,16 +314,16 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             "State/distance/safety_margin": safety_margin,
 
 
-            "State/VehicleState/speed": state.speed_ms,
-            "State/VehicleState/speed_limit": state.speed_limit_ms,
-            "State/VehicleState/lead_distance": state.lead_distance_m,
-            "State/VehicleState/safe_following_distance": state.safe_following_distance_m,
+            "State/VehicleState/speed_ms": state.speed_ms,
+            "State/VehicleState/speed_limit_ms": state.speed_limit_ms,
+            "State/VehicleState/lead_distance_m": state.lead_distance_m,
+            "State/VehicleState/safe_following_distance_m": state.safe_following_distance_m,
             "State/VehicleState/hasCrashed": state.hasCrashed,
             "State/VehicleState/light_color": state.light_color.value,
-            "State/VehicleState/light_dist": state.light_dist_m,
-            "State/VehicleState/light_speed": state.light_speed_ms,
-            "State/VehicleState/acc_ego": state.g_force_ego,
-            "State/VehicleState/speed_lead": state.relative_speed_ms
+            "State/VehicleState/light_dist_m": state.light_dist_m,
+            "State/VehicleState/light_speed_ms": state.light_speed_ms,
+            "State/VehicleState/g_force_ego": state.g_force_ego,
+            "State/VehicleState/relative_speed_ms": state.relative_speed_ms
         }
 
         return total_reward, components
@@ -406,9 +415,14 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             if "CUSTOM_STRAIGHT" in self.engine.map_name:
                 transform = self.engine.ego.real.get_transform()
 
-                if self.engine.lead is not None:
+                if self.engine.lead is not None and self.engine.lead.is_alive():
                     lead_transform = self.engine.lead.mirror.get_transform()
                     dist_to_lead = lead_transform.location.x - transform.location.x
+
+                    if lead_transform.location.x > 1700:
+                        new_location = carla.Location(x=1550, y=lead_transform.location.y, z=lead_transform.location.z)
+                        self.engine.lead.real.set_location(new_location)
+                        self.engine.lead.mirror.set_location(new_location)
 
                     if dist_to_lead > 300:
                         target_catchup_speed = max(0.0, state.speed_ms * 3.6 * random.uniform(0.5, 0.8))

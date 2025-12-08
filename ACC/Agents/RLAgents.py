@@ -208,6 +208,15 @@ class ACC_TD3Agent(AbstractDecisionAgent):
 
         logging.info("Training complete.")
 
+
+        dataset = self.dataset_callback.get()
+        J_metrics = compute_J(dataset, self.env.info.gamma)
+        current_avg_reward = np.mean(J_metrics)
+
+        wandb.log({"results/avg_reward" : current_avg_reward})
+
+        wandb.finish()
+
     def evaluate(self, n_steps=80000):
         """Evaluate the current policy."""
         logging.info("Evaluating...")

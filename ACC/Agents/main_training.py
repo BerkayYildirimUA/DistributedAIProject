@@ -24,19 +24,19 @@ class loop_info:
 def training_loop(args):
 
     scenarios_list = [
-        (
-            loop_info(2 * 60 * 60, "speed"),
-            Scenario(
-                'vehicle.tesla.model3',
-                delta_seconds=args.delta_seconds,
-                map_name="CUSTOM_STRAIGHT",
-                number_of_npc=0,
-                reward_geforce=False,
-                reward_safe_distance=False,
-                reward_crash=True,
-                reward_speed_limit=True
-            )
-        ),
+        #(
+        #    loop_info(2 * 60 * 60, "speed"),
+        #    Scenario(
+        #        'vehicle.tesla.model3',
+        #        delta_seconds=args.delta_seconds,
+        #        map_name="CUSTOM_STRAIGHT",
+        #        number_of_npc=0,
+        #        reward_geforce=False,
+        #        reward_safe_distance=False,
+        #        reward_crash=True,
+        #        reward_speed_limit=True
+        #    )
+        #),
         (
             loop_info(2 * 60 * 60, "speed_lead"),
             Scenario(
@@ -67,13 +67,13 @@ def training_loop(args):
         )
     ]
 
-    current_model_name= ""
+    current_model_name= "251208_014127_TD3_speed_lead_CONVERGED.msh"
 
-    chunk_duration_seconds = 15 * 60
+    chunk_duration_seconds = 10 * 60
 
 
     for info, scene in scenarios_list:
-        stopper = EarlyStopper(patience=4, min_delta=0.5)
+        stopper = EarlyStopper(patience=2, min_delta=2)
         scene.name = info.name
         total_duration = info.duration
         elapsed_duration = 0
@@ -153,6 +153,7 @@ def training_loop(args):
                         pass
                 import gc
                 gc.collect()
+                time.sleep(15)
         logging.info(f"Scenario {info.name} COMPLETED.")
 
 
