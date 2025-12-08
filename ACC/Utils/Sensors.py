@@ -220,7 +220,7 @@ class CarlaVBWorldStateSensor(StateSensor):
         distance= self.vehicle_distance_memory.read()
         
         # TODO: replace with computer vision based logic
-        traffic_light_dist = 250
+        traffic_light_dist = 250.0
         traffic_light_color = LightColors.green
         # TODO: get speed limit from computer vision
         speed_limit=self.speed_limit
@@ -248,8 +248,8 @@ class CarlaVBWorldStateSensor(StateSensor):
         self.counter += 1
        
         return VehicleState(
-            speed_ms=ego_velocity_ms * 3.6,
-            speed_limit_ms=speed_limit,
+            speed_ms=ego_velocity_ms,
+            speed_limit_ms=speed_limit/3.6,
             lead_distance_m=distance,
             safe_following_distance_m=safe_distance,
             hasCrashed=False,
