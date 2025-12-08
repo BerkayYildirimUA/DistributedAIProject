@@ -232,6 +232,15 @@ class CarlaVBWorldStateSensor(StateSensor):
         ego_g_force = self.__g_force_ego_calculator.get_latest_g_force()
         relative_speed_ms = self.__relative_speed_lead_calculator.get_latest_g_force()
         speed_light_ms = self.__speed_light_calculator.get_latest_g_force()
+
+        if ego_g_force is None:
+            ego_g_force = 0
+
+        if relative_speed_ms is None:
+            relative_speed_ms = 0
+
+        if speed_light_ms is None:
+            speed_light_ms = 0
         
         if self.counter % 300 == 0:
             logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {speed_limit} km/h, distance to nearest: {distance[0]}m, safe dist: {safe_distance}m, CRASH: nvt")

@@ -76,7 +76,7 @@ class GForceCalculator:
         Returns the list of all calculated G-force values.
         """
         if len(self.g_force_values) == 0:
-            return 0.0
+            return None
 
         return self.g_force_values[-1]
 
