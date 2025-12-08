@@ -41,6 +41,9 @@ class CarlaWorldStateSensor(StateSensor):
             self.__collision_sensor.destroy()
 
         self.__collision_sensor = None
+        self.__ego = None
+        self.__world = None
+        self.__map = None
 
     def _get_light_color_enum(self, carla_state):
         """Maps CARLA TrafficLightState to your LightColors Enum"""
@@ -298,6 +301,7 @@ class CollisionSensor(object):
                 self.sensor.destroy()
 
             self.sensor = None
+        self._parent = None
 
 class PygameUI(UI):
     pass

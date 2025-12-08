@@ -168,6 +168,14 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         super().reset(seed=seed)
 
 
+        current_speed_limit = 0.0
+        counter = 0.0
+        if self.sensor_real is not None:
+            current_speed_limit = self.sensor_real.speed_limit
+            counter = self.sensor_real.counter
+            self.sensor_real.cleanup()
+            self.sensor_real = None
+
 
         if self.engine is not None:
             self.eng_args = self.engine.args
@@ -185,16 +193,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         if not self.engine.setup():
             raise RuntimeError("Engine setup failed. Exiting.")
-
-
-        #self.sensor_real.reset(self.engine.ego.real, self.engine.duo_world.get_real_world())
-        current_speed_limit = 0.0
-        counter = 0.0
-        if self.sensor_real is not None:
-            current_speed_limit = self.sensor_real.speed_limit
-            counter = self.sensor_real.counter
-            self.sensor_real.cleanup()
-            self.sensor_real = None
 
 
         self.sensor_real = CarlaWorldStateSensor(self.engine.ego.real, self.engine.duo_world.get_real_world())
@@ -217,10 +215,24 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         return obs, info
 
     def close(self):
-        super().close()
-        self.sensor_real.cleanup()
-        self.sensor_real = None
-        self.engine.cleanup()
+        if self.sensor_real is not None:
+            try:
+                self.sensor_real.cleanup()
+            except Exception as e:
+                logging.error(f"Error cleaning up sensor in close: {e}")
+            self.sensor_real = None
+
+        if self.engine is not None:
+            try:
+                self.engine.cleanup()
+            except Exception as e:
+                logging.error(f"Error cleaning up engine in close: {e}")
+            self.engine = None
+
+        try:
+            super().close()
+        except Exception:
+            pass
 
 
     def _reward(self, state : VehicleState) -> tuple[float, Dict]:

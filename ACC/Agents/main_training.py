@@ -51,24 +51,24 @@ def training_loop(args):
       #          reward_speed_limit=True
       #      )
       #  ),
-        (
-            loop_info(8 * 60 * 60, "speed_lead_lights"),
-            Scenario(
-                'vehicle.tesla.model3',
-                delta_seconds=args.delta_seconds,
-                map_name="CUSTOM_STRAIGHT_WITH_LIGHTS", #CUSTOM_STRAIGHT_WITH_LIGHTS
-                number_of_npc=0,
-                lead_car_bp_name='vehicle.tesla.model3',
-                reward_geforce=True,
-                reward_safe_distance=True,
-                reward_crash=True,
-                reward_speed_limit=True,
-                reward_light=False
-            )
-        ),
+      #  (    #
+         #   loop_info(2 * 60 * 60, "speed_lead_lights"),
+         #   #}    Scenario(
+        ##}        'vehicle.tesla.model3',
+        ##}        delta_seconds=args.delta_seconds,
+        ##}        map_name="CUSTOM_STRAIGHT_WITH_LIGHTS", #CUSTOM_STRAIGHT_WITH_LIGHTS
+        ##}        number_of_npc=0,
+        ##}        lead_car_bp_name='vehicle.tesla.model3',
+        ##}        reward_geforce=True,
+        ##}        reward_safe_distance=True,
+        ##}        reward_crash=True,
+        ##}        reward_speed_limit=True,
+        ##}        reward_light=False
+        #}    )
+        #}),
 
             (
-            loop_info(8 * 60 * 60, "speed_lead_lights_r"),
+            loop_info(10 * 60, f"speed_lead_lights_r_{args.model_nr}"),
             Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
@@ -84,9 +84,9 @@ def training_loop(args):
         )
     ]
 
-    current_model_name= "251208_043923_TD3_speed_lead_lights_chunk_600.msh"
+    current_model_name= args.load_model
 
-    chunk_duration_seconds = 10 * 60
+    chunk_duration_seconds = 1 * 60 * 60
 
 
     for info, scene in scenarios_list:
@@ -125,7 +125,7 @@ def training_loop(args):
                 else:
                     agent = ACC_TD3Agent(args, scene=scene)
 
-                if elapsed_duration == 0:
+                if elapsed_duration == -1: #TODO: I MADE IT -1 SO IT NEVER TRIGGERS
                     agent.reset_buffer()
 
                 agent.train(duration_seconds=current_chunk_duration)
@@ -164,16 +164,21 @@ def training_loop(args):
                     except:
                         pass
 
-                import gc
-                gc.collect()
+                del agent
+                agent = None
 
                 if server_manager:
                     try:
                         server_manager.terminate_servers()
                     except:
                         pass
+
+                    del server_manager
+                    server_manager = None
+
+                import gc
                 gc.collect()
-                time.sleep(3)
+                time.sleep(20)
         logging.info(f"Scenario {info.name} COMPLETED.")
 
 
@@ -234,6 +239,10 @@ if __name__ == '__main__':
 
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Enable verbose logging')
+
+    parser.add_argument('--load_model', type=str, default="", help='Path to .msh file to load')
+    parser.add_argument('--model_nr', type=int, default=600, help='How long to train before restarting')
+
     args = parser.parse_args()
 
     if args.verbose:

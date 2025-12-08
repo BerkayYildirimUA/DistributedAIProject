@@ -83,7 +83,7 @@ def main_loop(args):
         print(f"\nAn critical error occurred during simulation loop: {e}")
         traceback.print_exc()
     finally:
-        engine.cleanup()
+        engine.cleanup(True)
 
 
 if __name__ == '__main__':

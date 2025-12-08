@@ -59,6 +59,39 @@ class Engine():
         logging.info(f"[{server_name}] Preparing to load map: {map_name}...")
         client.set_timeout(5 * 60)
 
+        try:
+            current_world = client.get_world()
+            current_map_name = current_world.get_map().name
+
+            if "OpenDriveMap" in current_map_name and map_name.startswith("CUSTOM_"):
+                logging.info(f"[{server_name}] Custom map already loaded. Skipping regeneration.")
+                logging.info(f"[{server_name}] Applying Synchronous Settings...")
+
+                settings = current_world.get_settings()
+                settings.synchronous_mode = True
+                settings.fixed_delta_seconds = self.delta_seconds
+
+                current_world.apply_settings(settings)
+
+
+                return current_world
+
+            if map_name in current_map_name:
+                logging.info(f"[{server_name}] Map {map_name} is already loaded. Skipping reload.")
+
+                settings = current_world.get_settings()
+                settings.synchronous_mode = True
+                settings.fixed_delta_seconds = self.delta_seconds
+
+                current_world.apply_settings(settings)
+
+                return current_world
+        except RuntimeError:
+            pass
+
+
+
+
         if map_name.startswith("CUSTOM_"):
             current_dir = os.path.dirname(os.path.abspath(__file__))
             acc_dir = os.path.dirname(current_dir)
@@ -569,7 +602,7 @@ class Engine():
         return success
 
 
-    def cleanup(self):
+    def cleanup(self, delete_all=False):
         logging.info('Initiating cleanup...')
 
         # Store actors to destroy
@@ -600,15 +633,21 @@ class Engine():
                 destroyed_count += 1
         logging.info(f"Destroy method called for {destroyed_count} actor pairs.")
 
-        all_traffic_lights : carla.ActorList = self.duo_world.get_real_world().get_actors()
-        for light in all_traffic_lights:
-            if light.is_alive:
-                light.destroy()
+        all_traffic_actors : carla.ActorList = self.duo_world.get_real_world().get_actors()
 
-        all_traffic_lights = self.duo_world.get_mirror_world().get_actors()
-        for light in all_traffic_lights:
-            if light.is_alive:
-                light.destroy()
+
+        if delete_all:
+            for actor in all_traffic_actors:
+                if actor.is_alive:
+                    actor.destroy()
+
+            all_traffic_actors = self.duo_world.get_mirror_world().get_actors()
+            for actor in all_traffic_actors:
+                if actor.is_alive:
+                    actor.destroy()
+
+        tm = self.duo_client.mirror.get_trafficmanager()
+        tm.shut_down()
 
         if self.duo_world:
             self.duo_world.tick()
