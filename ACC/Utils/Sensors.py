@@ -196,6 +196,10 @@ class CarlaVBWorldStateSensor(StateSensor):
 
         self.start_sensor_threads()
 
+        self.__g_force_ego_calculator = GForceCalculator(self.__world.get_settings().fixed_delta_seconds)
+        self.__relative_speed_lead_calculator = GForceCalculator(self.__world.get_settings().fixed_delta_seconds)
+        self.__speed_light_calculator = GForceCalculator(self.__world.get_settings().fixed_delta_seconds)
+
     def cleanup(self):
         pass
 
@@ -220,13 +224,32 @@ class CarlaVBWorldStateSensor(StateSensor):
         traffic_light_color = LightColors.green
         # TODO: get speed limit from computer vision
         speed_limit=self.speed_limit
+
+        self.__g_force_ego_calculator.update_speed(ego_velocity_ms)
+        self.__relative_speed_lead_calculator.update_speed(distance[0])
+        self.__speed_light_calculator.update_speed(traffic_light_dist)
+
+        ego_g_force = self.__g_force_ego_calculator.get_latest_g_force()
+        relative_speed_ms = self.__relative_speed_lead_calculator.get_latest_g_force()
+        speed_light_ms = self.__speed_light_calculator.get_latest_g_force()
         
         if self.counter % 300 == 0:
             logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {speed_limit} km/h, distance to nearest: {distance[0]}m, safe dist: {safe_distance}m, CRASH: nvt")
 
         self.counter += 1
        
-        return VehicleState(speed_ms=ego_velocity_ms * 3.6, speed_limit_ms=speed_limit, lead_distance_m=distance, safe_following_distance_m=safe_distance, hasCrashed=False, light_color=traffic_light_color, light_dist_m=traffic_light_dist)
+        return VehicleState(
+            speed_ms=ego_velocity_ms * 3.6,
+            speed_limit_ms=speed_limit,
+            lead_distance_m=distance,
+            safe_following_distance_m=safe_distance,
+            hasCrashed=False,
+            light_color=traffic_light_color,
+            light_dist_m=traffic_light_dist,
+            g_force_ego=ego_g_force,
+            relative_speed_ms=relative_speed_ms,
+            light_speed_ms=speed_light_ms
+        )
 
     def create_ego_sensors(self):
         sensor_location = carla.Location(x=constants.SENSOR_POS_X, z=constants.SENSOR_POS_Z)
