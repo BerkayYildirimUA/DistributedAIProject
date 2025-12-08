@@ -84,7 +84,9 @@ class Engine():
                     smooth_junctions=True,
                     enable_mesh_visibility=True
                 )
+
             )
+            time.sleep(2.0)
 
         # 2. CHECK CURRENT STATE
         # If the map is already loaded, don't reload it (saves 5 seconds)
@@ -130,13 +132,22 @@ class Engine():
             raise RuntimeError(f"[{server_name}] Failed to load map {map_name} after waiting.")
 
         # 6. WARM UP TICKS
+        temp_settings = world.get_settings()
+        temp_settings.synchronous_mode = False
+        temp_settings.fixed_delta_seconds = 0.0
+        world.apply_settings(temp_settings)
+
+        world.wait_for_tick()
+
+        logging.info(f"[{server_name}] Applying Synchronous Settings...")
         settings = world.get_settings()
         settings.synchronous_mode = True
         settings.fixed_delta_seconds = self.delta_seconds
+
         world.apply_settings(settings)
 
-        for _ in range(5):
-            world.tick()
+
+        world.tick()
 
         return world
 
@@ -320,7 +331,12 @@ class Engine():
 
 
             # --- LEAD ---
-            if self.scenario.lead_car_bp_name != "":
+            lead_is_not_skipped = True
+            if self.args.do_train:
+                lead_is_not_skipped = random.random() > 0.25
+
+
+            if self.scenario.lead_car_bp_name != "" and lead_is_not_skipped:
                 lead_transform = carla.Transform(
                     ego_spawn_point.location + ego_spawn_point.get_forward_vector() * 15.0,
                     ego_spawn_point.rotation
@@ -563,6 +579,19 @@ class Engine():
     def cleanup(self):
         logging.info('Initiating cleanup...')
 
+        if self.tm_mirror:
+            try:
+                self.tm_mirror.set_synchronous_mode(False)
+                logging.info("Traffic Manager set to Asynchronous mode.")
+            except Exception as e:
+                logging.warning(f"Could not disable TM sync mode: {e}")
+
+        if self.duo_world:
+            try:
+                self.duo_world.tick()
+            except:
+                pass
+
         # Store actors to destroy
         actors_to_destroy: List[Optional[DuoActor]] = []
         if self.ego: actors_to_destroy.append(self.ego)
@@ -591,8 +620,18 @@ class Engine():
                 destroyed_count += 1
         logging.info(f"Destroy method called for {destroyed_count} actor pairs.")
 
-        #if self.duo_world:
-        #    self.duo_world.tick()
+        all_traffic_lights : carla.ActorList = self.duo_world.get_real_world().get_actors()
+        for light in all_traffic_lights:
+            if light.is_alive:
+                light.destroy()
+
+        all_traffic_lights = self.duo_world.get_mirror_world().get_actors()
+        for light in all_traffic_lights:
+            if light.is_alive:
+                light.destroy()
+
+        if self.duo_world:
+            self.duo_world.tick()
 
 
 

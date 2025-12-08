@@ -37,26 +37,26 @@ def training_loop(args):
         #        reward_speed_limit=True
         #    )
         #),
+      #  (
+      #      loop_info(2 * 60 * 60, "speed_lead"),
+      #      Scenario(
+      #          'vehicle.tesla.model3',
+      #          delta_seconds=args.delta_seconds,
+      #          map_name="CUSTOM_STRAIGHT",
+      #          number_of_npc=0,
+      #          lead_car_bp_name='vehicle.tesla.model3',
+      #          reward_geforce=True,
+      #          reward_safe_distance=True,
+      #          reward_crash=True,
+      #          reward_speed_limit=True
+      #      )
+      #  ),
         (
-            loop_info(2 * 60 * 60, "speed_lead"),
+            loop_info(8 * 60 * 60, "speed_lead_lights"),
             Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
-                map_name="CUSTOM_STRAIGHT",
-                number_of_npc=0,
-                lead_car_bp_name='vehicle.tesla.model3',
-                reward_geforce=True,
-                reward_safe_distance=True,
-                reward_crash=True,
-                reward_speed_limit=True
-            )
-        ),
-        (
-            loop_info(2 * 60 * 60, "speed_lead"),
-            Scenario(
-                'vehicle.tesla.model3',
-                delta_seconds=args.delta_seconds,
-                map_name="CUSTOM_STRAIGHT_WITH_LIGHTS",
+                map_name="CUSTOM_STRAIGHT_WITH_LIGHTS", #CUSTOM_STRAIGHT_WITH_LIGHTS
                 number_of_npc=0,
                 lead_car_bp_name='vehicle.tesla.model3',
                 reward_geforce=True,
@@ -67,13 +67,13 @@ def training_loop(args):
         )
     ]
 
-    current_model_name= "251208_014127_TD3_speed_lead_CONVERGED.msh"
+    current_model_name= "251208_043923_TD3_speed_lead_lights_chunk_600.msh"
 
     chunk_duration_seconds = 10 * 60
 
 
     for info, scene in scenarios_list:
-        stopper = EarlyStopper(patience=2, min_delta=2)
+        stopper = EarlyStopper(patience=3, min_delta=1)
         scene.name = info.name
         total_duration = info.duration
         elapsed_duration = 0
@@ -146,14 +146,17 @@ def training_loop(args):
                         agent.close()
                     except:
                         pass
+
+                import gc
+                gc.collect()
+
                 if server_manager:
                     try:
                         server_manager.terminate_servers()
                     except:
                         pass
-                import gc
                 gc.collect()
-                time.sleep(15)
+                time.sleep(3)
         logging.info(f"Scenario {info.name} COMPLETED.")
 
 

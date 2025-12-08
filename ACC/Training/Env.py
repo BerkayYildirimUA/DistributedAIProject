@@ -218,6 +218,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
     def close(self):
         super().close()
+        self.sensor_real.cleanup()
+        self.sensor_real = None
         self.engine.cleanup()
 
 
@@ -240,7 +242,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         r_crash = 0
         if use_crash and state.hasCrashed:
             logging.info("Car Crashed!")
-            r_crash = -500
+            r_crash = -100 * (1 + abs(state.relative_speed_ms))
 
         ############### G-FORCE ###############
         r_geforce = 0
@@ -286,7 +288,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                     r_dist = math.exp(-1 * (safety_margin-1))
 
                     if safety_margin >= 3 and (state.speed_ms * 3.6) < ((state.speed_limit_ms * 3.6) - 3):
-                        r_speed = (1 + (safety_margin / 10)) * r_speed
+                        r_speed = (1 + (safety_margin / 50)) * r_speed
 
                 else:
                     r_dist = - 7 * ((safety_margin - 1) ** 2) + 1
