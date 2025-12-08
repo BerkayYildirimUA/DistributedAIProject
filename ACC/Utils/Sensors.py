@@ -246,7 +246,11 @@ class CarlaVBWorldStateSensor(StateSensor):
             logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {speed_limit} km/h, distance to nearest: {distance[0]}m, safe dist: {safe_distance}m, CRASH: nvt")
 
         self.counter += 1
-       
+
+        ctrl = self.__ego.get_control()  # get the control applied in the last tick
+        # ctrl.steer in [-1,1] => schaal naar rad
+        steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
+
         return VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
@@ -257,7 +261,8 @@ class CarlaVBWorldStateSensor(StateSensor):
             light_dist_m=traffic_light_dist,
             g_force_ego=ego_g_force,
             relative_speed_ms=relative_speed_ms,
-            light_speed_ms=speed_light_ms
+            light_speed_ms=speed_light_ms,
+            steer_rad=steer_rad
         )
 
     def create_ego_sensors(self):

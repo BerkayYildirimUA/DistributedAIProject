@@ -24,6 +24,7 @@ class VehicleState: #maybe add steering direction?
     light_speed_ms: float #how fast we are approaching that light
     g_force_ego: float #the g force the ego is experincesing
     relative_speed_ms: float #the speed diff between ego and car in front
+    steer_rad: float = 0.0 #Optional
 
 class ActionsEnum(Enum):
     brake = 1

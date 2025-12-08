@@ -81,7 +81,7 @@ def main_loop(args):
 
             # Get state and write to shared memory
             real_ego_state = sensor_real.get_state()
-            vehicle_state_memory.write(np.array([real_ego_state.speed, real_ego_state.steering_dir], dtype=np.float32))
+            vehicle_state_memory.write(np.array([real_ego_state.speed_ms*3.6, real_ego_state.steer_rad], dtype=np.float32))
 
 
 
