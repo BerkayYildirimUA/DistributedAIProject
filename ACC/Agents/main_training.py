@@ -62,7 +62,24 @@ def training_loop(args):
                 reward_geforce=True,
                 reward_safe_distance=True,
                 reward_crash=True,
-                reward_speed_limit=True
+                reward_speed_limit=True,
+                reward_light=False
+            )
+        ),
+
+            (
+            loop_info(8 * 60 * 60, "speed_lead_lights_r"),
+            Scenario(
+                'vehicle.tesla.model3',
+                delta_seconds=args.delta_seconds,
+                map_name="CUSTOM_STRAIGHT_WITH_LIGHTS",  # CUSTOM_STRAIGHT_WITH_LIGHTS
+                number_of_npc=0,
+                lead_car_bp_name='vehicle.tesla.model3',
+                reward_geforce=True,
+                reward_safe_distance=True,
+                reward_crash=True,
+                reward_speed_limit=True,
+                reward_light=True
             )
         )
     ]

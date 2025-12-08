@@ -12,7 +12,7 @@ from carla import Vector3D
 from gymnasium.core import RenderFrame
 
 from ACC.Engine.engine import Engine
-from ACC.Utils.abstractions import ActionsEnum
+from ACC.Utils.abstractions import ActionsEnum, LightColors
 from ACC.Utils.abstractions import VehicleState
 from ACC.Utils.Sensors import CarlaWorldStateSensor
 from ACC.Engine.scenario import Scenario
@@ -152,15 +152,15 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
     def info(self):
         return self._mdp_info
 
-    def set_rewards(self, reward_crash=True, reward_geforce=True, reward_speed_limit=True, reward_safe_distance=True):
+    def set_rewards(self, reward_crash=True, reward_geforce=True, reward_speed_limit=True, reward_safe_distance=True, reward_light=True):
 
         if self.eng_scene is not None:
             self.eng_scene.rewards["reward_crash"] = reward_crash
             self.eng_scene.rewards["reward_geforce"] = reward_geforce
             self.eng_scene.rewards["reward_speed_limit"] = reward_speed_limit
             self.eng_scene.rewards["reward_safe_distance"] = reward_safe_distance
-        else:
-            print("SOMETHING WRONG") #TODO: delete this debug
+            self.eng_scene.rewards["reward_light"] = reward_light
+
 
 
     def reset(self, *, seed: int | None = None, options: Dict[str, Any] | None = None) -> \
@@ -237,6 +237,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         use_geforce = rewards_dict.get("reward_geforce", False)
         use_speed = rewards_dict.get("reward_speed_limit", True)
         use_dist = rewards_dict.get("reward_safe_distance", True)
+        use_light = rewards_dict.get("reward_light", True)
+
 
         ############### CRASH ###############
         r_crash = 0
@@ -296,6 +298,26 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
                 r_dist = r_dist_weight * r_dist
 
+        ############### TRAFFIC LIGHT ###############
+        r_light = 0.0
+        r_light_weight = 15.0
+        if use_light and (state.light_color.value == LightColors.red or state.light_color.value == LightColors.orange):
+            dist = state.light_dist_m
+            if 0 < dist < 50.0:
+                # RUNNING THE LIGHT PENALTY
+                if dist < 4.0 and state.speed_ms > 2.0:
+                    r_light = -100.0 * (1 + abs(state.speed_ms / 40))
+                    logging.info(f"Red Light Violation! Speed: {state.speed_ms:.2f}")
+                # BRAKING CURVE REWARD
+                else:
+                    target_stop_dist = max(0, dist - 3.0)
+                    desired_speed_at_dist = math.sqrt(2 * 2.0 * target_stop_dist)
+                    speed_excess = max(0, state.speed_ms - desired_speed_at_dist)
+                    r_light = -1.0 * (speed_excess ** 1.5)
+                # STOPPED REWARD
+                if state.speed_ms < 0.1 and dist < 15.0 and dist > 2.0:
+                    r_light += 1.0
+        r_light = r_light * r_light_weight
 
 
         #logging.info(f"rewards: {reward}")
@@ -304,7 +326,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         #logging.info(f"  [Speed Limit]   : {'ON' if use_speed else 'OFF'}")
         #logging.info(f"  [Safe Distance] : {'ON' if use_dist else 'OFF'}")
 
-        total_reward = r_crash + r_dist + r_geforce + r_speed if r_crash == 0 else r_crash
+        total_reward = r_crash + r_dist + r_geforce + r_speed + r_light if r_crash == 0 else r_crash
 
         components = {
             "Reward/Total": total_reward,
@@ -312,6 +334,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             "Reward/GForce": r_geforce,
             "Reward/Speed": r_speed,
             "Reward/Distance": r_dist,
+            "Reward/Lights": r_light,
             "State/distance/safe_distance": safe_distance,
             "State/distance/safety_margin": safety_margin,
 

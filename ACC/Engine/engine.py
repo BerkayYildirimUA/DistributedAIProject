@@ -132,13 +132,6 @@ class Engine():
             raise RuntimeError(f"[{server_name}] Failed to load map {map_name} after waiting.")
 
         # 6. WARM UP TICKS
-        temp_settings = world.get_settings()
-        temp_settings.synchronous_mode = False
-        temp_settings.fixed_delta_seconds = 0.0
-        world.apply_settings(temp_settings)
-
-        world.wait_for_tick()
-
         logging.info(f"[{server_name}] Applying Synchronous Settings...")
         settings = world.get_settings()
         settings.synchronous_mode = True
@@ -578,19 +571,6 @@ class Engine():
 
     def cleanup(self):
         logging.info('Initiating cleanup...')
-
-        if self.tm_mirror:
-            try:
-                self.tm_mirror.set_synchronous_mode(False)
-                logging.info("Traffic Manager set to Asynchronous mode.")
-            except Exception as e:
-                logging.warning(f"Could not disable TM sync mode: {e}")
-
-        if self.duo_world:
-            try:
-                self.duo_world.tick()
-            except:
-                pass
 
         # Store actors to destroy
         actors_to_destroy: List[Optional[DuoActor]] = []
