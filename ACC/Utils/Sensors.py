@@ -250,7 +250,7 @@ class CarlaVBWorldStateSensor(StateSensor):
         return VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
-            lead_distance_m=distance,
+            lead_distance_m=distance[0],
             safe_following_distance_m=safe_distance,
             hasCrashed=False,
             light_color=traffic_light_color,
