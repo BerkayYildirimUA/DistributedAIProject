@@ -265,10 +265,11 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
 
         lead_distance = self.min_dist if np.isinf(distance[0])  else distance[0]
+        state2 = super().get_state()
         state= VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
-            lead_distance_m=lead_distance,
+            lead_distance_m=state2.lead_distance_m,
             safe_following_distance_m=safe_distance,
             hasCrashed=False,
             light_color=traffic_light_color,
@@ -278,12 +279,11 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             light_speed_ms=speed_light_ms,
             steer_rad=steer_rad
         )
-        state2 = super().get_state()
         if self.counter % 300 == 0:
             self.print_vehicle_state(state)
             self.print_vehicle_state(state2)
-        return state2
         return state
+
 
     def create_ego_sensors(self):
         sensor_location = carla.Location(x=constants.SENSOR_POS_X, z=constants.SENSOR_POS_Z)
