@@ -264,10 +264,11 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # ctrl.steer in [-1,1] => schaal naar rad
         steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
 
+        lead_distance = self.min_dist if np.isinf(distance[0])  else distance[0]
         state= VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
-            lead_distance_m=distance[0],
+            lead_distance_m=lead_distance,
             safe_following_distance_m=safe_distance,
             hasCrashed=False,
             light_color=traffic_light_color,
