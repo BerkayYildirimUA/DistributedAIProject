@@ -146,8 +146,6 @@ try:
 
         # if len(lanes) > 0:
         #     bird_eye_visualiser.show(boxes,class_ids,lanes)
-
-
         dist_arr = np.asarray(distances, dtype=np.float64)
 
         # TODO: if distance contains nan values, this does not work. We are comparing object counts while relying on distances

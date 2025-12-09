@@ -36,6 +36,12 @@ ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE = "actual_objects_in_front_count.gz"
 ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE = "estimated_objects_in_front_count.gz"
 ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE = "actual_vehicle_distance_in_front.gz"
 ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE = "estimated_vehicle_distance_in_front.gz"
+GT_LEAD_DISTANCE_FILE="gt_lead_distance.gz"
+LEAD_DISTANCE_FILE="lead_distance.gz"
+GT_SPEED_LIMIT_FILE="gt_speed_limit.gz"
+SPEED_FILE="speed.gz"
+G_FORCE_FILE="g_force.gz"
+GT_SAFE_FOLLOWING_DISTANCE_FILE="gt_safe_following_distance.gz"
 
 MAX_OBJECT_DETECT_DISTANCE = 20.0
 MAX_LEAD_ACTOR_DISTANCE = 60.0

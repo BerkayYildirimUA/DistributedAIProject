@@ -11,8 +11,13 @@ from ACC.Engine.start_words import CarlaServerManager
 from ACC.Utils.Sensors import CarlaVBWorldStateSensor, CarlaWorldStateSensor
 from ACC.Engine.engine import Engine
 from app.memory.shared_memory import VehicleStateMemory
-
+from app.data_processors.metrics_logger import iter_metrics
+from app.data_processors.metrics_logger import MetricsLogger
+from app.data_processors.metrics_logger import iter_metrics
+from app.data_processors.metrics_logger import clear_metrics_file
+from app.data_processors.statistics_calculator import StatisticsCalculator
 from ACC.Agents.RLAgents import RLDecisionAgent
+
 """
 RL FEEDBACK 
 
@@ -39,16 +44,31 @@ def main_loop(args):
                      map_name=args.map, number_of_npc=0,lead_car_bp_name='vehicle.tesla.model3')
     engine = Engine(args, scene)
 
+    # Logging
+    GT_lead_distance_logger = MetricsLogger(constants.GT_LEAD_DISTANCE_FILE, compress=True)
+    lead_distance_logger = MetricsLogger(constants.LEAD_DISTANCE_FILE, compress=True)
+
+    GT_speed_limit_logger = MetricsLogger(constants.GT_SPEED_LIMIT_FILE, compress=True)
+    speed_logger = MetricsLogger(constants.SPEED_FILE, compress=True)
+
+    g_force_logger = MetricsLogger(constants.G_FORCE_FILE, compress=True)
+    GT_safe_following_distance_logger = MetricsLogger(constants.GT_SAFE_FOLLOWING_DISTANCE_FILE, compress=True)
+
+    frame_id_memory = FrameIdMemory().get_read_access()
+
     try:
         engine.connect_to_worlds()
 
         if not engine.setup():
             raise RuntimeError("Engine setup failed. Exiting.")
 
+
+
         # sensor and agent Setup (Real World)
         # if engine.lead is not None:
         #     sensor_real = CarlaLeadStateSensor(engine.ego.real, engine.lead.real)
         # else:
+        sensor_ground_truth =  CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
         sensor_real =  CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
 
         #decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
@@ -58,6 +78,8 @@ def main_loop(args):
         vehicle_state_memory = VehicleStateMemory().get_write_access()
 
         while True:
+            frame_id = int(frame_id_memory.read()[0])
+
             mirror_frame, _ = engine.duo_world.tick()
 
             # apply control
@@ -83,10 +105,96 @@ def main_loop(args):
             real_ego_state = sensor_real.get_state()
             vehicle_state_memory.write(np.array([real_ego_state.speed_ms*3.6, real_ego_state.steer_rad], dtype=np.float32))
 
+            # Metrics
+            ground_truth_state = sensor_ground_truth.get_state()
+            GT_lead_distance = ground_truth_state.lead_distance_m
+            lead_distance = real_ego_state.lead_distance_m
+            experienced_g_force = real_ego_state.g_force_ego
+            driving_speed = real_ego_state.speed_ms
+            GT_speed_limit = real_ego_state.speed_limit_ms
+            GT_safe_following_distance=ground_truth_state.safe_following_distance_m
 
+            GT_lead_distance_logger.log(
+                frame_id=frame_id,
+                lead_distance=GT_lead_distance,
+            )
+            lead_distance_logger.log(
+                frame_id=frame_id,
+                lead_distance=lead_distance,
+            )
+            GT_safe_following_distance_logger.log(
+                frame_id=frame_id,
+                safe_following_distance=GT_safe_following_distance,
+            )
+            g_force_logger.log(
+                frame_id=frame_id,
+                force=experienced_g_force
+            )
+            speed_logger.log(
+                frame_id=frame_id,
+                speed=driving_speed
+            )
+            GT_speed_limit_logger.log(
+                frame_id=frame_id,
+                speed_limit=GT_speed_limit
+            )
 
     except KeyboardInterrupt:
         print("\nSimulation stopped by user (KeyboardInterrupt).")
+        # Close loggers
+        GT_lead_distance_logger.close()
+        lead_distance_logger.close()
+        GT_safe_following_distance_logger.close()
+        g_force_logger.close()
+        speed_logger.close()
+        GT_speed_limit_logger.close()
+
+        # Create plots
+        stats = StatisticsCalculator(reader_fn=iter_metrics)
+
+        stats.add_metric_from_files(
+            name="lead_distance_m",
+            actual_file=constants.GT_LEAD_DISTANCE_FILE,
+            estimated_file=constants.LEAD_DISTANCE_FILE,
+            actual_key="lead_distance",
+            estimated_key="lead_distance",
+            frame_key="frame_id",
+        )
+
+        stats.add_metric_from_files(
+            name="following distance vs safe following distance",
+            actual_file=constants.GT_SAFE_FOLLOWING_DISTANCE_FILE,
+            estimated_file=constants.LEAD_DISTANCE_FILE,
+            actual_key="safe_following_distance",
+            estimated_key="lead_distance",
+            frame_key="frame_id",
+        )
+
+        stats.add_metric_from_files(
+            name="Speed vs speed limit (ms)",
+            actual_file=constants.GT_SPEED_LIMIT_FILE,
+            estimated_file=constants.SPEED_FILE,
+            actual_key="speed_limit",
+            estimated_key="speed",
+            frame_key="frame_id",
+        )
+
+        stats.add_metric_from_files(
+            name="g-force",
+            actual_file=constants.G_FORCE_FILE,
+            estimated_file=constants.G_FORCE_FILE,
+            actual_key="g_force",
+            estimated_key="g_force",
+            frame_key="frame_id",
+        )
+
+        stats.plot_all("run_002_metrics.png", suptitle="Run 002 metrics")
+
+        clear_metrics_file(constants.GT_LEAD_DISTANCE_FILE)
+        clear_metrics_file(constants.LEAD_DISTANCE_FILE)
+        clear_metrics_file(constants.SPEED_FILE)
+        clear_metrics_file(constants.GT_SPEED_LIMIT_FILE)
+        clear_metrics_file(constants.G_FORCE_FILE)
 
     except Exception as e:
         print(f"\nAn critical error occurred during simulation loop: {e}")
