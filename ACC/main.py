@@ -142,6 +142,12 @@ def main_loop(args):
 
     except KeyboardInterrupt:
         print("\nSimulation stopped by user (KeyboardInterrupt).")
+
+    except Exception as e:
+        print(f"\nAn critical error occurred during simulation loop: {e}")
+        traceback.print_exc()
+    finally:
+        engine.cleanup()
         # Close loggers
         GT_lead_distance_logger.close()
         lead_distance_logger.close()
@@ -149,61 +155,6 @@ def main_loop(args):
         g_force_logger.close()
         speed_logger.close()
         GT_speed_limit_logger.close()
-
-        # Create plots
-        stats = StatisticsCalculator(reader_fn=iter_metrics)
-
-        stats.add_metric_from_files(
-            name="lead_distance_m",
-            actual_file=constants.GT_LEAD_DISTANCE_FILE,
-            estimated_file=constants.LEAD_DISTANCE_FILE,
-            actual_key="lead_distance",
-            estimated_key="lead_distance",
-            frame_key="frame_id",
-        )
-
-        stats.add_metric_from_files(
-            name="following distance vs safe following distance",
-            actual_file=constants.GT_SAFE_FOLLOWING_DISTANCE_FILE,
-            estimated_file=constants.LEAD_DISTANCE_FILE,
-            actual_key="safe_following_distance",
-            estimated_key="lead_distance",
-            frame_key="frame_id",
-        )
-
-        stats.add_metric_from_files(
-            name="Speed vs speed limit (ms)",
-            actual_file=constants.GT_SPEED_LIMIT_FILE,
-            estimated_file=constants.SPEED_FILE,
-            actual_key="speed_limit",
-            estimated_key="speed",
-            frame_key="frame_id",
-        )
-
-        stats.add_metric_from_files(
-            name="g-force",
-            actual_file=constants.G_FORCE_FILE,
-            estimated_file=constants.G_FORCE_FILE,
-            actual_key="g_force",
-            estimated_key="g_force",
-            frame_key="frame_id",
-        )
-
-        stats.plot_all("run_002_metrics.png", suptitle="Run 002 metrics")
-
-        clear_metrics_file(constants.GT_LEAD_DISTANCE_FILE)
-        clear_metrics_file(constants.LEAD_DISTANCE_FILE)
-        clear_metrics_file(constants.SPEED_FILE)
-        clear_metrics_file(constants.GT_SPEED_LIMIT_FILE)
-        clear_metrics_file(constants.G_FORCE_FILE)
-
-        print("GETTING STATS")
-
-    except Exception as e:
-        print(f"\nAn critical error occurred during simulation loop: {e}")
-        traceback.print_exc()
-    finally:
-        engine.cleanup()
 
 
 if __name__ == '__main__':
