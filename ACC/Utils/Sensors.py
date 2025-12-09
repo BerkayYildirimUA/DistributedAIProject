@@ -201,7 +201,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         self.start_sensor_threads()
 
-        self.prev_lead_distance=0.0
+        self.prev_lead_distance=500.0
 
     def cleanup(self):
         pass
