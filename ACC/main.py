@@ -3,19 +3,13 @@ import logging
 import traceback
 import numpy as np
 import subprocess
-#import carla
-#from carla import BlueprintLibrary
 
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
 from ACC.Utils.Sensors import CarlaVBWorldStateSensor, CarlaWorldStateSensor
 from ACC.Engine.engine import Engine
 from app.memory.shared_memory import VehicleStateMemory, FrameIdMemory
-from app.data_processors.metrics_logger import iter_metrics
 from app.data_processors.metrics_logger import MetricsLogger
-from app.data_processors.metrics_logger import iter_metrics
-from app.data_processors.metrics_logger import clear_metrics_file
-from app.data_processors.statistics_calculator import StatisticsCalculator
 from ACC.Agents.RLAgents import RLDecisionAgent
 import app.constants  as constants
 
@@ -55,7 +49,6 @@ def main_loop(args):
     g_force_logger = MetricsLogger(constants.G_FORCE_FILE, compress=True)
     GT_safe_following_distance_logger = MetricsLogger(constants.GT_SAFE_FOLLOWING_DISTANCE_FILE, compress=True)
 
-    frame_id_memory = FrameIdMemory().get_read_access()
 
     try:
         engine.connect_to_worlds()
@@ -79,10 +72,8 @@ def main_loop(args):
         vehicle_state_memory = VehicleStateMemory().get_write_access()
 
         while True:
-            frame_id = int(frame_id_memory.read()[0])
 
-            mirror_frame, _ = engine.duo_world.tick()
-
+            mirror_frame, frame_id = engine.duo_world.tick()
             # apply control
             tm_control = engine.ego.get_mirror_control()
             agent_control = decisionAgent.make_decision(tm_control)

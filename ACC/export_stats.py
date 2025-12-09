@@ -47,6 +47,8 @@ def main_loop():
 
     clear_metrics_file(constants.GT_LEAD_DISTANCE_FILE)
     clear_metrics_file(constants.LEAD_DISTANCE_FILE)
+    clear_metrics_file(constants.GT_SAFE_FOLLOWING_DISTANCE_FILE)
+
     clear_metrics_file(constants.SPEED_FILE)
     clear_metrics_file(constants.GT_SPEED_LIMIT_FILE)
     clear_metrics_file(constants.G_FORCE_FILE)

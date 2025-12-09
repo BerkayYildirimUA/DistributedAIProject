@@ -118,7 +118,6 @@ class StatisticsCalculator:
             frame_key:
                 JSON key for frame id, default 'frame_id'.
         """
-        print("mbgueibguiezbguiezbgui")
         actual_series = _load_series_from_reader(
             self._reader_fn, actual_file, actual_key, frame_key
         )
