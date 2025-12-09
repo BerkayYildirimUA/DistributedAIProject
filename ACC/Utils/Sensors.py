@@ -10,6 +10,7 @@ from carla import Vector3D
 import math
 import logging
 import numpy as np
+from typing_extensions import override
 
 from ACC.Utils.GForce_Class import GForceCalculator
 from ACC.Utils.abstractions import StateSensor, UI, VehicleState, LightColors
@@ -36,6 +37,9 @@ class CarlaWorldStateSensor(StateSensor):
         self.__speed_light_calculator = GForceCalculator(self.__world.get_settings().fixed_delta_seconds)
 
         self.min_dist = 250
+
+        self.dist_calc = lambda l: math.sqrt((l.x - ego_loc.x)**2 + (l.y - ego_loc.y)**2 + (l.z - ego_loc.z)**2)
+
 
 
     def cleanup(self):
@@ -94,9 +98,7 @@ class CarlaWorldStateSensor(StateSensor):
 
         vehicles = self.__world.get_actors().filter('vehicle.*')
 
-        dist_calc = lambda l: math.sqrt((l.x - ego_loc.x)**2 + (l.y - ego_loc.y)**2 + (l.z - ego_loc.z)**2)
-
-        vehicles = [(dist_calc(x.get_location()), x) for x in vehicles if x.id != self.__ego.id]
+        vehicles = [(self.dist_calc(x.get_location()), x) for x in vehicles if x.id != self.__ego.id]
 
 
         ego_velocity_vec: Vector3D = self.__ego.get_velocity()
@@ -137,7 +139,7 @@ class CarlaWorldStateSensor(StateSensor):
 
         # Use the actor if found
         if target_light_actor:
-            traffic_light_dist_m = dist_calc(target_light_actor.get_location())
+            traffic_light_dist_m = self.dist_calc(target_light_actor.get_location())
             traffic_light_color = self._get_light_color_enum(target_light_actor.get_state())
 
 
@@ -168,11 +170,10 @@ class CarlaWorldStateSensor(StateSensor):
                             light_color=traffic_light_color, light_dist_m=traffic_light_dist_m, g_force_ego=ego_g_force,
                             relative_speed_ms=relative_speed_ms, light_speed_ms=speed_light_ms)
 
-class CarlaVBWorldStateSensor(StateSensor):
+class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
     def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World):
-        self.__ego = ego_vehicle
-        self.__world = world
+        super().__init__(ego_vehicle, world)
 
         self.__safe_time_distance_seconds = 2
         self.counter = 0
@@ -196,10 +197,6 @@ class CarlaVBWorldStateSensor(StateSensor):
 
         self.start_sensor_threads()
 
-        self.__g_force_ego_calculator = GForceCalculator(self.__world.get_settings().fixed_delta_seconds)
-        self.__relative_speed_lead_calculator = GForceCalculator(self.__world.get_settings().fixed_delta_seconds)
-        self.__speed_light_calculator = GForceCalculator(self.__world.get_settings().fixed_delta_seconds)
-
     def cleanup(self):
         pass
 
@@ -209,45 +206,7 @@ class CarlaVBWorldStateSensor(StateSensor):
         self.__world = world
         self.counter = 0
 
-    def _get_trafficlight(self, ego_waypoint):
-        landmarks = ego_waypoint.get_landmarks_of_type(600.0, "1000001", stop_at_junction=False)
-
-        target_light_actor = None
-
-        if landmarks:
-            target_landmark = landmarks[0]
-            landmark_loc = target_landmark.transform.location
-
-            # 2. Iterate ALL traffic light actors to find the one closest to this landmark
-            #    (Since ID matching failed, we match by distance)
-            all_traffic_lights = self.__world.get_actors().filter('traffic.traffic_light')
-
-            closest_dist = float('inf')
-
-            for tl_actor in all_traffic_lights:
-                # Calculate distance between the Map Landmark and the Simulation Actor
-                dist = tl_actor.get_location().distance(landmark_loc)
-
-                # If it's within a small margin (e.g., 2 meters), it's the one!
-                if dist < 2.0:
-                    target_light_actor = tl_actor
-                    break
-
-                # Track closest just for debugging
-                if dist < closest_dist:
-                    closest_dist = dist
-
-        return target_light_actor
-
-    def _get_light_color_enum(self, carla_state):
-        """Maps CARLA TrafficLightState to your LightColors Enum"""
-        if carla_state == carla.TrafficLightState.Red:
-            return LightColors.red
-        elif carla_state == carla.TrafficLightState.Yellow:
-            return LightColors.orange
-        else:
-            return LightColors.green
-
+    @override
     def get_state(self) -> VehicleState:
         ego_velocity_vec: Vector3D = self.__ego.get_velocity()
         ego_velocity_ms = ego_velocity_vec.length()
@@ -262,20 +221,20 @@ class CarlaVBWorldStateSensor(StateSensor):
         ego_transform = self.__ego.get_transform()
         ego_loc = ego_transform.location
         ego_waypoint = self.__world.get_map().get_waypoint(ego_loc, project_to_road=True, lane_type=carla.LaneType.Driving)
-
         target_light_actor = self._get_trafficlight(ego_waypoint)
-        traffic_light_dist_m = 250.0
+        traffic_light_dist_m = self.min_dist
         traffic_light_color = LightColors.green
 
-        dist_calc = lambda l: math.sqrt((l.x - ego_loc.x)**2 + (l.y - ego_loc.y)**2 + (l.z - ego_loc.z)**2)
 
         # Use the actor if found
         if target_light_actor:
-            traffic_light_dist_m = dist_calc(target_light_actor.get_location())
+            traffic_light_dist_m = self.dist_calc(target_light_actor.get_location())
             traffic_light_color = self._get_light_color_enum(target_light_actor.get_state())
+
         # TODO: get speed limit from computer vision
         speed_limit=self.speed_limit
 
+        # G-force
         self.__g_force_ego_calculator.update_speed(ego_velocity_ms)
         self.__relative_speed_lead_calculator.update_speed(distance[0])
         self.__speed_light_calculator.update_speed(traffic_light_dist_m)
@@ -294,7 +253,7 @@ class CarlaVBWorldStateSensor(StateSensor):
             speed_light_ms = 0
         
         if self.counter % 300 == 0:
-            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {speed_limit} km/h, distance to nearest: {distance[0]}m, safe dist: {safe_distance}m, CRASH: nvt")
+            logging.info(f"speed: {int(ego_velocity_ms * 3.6)}km/h, speed lim: {int(speed_limit)} km/h, distance to nearest: {int(distance[0])}m, safe dist: {int(safe_distance)}m,traffic light color: {traffic_light_color}, traffic light distance: {traffic_light_dist_m}m, CRASH: nvt")
 
         self.counter += 1
 
@@ -302,8 +261,6 @@ class CarlaVBWorldStateSensor(StateSensor):
         # ctrl.steer in [-1,1] => schaal naar rad
         steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
 
-        traffic_light_dist_m=math.inf
-        traffic_light_color = traffic_light_color.green
         return VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
