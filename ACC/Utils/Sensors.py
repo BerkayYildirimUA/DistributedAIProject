@@ -216,7 +216,7 @@ class CarlaWorldStateSensor(StateSensor):
 
             if target_light_actor:
                 try:
-                    traffic_light_dist_m = ego_loc.distance(target_light_actor.get_location())
+                    traffic_light_dist_m = min(ego_loc.distance(target_light_actor.get_location()), traffic_light_dist_m)
                     traffic_light_color = self._get_light_color_enum(target_light_actor.get_state())
                 except RuntimeError:
                     pass

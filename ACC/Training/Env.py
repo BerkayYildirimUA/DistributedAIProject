@@ -274,7 +274,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         r_crash = 0
         if use_crash and state.crash_intensity > 0.0:
             logging.info("Car Crashed!")
-            r_crash = -500 * (1 + abs(state.crash_intensity/10000))
+            r_crash = -100 * (1 + abs(state.crash_intensity/10000))
 
         ############### G-FORCE ###############
         r_geforce = 0
@@ -291,6 +291,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         ############### SPEED ###############
         r_speed = 0
         r_speed_weight = 1.0
+        r_speed_postive_weight = 2.0
+
         if use_speed:
 
             target_speed = state.speed_limit_ms
@@ -309,7 +311,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             if speed_diff > 0:
                 r_speed = 1.5 * math.exp(-(speed_diff ** 2) / 2.5) - 0.5 - 0.1 * speed_diff # maybe 0.05?
             else:
-                r_speed = math.exp(-(speed_diff ** 2) / 25) + 0.1 * speed_diff
+                r_speed = r_speed_postive_weight * (math.exp(-(speed_diff ** 2) / 25) + 0.1 * speed_diff)
 
             r_speed = r_speed_weight * r_speed
 
@@ -348,24 +350,24 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         ############### TRAFFIC LIGHT ###############
         r_light = 0.0
-        r_light_weight = 15.0
+        r_light_weight = 20.0
         if use_light and (state.light_color == LightColors.red or state.light_color == LightColors.orange):
             dist = state.light_dist_m
             if 0 < dist < 50.0:
                 # RUNNING THE LIGHT PENALTY
-                if dist < 4.0 and state.speed_ms > 2.0:
+                if dist < 7 and state.speed_ms > 2.0:
                     r_light = -100.0 * (1 + abs(state.speed_ms / 40))
                     logging.info(f"Red Light Violation! Speed: {state.speed_ms:.2f}")
                 # BRAKING CURVE REWARD
                 else:
-                    target_stop_dist = max(0, dist - 3.0)
+                    target_stop_dist = max(0, dist - 7.5)
                     desired_speed_at_dist = math.sqrt(2 * 2.0 * target_stop_dist)
                     speed_excess = max(0, state.speed_ms - desired_speed_at_dist)
-                    r_light = -1.0 * (speed_excess ** 1.5)
+                    r_light = -2.0 * (speed_excess ** 1.5)
                 # STOPPED REWARD
-                if state.speed_ms < 0.1 and dist < 15.0 and dist > 2.0:
+                if state.speed_ms < 0.1 and dist < 20.0 and dist > 2.0:
                     r_light += 1.0
-        r_light = r_light * r_light_weight
+            r_light = r_light * r_light_weight
 
 
         #logging.info(f"rewards: {reward}")
@@ -374,7 +376,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         #logging.info(f"  [Speed Limit]   : {'ON' if use_speed else 'OFF'}")
         #logging.info(f"  [Safe Distance] : {'ON' if use_dist else 'OFF'}")
 
-        total_reward = r_crash + r_dist + r_geforce + r_speed + r_light if r_crash == 0 else r_crash
+        total_reward = r_crash + r_dist + r_geforce + r_speed + r_light
+
 
         components = {
             "Reward/Total": total_reward,
@@ -500,6 +503,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                     if dist_to_lead > 300:
                         target_catchup_speed = max(0.0, state.speed_ms * 3.6 * random.uniform(0.5, 0.8))
 
+                        if random.random() < 0.10:
+                            target_catchup_speed = 0.0
+
                         # Only update if meaningful change to avoid spamming TM
                         if abs(self.lead_speed_limit - target_catchup_speed) > 1.0:
                             self.lead_speed_limit = target_catchup_speed
@@ -516,7 +522,15 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                         self.engine.lead.real.set_location(lead_location)
                         self.engine.lead.mirror.set_location(lead_location)
 
-                        self.lead_speed_limit = state.speed_limit_ms * 3.6 + random.randint(-15, 15)
+                        speed_limit_kh = int(state.speed_limit_ms * 3.6)
+
+                        if random.random() < 0.75:
+                            self.lead_speed_limit = random.randint(speed_limit_kh, speed_limit_kh + 15)
+                        else:
+                            self.lead_speed_limit = random.randint(0, speed_limit_kh)
+
+                        if random.random() < 0.1:
+                            self.lead_speed_limit = 0.0
 
                         self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
 
@@ -580,7 +594,7 @@ class GymnasiumToGymWrapper:
     def step(self, action):
         action = np.clip(action, -1.0, 1.0)
         obs, reward, terminated, truncated, info = self.env.step(action)
-        done = terminated or truncated
+        done = terminated
 
         if wandb.run is not None:
             log_dict = {k: v for k, v in info.items() if isinstance(v, (int, float))}
@@ -589,7 +603,7 @@ class GymnasiumToGymWrapper:
 
         self.step_count += 1
 
-        return obs, reward, done, info
+        return obs, reward, terminated, info
 
     def render(self):
         return self.env.render()
