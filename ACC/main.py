@@ -49,7 +49,7 @@ def main_loop(args):
         # if engine.lead is not None:
         #     sensor_real = CarlaLeadStateSensor(engine.ego.real, engine.lead.real)
         # else:
-        sensor_real = CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+        sensor_real =  CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
 
         #decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
         decisionAgent = RLDecisionAgent(sensor_real, "251208_032755_TD3_speed_lead_chunk_600.msh")
