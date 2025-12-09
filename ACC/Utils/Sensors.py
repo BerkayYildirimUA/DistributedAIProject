@@ -260,11 +260,11 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         ctrl = self._ego.get_control()  # get the control applied in the last tick
         # ctrl.steer in [-1,1] => schaal naar rad
         steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
-
+        state2 = super().get_state()
         state= VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
-            lead_distance_m=500.0,
+            lead_distance_m=state2.lead_distance_m,
             safe_following_distance_m=safe_distance,
             hasCrashed=False,
             light_color=traffic_light_color,
