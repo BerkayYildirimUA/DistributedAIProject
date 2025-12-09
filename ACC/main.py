@@ -197,6 +197,8 @@ def main_loop(args):
         clear_metrics_file(constants.GT_SPEED_LIMIT_FILE)
         clear_metrics_file(constants.G_FORCE_FILE)
 
+        print("GETTING STATS")
+
     except Exception as e:
         print(f"\nAn critical error occurred during simulation loop: {e}")
         traceback.print_exc()
