@@ -276,7 +276,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             g_force_ego=ego_g_force,
             relative_speed_ms=relative_speed_ms,
             light_speed_ms=speed_light_ms,
-            # steer_rad=steer_rad
+            steer_rad=steer_rad
         )
         if self.counter % 300 == 0:
             self.print_vehicle_state(state)
