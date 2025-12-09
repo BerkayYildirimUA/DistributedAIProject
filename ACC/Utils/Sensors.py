@@ -220,6 +220,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self.speed_limit = self._ego.get_speed_limit()
 
         distance= self.vehicle_distance_memory.read()
+        print("found distance",distance)
         
         # TODO: replace with computer vision based logic
         # ego_transform = self._ego.get_transform()
