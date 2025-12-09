@@ -38,8 +38,8 @@ def main_loop():
         name="g-force",
         actual_file=constants.G_FORCE_FILE,
         estimated_file=constants.G_FORCE_FILE,
-        actual_key="g_force",
-        estimated_key="g_force",
+        actual_key="force",
+        estimated_key="force",
         frame_key="frame_id",
     )
 
