@@ -40,6 +40,9 @@ class CarlaWorldStateSensor(StateSensor):
 
 
 
+    def print_vehicle_state(self,state:VehicleState):
+        logging.info(
+            f"speed: {state.speed_ms * 3.6:.2f}fkm/h, speed limit: {state.speed_limit_ms*3.6:.2f} km/h, distance to nearest: {state.lead_distance_m:.2f}m, safe dist: {state.safe_following_distance_m:.2f}m,traffic light color: {state.light_color}, traffic light distance: {state.light_dist_m:.2f}m, CRASH: nvt")
 
     def cleanup(self):
 
@@ -253,8 +256,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         if speed_light_ms is None:
             speed_light_ms = 0
         
-        if self.counter % 300 == 0:
-            logging.info(f"speed: {int(ego_velocity_ms * 3.6)}km/h, speed lim: {int(speed_limit)} km/h, distance to nearest: {int(distance[0])}m, safe dist: {int(safe_distance)}m,traffic light color: {traffic_light_color}, traffic light distance: {traffic_light_dist_m}m, CRASH: nvt")
 
         self.counter += 1
 
@@ -262,7 +263,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # ctrl.steer in [-1,1] => schaal naar rad
         steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
 
-        return VehicleState(
+        state= VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
             lead_distance_m=distance[0],
@@ -275,6 +276,9 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             light_speed_ms=speed_light_ms,
             steer_rad=steer_rad
         )
+        if self.counter % 300 == 0:
+            self.print_vehicle_state(state)
+        return state
 
     def create_ego_sensors(self):
         sensor_location = carla.Location(x=constants.SENSOR_POS_X, z=constants.SENSOR_POS_Z)
