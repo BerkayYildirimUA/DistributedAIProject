@@ -40,7 +40,7 @@ class CarlaWorldStateSensor(StateSensor):
 
 
 
-    def print_vehicle_state(self,state:VehicleState):
+    def log_vehicle_state(self,state:VehicleState):
         logging.info(
             f"speed: {state.speed_ms * 3.6:.2f}fkm/h, speed limit: {state.speed_limit_ms*3.6:.2f} km/h, distance to nearest: {state.lead_distance_m:.2f}m, safe dist: {state.safe_following_distance_m:.2f}m,traffic light color: {state.light_color}, traffic light distance: {state.light_dist_m:.2f}m, CRASH: {state.hasCrashed}, g-forces:{state.g_force_ego}, {state.relative_speed_ms}, {state.light_speed_ms}")
 
@@ -171,7 +171,7 @@ class CarlaWorldStateSensor(StateSensor):
                             light_color=traffic_light_color, light_dist_m=traffic_light_dist_m, g_force_ego=ego_g_force,
                             relative_speed_ms=relative_speed_ms, light_speed_ms=speed_light_ms)
         if self.counter % 300 == 0:
-            self.print_vehicle_state(state)
+            self.log_vehicle_state(state)
         return state
 
 class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
@@ -221,20 +221,17 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         self.speed_limit = self._ego.get_speed_limit()
 
-
         distance= self.vehicle_distance_memory.read()
+        # Keep track of previous distance and use it in case radar returns inf values
         if np.isinf(distance[0]):
             lead_distance=self.prev_lead_distance
         else:
             self.prev_lead_distance = distance[0]
             lead_distance = distance[0]
 
-        print("found distance",lead_distance)
-        
         # TODO: replace with computer vision based logic
         traffic_light_dist_m = self.min_dist
         traffic_light_color = LightColors.green
-
 
         # TODO: get speed limit from computer vision
         speed_limit=self.speed_limit
@@ -264,7 +261,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # ctrl.steer in [-1,1] => schaal naar rad
         steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
 
-        state2 = super().get_state()
         state= VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
@@ -279,8 +275,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             steer_rad=steer_rad
         )
         if self.counter % 300 == 0:
-            self.print_vehicle_state(state)
-            self.print_vehicle_state(state2)
+            self.log_vehicle_state(state)
         return state
 
 
