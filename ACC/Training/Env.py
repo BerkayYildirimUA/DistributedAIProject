@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import random
+import time
 from typing import SupportsFloat, Any, Dict
 import carla
 import gymnasium as gym
@@ -44,13 +45,15 @@ def vehicle_state_to_array(state: VehicleState) -> np.ndarray:
 
     norm_acc_ego = np.clip(state.g_force_ego / 5, -1.5, 1.5)
 
+    norm_crash = np.clip(state.crash_intensity / 200000, 0, 3)
+
     obs = np.array([
         norm_speed,
         norm_limit,
         speed_ratio,
         norm_distance,
         norm_safe_dist,
-        1.0 if state.hasCrashed else 0.0,
+        norm_crash,
         norm_light,
         norm_light_dist,
         norm_light_speed,
@@ -105,7 +108,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                  0.0,  # speed_ratio
                  0.0,  # distance to lead
                  0.0,  # safe_following_distance
-                 0.0,  # hasCrashed (0 or 1)
+                 0,  # crash power
                  0.0,  # light_color (0, 1, 2)
                  0.0,  #light distance
                  -3, # norm_light_speed
@@ -119,7 +122,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                  1.5,  # speed ratio
                  1.0,  # distances (max 250m)
                  1.0,  # safe_following_distance
-                 1.0,  # hasCrashed
+                 3,  # crash power
                  1.0, # light_color
                  1.0, # light_dist (max 250m)
                  3, # norm_light_speed
@@ -163,6 +166,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
 
 
+
+
     def reset(self, *, seed: int | None = None, options: Dict[str, Any] | None = None) -> \
             tuple[np.ndarray, Dict[str, Any]]:
         super().reset(seed=seed)
@@ -173,29 +178,46 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         if self.sensor_real is not None:
             current_speed_limit = self.sensor_real.speed_limit
             counter = self.sensor_real.counter
-            self.sensor_real.cleanup()
+            try:
+                self.sensor_real.cleanup()
+            except Exception as e:
+                logging.warning(f"Sensor cleanup error: {e}")
+
             self.sensor_real = None
 
-
+        reset_success = False
         if self.engine is not None:
-            self.eng_args = self.engine.args
-            self.eng_scene: Scenario = self.engine.scenario
-            self.engine.cleanup()
-            self.engine = None
+            try:
+                reset_success = self.engine.soft_reset()
+            except Exception as e:
+                logging.warning(f"Soft reset failed: {e}")
+                reset_success = False
 
+        if not reset_success:
+            logging.warning("Soft reset failed, performing full reset...")
 
-        #self.set_rewards()
+            if self.engine is not None:
+                self.eng_args = self.engine.args
+                self.eng_scene = self.engine.scenario
+                try:
+                    self.engine.cleanup()
+                except Exception as e:
+                    logging.warning(f"Engine cleanup error: {e}")
+                self.engine = None
 
-        self.engine = Engine(self.eng_args,self.eng_scene)
-        self.engine.connect_to_worlds()
-        self.engine.duo_world.tick()
+            time.sleep(3)
 
+            self.engine = Engine(self.eng_args,self.eng_scene)
+            self.engine.connect_to_worlds()
+            self.engine.duo_world.tick()
 
-        if not self.engine.setup():
-            raise RuntimeError("Engine setup failed. Exiting.")
+            if not self.engine.setup():
+                raise RuntimeError("Engine setup failed. Exiting.")
 
-
-        self.sensor_real = CarlaWorldStateSensor(self.engine.ego.real, self.engine.duo_world.get_real_world())
+        self.sensor_real = CarlaWorldStateSensor(
+            self.engine.ego.real,
+            self.engine.duo_world.get_real_world()
+        )
         self.sensor_real.counter = counter
 
         if self.eng_args.random_speed_limit:
@@ -207,10 +229,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         state.steering_dir = 0.0
         obs = vehicle_state_to_array(state)
         info: Dict[str, Any] = {}
-        #self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
-
-
-        #self.engine.lead.set_mirror_velocity(Vector3D(x=self.lead_speed_limit, y=0, z=0))
 
         return obs, info
 
@@ -254,9 +272,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         ############### CRASH ###############
         r_crash = 0
-        if use_crash and state.hasCrashed:
+        if use_crash and state.crash_intensity > 0.0:
             logging.info("Car Crashed!")
-            r_crash = -100 * (1 + abs(state.relative_speed_ms))
+            r_crash = -500 * (1 + abs(state.crash_intensity/10000))
 
         ############### G-FORCE ###############
         r_geforce = 0
@@ -274,7 +292,19 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         r_speed = 0
         r_speed_weight = 1.0
         if use_speed:
-            speed_diff = (state.speed_ms - state.speed_limit_ms) * 3.6
+
+            target_speed = state.speed_limit_ms
+
+            if use_light and state.light_color in [LightColors.red, LightColors.orange]:
+                if state.light_dist_m < 50.0:
+                    safe_approach_speed = math.sqrt(2 * 2.0 * max(0, state.light_dist_m - 2))
+                    target_speed = min(target_speed, safe_approach_speed)
+
+            if abs(state.g_force_ego) > 0.3:
+                target_speed = min(target_speed, state.speed_ms * 0.9)
+
+
+            speed_diff = (state.speed_ms - target_speed) * 3.6
 
             if speed_diff > 0:
                 r_speed = 1.5 * math.exp(-(speed_diff ** 2) / 2.5) - 0.5 - 0.1 * speed_diff # maybe 0.05?
@@ -292,7 +322,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         safety_margin = 0.0
 
         if use_dist:
-            if state.lead_distance_m is not None and state.lead_distance_m > 0:
+            if state.lead_distance_m is not None and 0 < state.lead_distance_m < 250:
                 min_front_distance = state.lead_distance_m
                 safe_distance = state.safe_following_distance_m
 
@@ -301,19 +331,25 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 if safety_margin >= 1:
                     r_dist = math.exp(-1 * (safety_margin-1))
 
-                    if safety_margin >= 3 and (state.speed_ms * 3.6) < ((state.speed_limit_ms * 3.6) - 3):
-                        r_speed = (1 + (safety_margin / 50)) * r_speed
-
+                    if safety_margin >= 3 and r_speed < 0.0:
+                        r_speed = (1 + (safety_margin / 50)) * r_speed # r_speed should always be neg here
                 else:
                     r_dist = - 7 * ((safety_margin - 1) ** 2) + 1
                     r_dist = r_dist - r_dist * state.relative_speed_ms
 
                 r_dist = r_dist_weight * r_dist
 
+            else:
+
+                if r_speed < 0.0:
+                    current_speed = max(state.speed_ms, 0.1)
+                    r_speed = (state.speed_limit_ms / current_speed) * r_speed
+
+
         ############### TRAFFIC LIGHT ###############
         r_light = 0.0
         r_light_weight = 15.0
-        if use_light and (state.light_color.value == LightColors.red or state.light_color.value == LightColors.orange):
+        if use_light and (state.light_color == LightColors.red or state.light_color == LightColors.orange):
             dist = state.light_dist_m
             if 0 < dist < 50.0:
                 # RUNNING THE LIGHT PENALTY
@@ -342,7 +378,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         components = {
             "Reward/Total": total_reward,
-            "Reward/Crash": r_crash,
+            "Reward/r_crash": r_crash,
             "Reward/GForce": r_geforce,
             "Reward/Speed": r_speed,
             "Reward/Distance": r_dist,
@@ -355,7 +391,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             "State/VehicleState/speed_limit_ms": state.speed_limit_ms,
             "State/VehicleState/lead_distance_m": state.lead_distance_m,
             "State/VehicleState/safe_following_distance_m": state.safe_following_distance_m,
-            "State/VehicleState/hasCrashed": state.hasCrashed,
+            "State/VehicleState/crash_intensity": state.crash_intensity,
             "State/VehicleState/light_color": state.light_color.value,
             "State/VehicleState/light_dist_m": state.light_dist_m,
             "State/VehicleState/light_speed_ms": state.light_speed_ms,
@@ -426,7 +462,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
             state = self.sensor_real.get_state()
 
-            if state.hasCrashed:
+            if state.crash_intensity > 0.0:
                 logging.info("Car Crashed!")
                 terminated = True
             state.steering_dir = steering_dir
@@ -511,22 +547,35 @@ class GymnasiumToGymWrapper:
         return self.env._mdp_info
 
     def reset(self, state=None):
+        """Reset with extended retry logic and better error recovery."""
         max_retries = 10
 
         for attempt in range(max_retries):
             try:
                 obs, _ = self.env.reset()
 
+                # Verify ego is actually alive
                 if self.env.engine.ego is not None and self.env.engine.ego.is_alive():
                     return obs
 
-                logging.warning(f"Reset attempt {attempt}: Ego is dead or None. Retrying...")
+                logging.warning(f"Reset attempt {attempt + 1}: Ego is dead or None. Retrying...")
 
             except Exception as e:
-                logging.warning(f"Reset attempt {attempt} crashed: {e}. Retrying...")
-                traceback.print_exc()
+                logging.warning(f"Reset attempt {attempt + 1} crashed: {e}. Retrying...")
 
-        raise RuntimeError("Critical: Failed to reset environment after 10 attempts.")
+                # Try to cleanup the broken state
+                if hasattr(self.env, 'engine') and self.env.engine is not None:
+                    try:
+                        self.env.engine.cleanup()
+                    except:
+                        pass
+                    self.env.engine = None
+
+                # Increasing delay between retries
+                time.sleep(2.0 + attempt)
+
+        raise RuntimeError(f"Critical: Failed to reset environment after {max_retries} attempts.")
+
 
     def step(self, action):
         action = np.clip(action, -1.0, 1.0)

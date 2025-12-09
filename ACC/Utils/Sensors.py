@@ -34,16 +34,23 @@ class CarlaWorldStateSensor(StateSensor):
 
         self.min_dist = 250
 
+        self._cached_traffic_lights = None
+        self._traffic_light_cache_frame = -1  # Track when cache was created
+
 
     def cleanup(self):
 
         if self.__collision_sensor is not None:
-            self.__collision_sensor.destroy()
+            try:
+                self.__collision_sensor.destroy()
+            except Exception as e:
+                logging.warning(f"Error destroying collision sensor: {e}")
+            self.__collision_sensor = None
 
-        self.__collision_sensor = None
         self.__ego = None
         self.__world = None
         self.__map = None
+        self._cached_traffic_lights = None
 
     def _get_light_color_enum(self, carla_state):
         """Maps CARLA TrafficLightState to your LightColors Enum"""
@@ -65,182 +72,199 @@ class CarlaWorldStateSensor(StateSensor):
             target_landmark = landmarks[0]
             landmark_loc = target_landmark.transform.location
 
-            # 2. Iterate ALL traffic light actors to find the one closest to this landmark
-            #    (Since ID matching failed, we match by distance)
-            all_traffic_lights = self.__world.get_actors().filter('traffic.traffic_light')
+            current_frame = self.__world.get_snapshot().frame if self.__world else 0
+            if (self._cached_traffic_lights is None or
+                    current_frame - self._traffic_light_cache_frame > 100):
+                try:
+                    self._cached_traffic_lights = list(self.__world.get_actors().filter('traffic.traffic_light'))
+                    self._traffic_light_cache_frame = current_frame
+                except Exception:
+                    self._cached_traffic_lights = []
+
 
             closest_dist = float('inf')
 
-            for tl_actor in all_traffic_lights:
-                # Calculate distance between the Map Landmark and the Simulation Actor
-                dist = tl_actor.get_location().distance(landmark_loc)
+            for tl_actor in self._cached_traffic_lights:
+                try:
+                    if not tl_actor.is_alive:
+                        continue
 
-                # If it's within a small margin (e.g., 2 meters), it's the one!
-                if dist < 2.0:
-                    target_light_actor = tl_actor
-                    break
+                    dist = tl_actor.get_location().distance(landmark_loc)
 
-                # Track closest just for debugging
-                if dist < closest_dist:
-                    closest_dist = dist
+                    if dist < 2.0:
+                        target_light_actor = tl_actor
+                        break
+
+                    if dist < closest_dist:
+                        closest_dist = dist
+                except RuntimeError:
+                    # Actor was destroyed between check and access
+                    continue
 
         return target_light_actor
 
+    def _safe_get_vehicle_data(self, vehicle, ego_loc):
+        """Safely get vehicle distance (BUMPER-TO-BUMPER) and transform"""
+        try:
+            if not vehicle.is_alive:
+                return None
+
+            other_loc = vehicle.get_location()
+
+            # Center-to-center distance
+            center_dist = math.sqrt(
+                (other_loc.x - ego_loc.x) ** 2 +
+                (other_loc.y - ego_loc.y) ** 2 +
+                (other_loc.z - ego_loc.z) ** 2
+            )
+
+            # ADJUST FOR BOUNDING BOXES (bumper-to-bumper)
+            try:
+                ego_extent = self.__ego.bounding_box.extent.x
+                other_extent = vehicle.bounding_box.extent.x
+                bumper_dist = max(0.0, center_dist - ego_extent - other_extent)
+            except Exception:
+                bumper_dist = max(0.0, center_dist - 6)
+
+            transform = vehicle.get_transform()
+            return (bumper_dist, vehicle, transform)
+
+        except RuntimeError:
+            return None
 
     def get_state(self) -> VehicleState:
+        # Early exit if ego is invalid
+        if not self.__ego:
+            return self._get_default_crashed_state()
 
-        ego_transform = self.__ego.get_transform()
-        ego_loc = ego_transform.location
+        try:
+            if not self.__ego.is_alive:
+                return self._get_default_crashed_state()
+        except RuntimeError:
+            return self._get_default_crashed_state()
 
-        vehicles = self.__world.get_actors().filter('vehicle.*')
+        try:
+            ego_transform = self.__ego.get_transform()
+            ego_loc = ego_transform.location
+            ego_forward = ego_transform.get_forward_vector()
+        except RuntimeError:
+            return self._get_default_crashed_state()
 
-        dist_calc = lambda l: math.sqrt((l.x - ego_loc.x)**2 + (l.y - ego_loc.y)**2 + (l.z - ego_loc.z)**2)
+        # Safely get all vehicles
+        try:
+            all_vehicles = self.__world.get_actors().filter('vehicle.*')
+        except RuntimeError:
+            all_vehicles = []
 
-        vehicles = [(dist_calc(x.get_location()), x) for x in vehicles if x.id != self.__ego.id]
+        # Build list with safe access
+        vehicle_data = []
+        for v in all_vehicles:
+            if v.id != self.__ego.id:
+                data = self._safe_get_vehicle_data(v, ego_loc)
+                if data:
+                    vehicle_data.append(data)
 
-
-        ego_velocity_vec: Vector3D = self.__ego.get_velocity()
-        ego_velocity_ms = ego_velocity_vec.length()
+        # Get ego velocity safely
+        try:
+            ego_velocity_vec: Vector3D = self.__ego.get_velocity()
+            ego_velocity_ms = ego_velocity_vec.length()
+        except RuntimeError:
+            ego_velocity_ms = 0.0
 
         safe_distance_m = self.__safe_time_distance_seconds * ego_velocity_ms
-        has_crashed = self.__collision_sensor.get_last_impact() > 0.0
 
+        # Check collision safely
+        last_impact = False
+        if self.__collision_sensor:
+            try:
+                last_impact = self.__collision_sensor.get_last_impact()
+            except Exception:
+                pass
+
+        # Find nearest vehicle in front
         smallest_dist = self.min_dist
-        dists = []
-        for dist, vehicle in sorted(vehicles):
-            dot = vehicle.get_transform().get_forward_vector().dot(ego_transform.get_forward_vector()) # to see if the car is pointing the same way as the ego
-            if smallest_dist > dist and dot > 0.8:
-                smallest_dist = dist
-            dists.append(smallest_dist)
+        for dist, vehicle, v_transform in sorted(vehicle_data, key=lambda x: x[0]):
+            try:
+                dot = v_transform.get_forward_vector().dot(ego_forward)
+                if smallest_dist > dist and dot > 0.8:
+                    smallest_dist = dist
+            except RuntimeError:
+                continue
 
-        if len(vehicles) == 0:
-            dists.append(smallest_dist)
+        result_dist_m = smallest_dist
 
-        result_dist_m = min(dists)
-
-
+        # Speed limit handling
         if self.override_speed_limit and self.counter == 2500:
             self.counter = 0
             self.speed_limit = random.randint(10, 140)
         elif not self.override_speed_limit:
-            self.speed_limit = self.__ego.get_speed_limit()
+            try:
+                self.speed_limit = self.__ego.get_speed_limit()
+            except RuntimeError:
+                pass
 
         if self.speed_limit == 0.0:
             self.speed_limit = 30
 
-        # traffic lights dist
-        ego_waypoint = self.__map.get_waypoint(ego_loc, project_to_road=True, lane_type=carla.LaneType.Driving)
-
-        target_light_actor = self._get_trafficlight(ego_waypoint)
+        # Traffic lights
         traffic_light_dist_m = self.min_dist
         traffic_light_color = LightColors.green
 
-        # Use the actor if found
-        if target_light_actor:
-            traffic_light_dist_m = dist_calc(target_light_actor.get_location())
-            traffic_light_color = self._get_light_color_enum(target_light_actor.get_state())
+        try:
+            ego_waypoint = self.__map.get_waypoint(ego_loc, project_to_road=True, lane_type=carla.LaneType.Driving)
+            target_light_actor = self._get_trafficlight(ego_waypoint)
 
+            if target_light_actor:
+                try:
+                    traffic_light_dist_m = ego_loc.distance(target_light_actor.get_location())
+                    traffic_light_color = self._get_light_color_enum(target_light_actor.get_state())
+                except RuntimeError:
+                    pass
+        except Exception:
+            pass
 
-        if self.counter % 300 == 0:
-            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {self.speed_limit} km/h, distance to nearest: {smallest_dist}m, safe dist: {safe_distance_m}m, CRASH: {has_crashed}")
+        if self.counter % 300 == 0 or last_impact > 0.0:
+            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {self.speed_limit} km/h, "
+                         f"distance to nearest: {smallest_dist}m, safe dist: {safe_distance_m}m, CRASH: {last_impact}")
 
         self.counter += 1
 
+        # Update calculators
         self.__g_force_ego_calculator.update_speed(ego_velocity_ms)
         self.__relative_speed_lead_calculator.update_speed(result_dist_m)
         self.__speed_light_calculator.update_speed(traffic_light_dist_m)
 
-        ego_g_force = self.__g_force_ego_calculator.get_latest_g_force()
-        relative_speed_ms = self.__relative_speed_lead_calculator.get_latest_g_force()
-        speed_light_ms = self.__speed_light_calculator.get_latest_g_force()
+        ego_g_force = self.__g_force_ego_calculator.get_latest_g_force() or 0
+        relative_speed_ms = self.__relative_speed_lead_calculator.get_latest_g_force() or 0
+        speed_light_ms = self.__speed_light_calculator.get_latest_g_force() or 0
 
-        if ego_g_force is None:
-            ego_g_force = 0
+        return VehicleState(
+            speed_ms=ego_velocity_ms,
+            speed_limit_ms=self.speed_limit / 3.6,
+            lead_distance_m=result_dist_m,
+            safe_following_distance_m=safe_distance_m,
+            crash_intensity=last_impact,
+            light_color=traffic_light_color,
+            light_dist_m=traffic_light_dist_m,
+            g_force_ego=ego_g_force,
+            relative_speed_ms=relative_speed_ms,
+            light_speed_ms=speed_light_ms
+        )
 
-        if relative_speed_ms is None:
-            relative_speed_ms = 0
-
-        if speed_light_ms is None:
-            speed_light_ms = 0
-
-
-
-        return VehicleState(speed_ms=ego_velocity_ms, speed_limit_ms=self.speed_limit / 3.6, lead_distance_m=result_dist_m,
-                            safe_following_distance_m=safe_distance_m, hasCrashed=has_crashed,
-                            light_color=traffic_light_color, light_dist_m=traffic_light_dist_m, g_force_ego=ego_g_force,
-                            relative_speed_ms=relative_speed_ms, light_speed_ms=speed_light_ms)
-
-
-
-class CarlaLeadStateSensor(StateSensor):
-
-    def __init__(self, ego_vehicle: carla.Actor, lead: carla.Actor = None):
-        self.__ego = ego_vehicle
-        self.__lead = lead
-
-        self.__safe_time_distance_seconds = 2
-        self.counter = 0
-        self.__collision_sensor = CollisionSensor(ego_vehicle)
-        self.min_dist = 500
-
-
-    def _get_light_color_enum(self, carla_state):
-        """Maps CARLA TrafficLightState to your LightColors Enum"""
-        if carla_state == carla.TrafficLightState.Red:
-            return LightColors.red
-        elif carla_state == carla.TrafficLightState.Yellow:
-            return LightColors.orange
-        else:
-            return LightColors.green
-
-
-    def get_state(self) -> VehicleState:
-        ego_transform = self.__ego.get_transform()
-        lead_transform = self.__lead.get_transform()
-        ego_loc = ego_transform.location
-        dist_calc = lambda l: math.sqrt((l.x - ego_loc.x)**2 + (l.y - ego_loc.y)**2 + (l.z - ego_loc.z)**2)
-
-        distance = ego_transform.location.distance(lead_transform.location)
-
-        ego_velocity_vec: Vector3D = self.__ego.get_velocity()
-        ego_velocity_ms = ego_velocity_vec.length()
-
-        safe_distance = self.__safe_time_distance_seconds * ego_velocity_ms
-
-        has_crashed = self.__collision_sensor.get_last_impact() > 0.0
-
-        speed_limit = self.__ego.get_speed_limit()
-
-        if speed_limit == 0.0:
-            speed_limit = 30
-
-        if self.counter == 1000:
-            self.counter = 0
-            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {speed_limit} km/h, distance to nearest: {distance}m, safe dist: {safe_distance}m")
-        else:
-            self.counter += 1
-
-
-        # traffic lights dist
-        ego_waypoint = self.__map.get_waypoint(ego_loc)
-        lights_list = self.__world.get_traffic_lights_from_waypoint(ego_waypoint, 150.0)
-
-        traffic_light_dist = self.min_dist
-        traffic_light_color = LightColors.green
-
-        if len(lights_list) > 0:
-            target_light = lights_list[0]
-
-            light_loc = target_light.get_location()
-            traffic_light_dist = dist_calc(light_loc)
-
-            traffic_light_color = self._get_light_color_enum(target_light.get_state())
-
-
-
-        speed_limit = self.__ego.get_speed_limit()
-
-        return VehicleState(speed_ms=ego_velocity_ms * 3.6, speed_limit_ms=speed_limit, lead_distance_m=[distance], safe_following_distance_m=safe_distance, hasCrashed=has_crashed, light_color=traffic_light_color, light_dist_m=traffic_light_dist)
+    def _get_default_crashed_state(self):
+        """Return a safe default state when ego is invalid"""
+        return VehicleState(
+            speed_ms=0,
+            speed_limit_ms=30 / 3.6,
+            lead_distance_m=self.min_dist,
+            safe_following_distance_m=10,
+            crash_intensity=1,
+            light_color=LightColors.green,
+            light_dist_m=self.min_dist,
+            g_force_ego=0,
+            relative_speed_ms=0,
+            light_speed_ms=0
+        )
 
 
 #code form carla examples, from "automatic_control.py"
@@ -250,6 +274,8 @@ class CollisionSensor(object):
         self.history = []
         self._parent = parent_actor
         self.intensity = 0.0  # Store the intensity of the last impact
+        self._destroyed = False
+        self._callback_lock = False
 
         world = self._parent.get_world()
         bp = world.get_blueprint_library().find('sensor.other.collision')
@@ -264,22 +290,20 @@ class CollisionSensor(object):
     @staticmethod
     def _on_collision(weak_self, event):
         self = weak_self()
-        if not self:
+        if not self or self._destroyed or self._callback_lock:
             return
 
-        # Calculate intensity of the collision
-        impulse = event.normal_impulse
-        intensity = math.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
+        try:
+            impulse = event.normal_impulse
+            intensity = math.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
 
-        # Append to history (Frame number, Intensity)
-        self.history.append((event.frame, intensity))
+            self.history.append((event.frame, intensity))
+            self.intensity = intensity
 
-        # Update current intensity state
-        self.intensity = intensity
-
-        # Keep history manageable (optional limit)
-        if len(self.history) > 4000:
-            self.history.pop(0)
+            if len(self.history) > 4000:
+                self.history.pop(0)
+        except Exception:
+            pass
 
     def get_last_impact(self):
         """Returns the intensity of the most recent collision, then resets it."""
@@ -288,20 +312,33 @@ class CollisionSensor(object):
         return current_intensity
 
     def destroy(self):
-        """Clean up the sensor from the server"""
+        """Clean up the sensor from the server - improved version"""
+        if self._destroyed:
+            return
+
+        self._destroyed = True
+        self._callback_lock = True  # Block any pending callbacks
+
         if self.sensor is not None:
+            try:
+                # Stop listening first
+                if self.sensor.is_listening:
+                    self.sensor.stop()
 
-            if self.sensor.is_listening:
-                time.sleep(3)
-                self.sensor.stop()
+                # Small delay to let pending callbacks drain
+                time.sleep(0.1)
 
-            time.sleep(3)
+                # Now destroy
+                if self.sensor.is_alive:
+                    self.sensor.destroy()
+            except Exception as e:
+                logging.debug(f"Error during collision sensor cleanup: {e}")
+            finally:
+                self.sensor = None
 
-            if self.sensor.is_alive:
-                self.sensor.destroy()
-
-            self.sensor = None
         self._parent = None
+        self.history.clear()
+
 
 class PygameUI(UI):
     pass

@@ -7,7 +7,7 @@ import traceback
 
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
-from ACC.Utils.Sensors import CarlaLeadStateSensor, CarlaWorldStateSensor
+from ACC.Utils.Sensors import CarlaWorldStateSensor
 from ACC.Agents.SimpleAgent import SimpleAccAgent
 from ACC.Engine.engine import Engine
 from ACC.Agents.RLAgents import RLDecisionAgent
@@ -34,7 +34,7 @@ maybe change action space center if need be, like 0 =! do nothing, perhabs.
 
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=0, lead_car_bp_name='vehicle.tesla.model3') #lead_car_bp_name='vehicle.tesla.model3'
+                     map_name=args.map, number_of_npc=0, lead_car_bp_name='vehicle.tesla.model3')
     engine = Engine(args, scene)
 
     try:
@@ -45,44 +45,114 @@ def main_loop(args):
 
         # sensor and agent Setup (Real World)
         sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+        decisionAgent = RLDecisionAgent(sensor_real, "251209_032216_TD3_speed_lead_lights_r_36_chunk_600.msh")
 
-        #decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
-        decisionAgent = RLDecisionAgent(sensor_real, "251208_032755_TD3_speed_lead_chunk_600.msh")
-
-
+        crash_detected = False
+        frames_after_crash = 0
+        MAX_FRAMES_AFTER_CRASH = 60  # then reset or exit
 
         while True:
-            mirror_frame, _ = engine.duo_world.tick()
+            # Tick the simulation
+            try:
+                mirror_frame, _ = engine.duo_world.tick()
+            except Exception as e:
+                logging.error(f"Failed to tick world: {e}")
+                break
 
-            # apply control
-            tm_control = engine.ego.get_mirror_control()
-            agent_control = decisionAgent.make_decision(tm_control)
-            engine.ego.apply_real_control(agent_control)
+            # SAFETY CHECK
+            if not engine.ego or not engine.ego.is_alive():
+                logging.error("Ego vehicle is dead or missing. Exiting loop.")
+                break
 
 
-            # apply goal
+            try:
+                state = sensor_real.get_state()
+            except Exception as e:
+                logging.error(f"Failed to get sensor state: {e}")
+                break
+
+            # ---- CRASH HANDLING ----
+            if state.crash_intensity > 0.0:
+                if not crash_detected:
+                    logging.warning("Crash detected! Stopping vehicle...")
+                    crash_detected = True
+
+                frames_after_crash += 1
+
+                # Apply brakes and stop after crash
+                try:
+                    import carla
+                    stop_control = carla.VehicleControl(
+                        throttle=0.0,
+                        brake=1.0,
+                        steer=0.0,
+                        hand_brake=True
+                    )
+                    engine.ego.apply_real_control(stop_control)
+                except Exception as e:
+                    logging.warning(f"Failed to apply brake after crash: {e}")
+
+                # Exit after some frames post-crash
+                if frames_after_crash > MAX_FRAMES_AFTER_CRASH:
+                    logging.info("Exiting simulation after crash cooldown.")
+                    break
+
+                # Skip normal control logic after crash
+                continue
+
+            # ---- NORMAL OPERATION (no crash) ----
+            try:
+                # Get TM control for steering
+                tm_control = engine.ego.get_mirror_control()
+                agent_control = decisionAgent.make_decision(tm_control)
+                engine.ego.apply_real_control(agent_control)
+            except Exception as e:
+                logging.error(f"Error in control loop: {e}")
+                break
+
+            # ---- LEAD VEHICLE HANDLING (with safety checks) ----
             if engine.lead is not None:
-                engine.tm_mirror.set_path(engine.ego.mirror, [engine.lead.mirror.get_location()])
+                try:
+                    if engine.lead.is_alive() and engine.lead.mirror and engine.lead.mirror.is_alive:
+                        lead_location = engine.lead.mirror.get_location()
+                        engine.tm_mirror.set_path(engine.ego.mirror, [lead_location])
+                    else:
+                        logging.warning("Lead vehicle is no longer alive, skipping path update")
+                except RuntimeError as e:
+                    logging.warning(f"Failed to update lead path (actor may be dead): {e}")
+                except Exception as e:
+                    logging.warning(f"Unexpected error updating lead path: {e}")
 
-            # synchronization real npc with mirror npcs
-            engine.synchronization_real_npc_with_mirror_npcs()
+            # ---- SYNCHRONIZATION ----
+            try:
+                engine.synchronization_real_npc_with_mirror_npcs()
+            except Exception as e:
+                logging.warning(f"NPC sync failed: {e}")
 
-            # synchronization mirror ego with real ego
-            engine.synchronization_mirror_ego_with_real_ego()
+            try:
+                engine.synchronization_mirror_ego_with_real_ego()
+            except Exception as e:
+                logging.warning(f"Ego sync failed: {e}")
 
-            # spectator
-            engine.update_spectator()
-
-
-
+            try:
+                engine.update_spectator()
+            except Exception as e:
+                logging.debug(f"Spectator update failed: {e}")
 
     except KeyboardInterrupt:
         print("\nSimulation stopped by user (KeyboardInterrupt).")
 
     except Exception as e:
-        print(f"\nAn critical error occurred during simulation loop: {e}")
+        print(f"\nA critical error occurred during simulation loop: {e}")
         traceback.print_exc()
     finally:
+        # Clean up sensor first
+        if 'sensor_real' in locals() and sensor_real is not None:
+            try:
+                sensor_real.cleanup()
+            except Exception as e:
+                logging.warning(f"Error cleaning up sensor: {e}")
+
         engine.cleanup(True)
 
 

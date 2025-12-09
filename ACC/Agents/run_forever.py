@@ -7,6 +7,8 @@ import re
 import threading
 import queue
 
+from ACC.Agents.main_training import force_cleanup
+
 PYTHON_EXE = sys.executable
 TRAIN_MODULE = "ACC.Agents.main_training"
 CARLA_PATH = r"D:\UA\Master\Semester1\AI\Project\Carla\CarlaUE4.exe"
@@ -26,6 +28,9 @@ PROGRESS_UPDATE_INTERVAL = 1
 # --- TIMEOUT SETTINGS ---
 MAX_RUNTIME_SECONDS = 30 * 60
 MAX_SILENCE_SECONDS = 3 * 60
+
+
+
 
 
 def get_latest_model_info():
@@ -93,7 +98,6 @@ def run_one_round():
         encoding='utf-8',
         errors='replace'
     )
-
 
     q = queue.Queue()
     t = threading.Thread(target=enqueue_output, args=(process.stdout, q))
@@ -166,6 +170,7 @@ def run_one_round():
     except KeyboardInterrupt:
         print("\nLauncher: Stopping loop.")
         process.kill()
+        force_cleanup()
         sys.exit(0)
 
 
@@ -177,7 +182,12 @@ if __name__ == "__main__":
     print(f"   Root: {PROJECT_ROOT}")
     print("------------------------------------------------")
 
+    force_cleanup()
+
     while True:
         run_one_round()
+
+        force_cleanup()
+
         print("Launcher: Cooling down for 10 seconds...")
         time.sleep(10)

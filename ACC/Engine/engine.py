@@ -3,7 +3,7 @@ import math
 import os
 import random
 import traceback
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from ACC.Engine.scenario import Scenario
 
 import carla
@@ -52,7 +52,7 @@ class Engine():
 
         self.scenario = scenario
 
-    def _load_world_safely(self, client: carla.Client, map_name: str, server_name: str):
+    def _load_world_safely(self, client: carla.Client, map_name: str, server_name: str) -> Tuple[carla.World, bool]:
         """
         Loads a map with patience, verification, and memory cleanup.
         """
@@ -74,7 +74,7 @@ class Engine():
                 current_world.apply_settings(settings)
 
 
-                return current_world
+                return current_world, True
 
             if map_name in current_map_name:
                 logging.info(f"[{server_name}] Map {map_name} is already loaded. Skipping reload.")
@@ -85,14 +85,14 @@ class Engine():
 
                 current_world.apply_settings(settings)
 
-                return current_world
+                return current_world, False
         except RuntimeError:
             pass
 
 
 
-
-        if map_name.startswith("CUSTOM_"):
+        is_custom : bool = map_name.startswith("CUSTOM_")
+        if is_custom:
             current_dir = os.path.dirname(os.path.abspath(__file__))
             acc_dir = os.path.dirname(current_dir)
             file_name = os.path.join(acc_dir, "Agents", map_name + ".xodr")
@@ -129,7 +129,7 @@ class Engine():
                 current_map = client.get_world().get_map().name
                 if current_map.endswith(map_name):
                     logging.info(f"[{server_name}] Map {map_name} is already loaded. Skipping reload.")
-                    return client.get_world()
+                    return client.get_world(), False
             except RuntimeError:
                 pass  # World might not exist yet, that's fine
 
@@ -175,7 +175,7 @@ class Engine():
 
         world.tick()
 
-        return world
+        return world, is_custom
 
     def connect_to_worlds(self):
         client_real = None
@@ -184,10 +184,6 @@ class Engine():
         world_mirror = None
 
         try:
-
-
-
-
             logging.info(f"Connecting to REAL CARLA server at {self.host}:{self.real_port}")
             client_real = carla.Client(self.host, self.real_port)
 
@@ -197,7 +193,7 @@ class Engine():
             logging.info(f"Connection to REAL server successful. Loading map: {map_name}...")
 
             #world_real = client_real.load_world(map_name)
-            world_real = self._load_world_safely(client_real, map_name, "REAL")
+            world_real, real_world_is_custom = self._load_world_safely(client_real, map_name, "REAL")
             logging.info(f"Successfully loaded REAL world. Map: {world_real.get_map().name}")
 
             logging.info(f"Connecting to MIRROR CARLA server at {self.host}:{self.mirror_port}")
@@ -205,7 +201,7 @@ class Engine():
             logging.info(f"Connection to MIRROR server successful. Loading map {map_name}...")
 
             #world_mirror = client_mirror.load_world(map_name)
-            world_mirror = self._load_world_safely(client_mirror, map_name, "MIRROR")
+            world_mirror, mirror_world_is_custom = self._load_world_safely(client_mirror, map_name, "MIRROR")
 
 
             if world_mirror.get_map().name != world_real.get_map().name:
@@ -215,7 +211,15 @@ class Engine():
 
             self.duo_client = DuoClient(client_real, client_mirror)
             self.duo_world = DuoWorld(world_real, world_mirror)
+
             self.duo_world.tick()
+
+            if real_world_is_custom and mirror_world_is_custom:
+                green_time, yellow_time, red_time = self.reset_traffic_lights(self.duo_world.get_real_world())
+                self.reset_traffic_lights(self.duo_world.get_mirror_world(), green_time, yellow_time, red_time)
+
+            self.duo_world.tick()
+
             logging.info("DuoClient and DuoWorld created successfully.")
 
         except Exception as e:
@@ -415,6 +419,9 @@ class Engine():
             # Spectator setup
             self.spectator = self.duo_world.get_real_world().get_spectator()
 
+
+
+
             self.duo_world.tick()
             logging.info("Setup complete.")
             return True
@@ -447,7 +454,7 @@ class Engine():
                         fail_count += 1
 
     def synchronization_mirror_ego_with_real_ego(self):
-        if self.ego.is_alive():
+        if self.ego and self.ego.is_alive():
             final_real_ego_transform = self.ego.get_real_transform()
             real_velocity = self.ego.get_velocity()
             real_angular_vel = self.ego.get_angular_velocity()
@@ -508,7 +515,7 @@ class Engine():
         # Grab transform from the living actor
         try:
             repair_transform = survivor.get_transform()
-            repair_transform.location.z += 0.5
+            repair_transform.location.z += 0.55
 
             survivor_velocity = survivor.get_velocity()
             survivor_ang_velocity = survivor.get_angular_velocity()
@@ -543,6 +550,34 @@ class Engine():
 
         logging.debug(f"Successfully repaired {target_side} actor. New ID: {new_actor.id}")
         return True
+
+    def reset_traffic_lights(self, world, green_time=0.0, yellow_time=0.0, red_time=0.0):
+        """Force all traffic lights to cycle"""
+        actors = world.get_actors().filter('traffic.traffic_light')
+        for light in actors:
+            try:
+                if green_time == 0.0:
+                   green_time = random.randint(4, 35)
+                   if random.random() <= 0.25:
+                        green_time = 200
+
+                if yellow_time == 0.0:
+                    yellow_time = random.randint(3, 5)
+                    if yellow_time == 200:
+                        red_time = 1
+                if red_time == 0.0:
+                    red_time = random.randint(4, 35)
+                    if green_time == 200:
+                        red_time = 1
+
+                light.set_state(carla.TrafficLightState.Green)
+                light.set_green_time(green_time)
+                light.set_yellow_time(yellow_time)
+                light.set_red_time(red_time)
+
+                return green_time, yellow_time, red_time
+            except:
+                pass
 
     def revive_ego_pair(self) -> bool:
         """
@@ -601,6 +636,119 @@ class Engine():
 
         return success
 
+    def soft_reset(self) -> bool:
+        """
+        Soft reset: Respawn actors without full world disconnect.
+        This avoids the session assertion failures from rapid reconnection.
+
+        Returns:
+            bool: True if reset successful, False if full reset needed
+        """
+        logging.info("Performing soft reset (respawn actors only)...")
+
+        try:
+            # Destroy existing actors but keep world connection
+            actors_to_destroy = []
+            if self.ego:
+                actors_to_destroy.append(self.ego)
+            if self.lead:
+                actors_to_destroy.append(self.lead)
+            actors_to_destroy.extend(self.npcs)
+
+            for actor_pair in actors_to_destroy:
+                if actor_pair:
+                    try:
+                        actor_pair.destroy()
+                    except Exception as e:
+                        logging.warning(f"Error destroying actor during soft reset: {e}")
+
+            self.ego = None
+            self.lead = None
+            self.npcs = []
+
+            # Tick to process destructions
+            self.duo_world.tick()
+            time.sleep(0.2)
+
+            # Reset traffic lights
+            green_time, yellow_time, red_time = self.reset_traffic_lights(self.duo_world.get_real_world())
+            self.reset_traffic_lights(self.duo_world.get_mirror_world(), green_time, yellow_time, red_time)
+
+            # 4. Re-run actor spawning (reuse existing spawn logic)
+            # Get spawn points
+            world_real = self.duo_world.get_real_world()
+            self.spawn_points = world_real.get_map().get_spawn_points()
+
+            if not self.spawn_points:
+                waypoint = world_real.get_map().get_waypoint_xodr(road_id=1, lane_id=-1, s=5.0)
+                if waypoint:
+                    transform = waypoint.transform
+                    transform.location.z += 0.55
+                    self.spawn_points = [transform]
+                else:
+                    self.spawn_points = [carla.Transform(carla.Location(x=0, y=0, z=0.55), carla.Rotation(yaw=0.0))]
+
+            available_spawn_points = list(self.spawn_points)
+
+            # Spawn EGO
+            ego_spawn_point_index = int(
+                self.args.spawn_point) if self.args.spawn_point != "random" else random.randrange(
+                len(available_spawn_points))
+            ego_spawn_point = available_spawn_points.pop(ego_spawn_point_index % len(available_spawn_points))
+
+            filter_ego = self.scenario.ego_car_bp_name if self.scenario else 'vehicle.tesla.model3'
+            if filter_ego == "random":
+                filter_ego = 'vehicle.*.*'
+
+            ego_bp = random.choice(self.blueprints_vehicles.filter(filter_ego))
+            self.ego = self.spawn_actor_pair(ego_bp, ego_spawn_point)
+
+            if not self.ego:
+                logging.error("Soft reset failed: Could not spawn EGO")
+                return False
+
+            logging.info(f"Spawned EGO pair: Real ID {self.ego.real.id}, Mirror ID {self.ego.mirror.id}")
+
+            # Spawn LEAD if configured
+            if self.scenario and self.scenario.lead_car_bp_name:
+                if available_spawn_points:
+                    lead_spawn_point = available_spawn_points.pop(0)
+                else:
+                    lead_spawn_point = ego_spawn_point
+                    lead_spawn_point.location.x += 25  # Offset from ego
+
+                lead_bp = random.choice(self.blueprints_vehicles.filter(self.scenario.lead_car_bp_name))
+                self.lead = self.spawn_actor_pair(lead_bp, lead_spawn_point)
+
+                if self.lead:
+                    logging.info(f"Spawned LEAD pair: Real ID {self.lead.real.id}, Mirror ID {self.lead.mirror.id}")
+
+            # 5. Configure mirror actors with TM
+            actors_to_configure = []
+            if self.ego:
+                self.ego.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
+                self.ego.set_mirror_physics(True)
+                self.tm_mirror.auto_lane_change(self.ego.mirror, False)
+
+            if self.lead:
+                self.lead.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
+                self.lead.set_mirror_physics(True)
+
+
+
+
+
+            # 6. Final tick
+            self.duo_world.tick()
+
+            logging.info("Soft reset complete.")
+            return True
+
+        except Exception as e:
+            logging.error(f"Soft reset failed with error: {e}")
+            traceback.print_exc()
+            return False
+
 
     def cleanup(self, delete_all=False):
         logging.info('Initiating cleanup...')
@@ -646,8 +794,12 @@ class Engine():
                 if actor.is_alive:
                     actor.destroy()
 
+        time.sleep(1)
+
         tm = self.duo_client.mirror.get_trafficmanager()
         tm.shut_down()
+
+        time.sleep(1)
 
         if self.duo_world:
             self.duo_world.tick()
