@@ -146,8 +146,6 @@ class CarlaWorldStateSensor(StateSensor):
             traffic_light_color = self._get_light_color_enum(target_light_actor.get_state())
 
 
-        if self.counter % 300 == 0:
-            logging.info(f"speed: {ego_velocity_ms * 3.6}km/h, speed lim: {self.speed_limit} km/h, distance to nearest: {smallest_dist}m, safe dist: {safe_distance_m}m, CRASH: {has_crashed}")
 
         self.counter += 1
 
@@ -168,10 +166,13 @@ class CarlaWorldStateSensor(StateSensor):
         if speed_light_ms is None:
             speed_light_ms = 0
             
-        return VehicleState(speed_ms=ego_velocity_ms, speed_limit_ms=self.speed_limit / 3.6, lead_distance_m=result_dist_m,
+        state= VehicleState(speed_ms=ego_velocity_ms, speed_limit_ms=self.speed_limit / 3.6, lead_distance_m=result_dist_m,
                             safe_following_distance_m=safe_distance_m, hasCrashed=has_crashed,
                             light_color=traffic_light_color, light_dist_m=traffic_light_dist_m, g_force_ego=ego_g_force,
                             relative_speed_ms=relative_speed_ms, light_speed_ms=speed_light_ms)
+        if self.counter % 300 == 0:
+            self.print_vehicle_state(state)
+        return state
 
 class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
