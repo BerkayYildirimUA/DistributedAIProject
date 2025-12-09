@@ -278,10 +278,11 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             light_speed_ms=speed_light_ms,
             steer_rad=steer_rad
         )
+        state2 = super().get_state()
         if self.counter % 300 == 0:
             self.print_vehicle_state(state)
-            state2=super().get_state()
             self.print_vehicle_state(state2)
+        return state2
         return state
 
     def create_ego_sensors(self):
