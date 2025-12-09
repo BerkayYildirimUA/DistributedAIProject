@@ -70,7 +70,7 @@ def training_loop(args):
 
             (
             #loop_info(2 * 60 * 60, f"speed_lead_lights_r_{args.model_nr}"),
-                loop_info(2 * 60 * 60, f"speed_lead_lights_r_53"),
+                loop_info(2 * 60 * 60, f"Aldebaran"),
                 Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
@@ -86,7 +86,7 @@ def training_loop(args):
         )
     ]
 
-    current_model_name = "251209_105248_TD3_speed_lead_lights_r_52_chunk_900.msh "#args.load_model
+    current_model_name = "251210_001928_TD3_Aldebaran_chunk_7200.msh "#args.load_model
 
     chunk_duration_seconds = 2 * 60 * 60
 
@@ -127,7 +127,7 @@ def training_loop(args):
                 else:
                     agent = ACC_TD3Agent(args, scene=scene)
 
-                if elapsed_duration == 0: #TODO: I MADE IT -1 SO IT NEVER TRIGGERS
+                if elapsed_duration == -1: #TODO: I MADE IT -1 SO IT NEVER TRIGGERS
                     agent.reset_buffer()
 
                 agent.train(duration_seconds=current_chunk_duration)
@@ -182,7 +182,7 @@ def training_loop(args):
 
                 import gc
                 gc.collect()
-                time.sleep(20)
+                time.sleep(10)
         logging.info(f"Scenario {info.name} COMPLETED.")
 
 
@@ -220,7 +220,7 @@ def force_cleanup():
         subprocess.run(cmd, shell=True, stdout=devnull, stderr=devnull)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__': #--no_display
 
     parser = argparse.ArgumentParser(description='CARLA ACC Dual Simulation (Mirror TM Only)')
 

@@ -260,7 +260,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         #g_force = self.__g_force_calculator.get_latest_g_force()
 
 
-
         rewards_dict = self.eng_scene.rewards
         #print(rewards_dict)
         use_crash = rewards_dict.get("reward_crash", True)
@@ -269,105 +268,78 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         use_dist = rewards_dict.get("reward_safe_distance", True)
         use_light = rewards_dict.get("reward_light", True)
 
+        W_SPEED = 1         * 1.3
+        W_DIST = 4/3        * 1.1
+        W_COMFORT = 30*1.5
+        W_LIGHT = 14*2
+
+        P_LIGHT_VIOLATION = -5.0
+        P_CRASH_BASE = -10.0
+
+        r_crash = 0.0
+        r_speed = 0.0
+        r_dist = 0.0
+        r_comfort = 0.0
+        r_light = 0.0
 
         ############### CRASH ###############
-        r_crash = 0
         if use_crash and state.crash_intensity > 0.0:
             logging.info("Car Crashed!")
-            r_crash = -100 * (1 + abs(state.crash_intensity/10000))
+            r_crash = P_CRASH_BASE - min(abs(state.crash_intensity/50000), 1)
+
 
         ############### G-FORCE ###############
-        r_geforce = 0
-        r_geforce_weight = 1
         g_force_ego = state.g_force_ego
         if use_geforce:
             if g_force_ego is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
-                acc = g_force_ego * 9.81
-                r_geforce = max(min(0.5 - 0.02 * acc, 1.05812 - 0.615337 * acc), -1) - 0.01 * acc
-                r_geforce = r_geforce_weight * r_geforce
+                r_comfort = -1.0 * (state.g_force_ego / 3.0) ** 2
+                r_comfort = max(r_comfort, -1.0)
 
 
 
         ############### SPEED ###############
-        r_speed = 0
-        r_speed_weight = 1.0
-        r_speed_postive_weight = 2.0
-
         if use_speed:
-
-            target_speed = state.speed_limit_ms
-
+            target_speed_ms = state.speed_limit_ms
             if use_light and state.light_color in [LightColors.red, LightColors.orange]:
                 if state.light_dist_m < 50.0:
-                    safe_approach_speed = math.sqrt(2 * 2.0 * max(0, state.light_dist_m - 2))
-                    target_speed = min(target_speed, safe_approach_speed)
+                    dist_to_stop = max(0, state.light_dist_m - 2.0)
+                    safe_approach_speed = math.sqrt(2 * 1.5 * dist_to_stop)
+                    target_speed_ms = min(target_speed_ms, safe_approach_speed)
+                elif state.light_dist_m < 10.0:
+                    target_speed_ms = 0.0
 
-            if abs(state.g_force_ego) > 0.3:
-                target_speed = min(target_speed, state.speed_ms * 0.9)
+            if use_dist and state.lead_distance_m is not None and state.lead_distance_m < 150:
+                if state.lead_distance_m < state.safe_following_distance_m * 1.5:
+                    lead_speed = state.speed_ms + state.relative_speed_ms
+                    target_speed_ms = min(target_speed_ms, lead_speed)
 
+            diff_kmh = (state.speed_ms - target_speed_ms) * 3.6
 
-            speed_diff = (state.speed_ms - target_speed) * 3.6
-
-            if speed_diff > 0:
-                r_speed = 1.5 * math.exp(-(speed_diff ** 2) / 2.5) - 0.5 - 0.1 * speed_diff # maybe 0.05?
+            if diff_kmh > 0:
+                r_speed = math.exp(-0.5 * (diff_kmh / 10.0) ** 2)
             else:
-                r_speed = r_speed_postive_weight * (math.exp(-(speed_diff ** 2) / 25) + 0.1 * speed_diff)
+                r_speed = math.exp(-0.5 * (diff_kmh / 20.0) ** 2)
 
-            r_speed = r_speed_weight * r_speed
 
 
         ############### SAFE DISTANCE ###############
-        r_dist = 0
-        r_dist_weight = 2.5
-
-        safe_distance = 0.0
-        safety_margin = 0.0
-
-        if use_dist:
-            if state.lead_distance_m is not None and 0 < state.lead_distance_m < 250:
-                min_front_distance = state.lead_distance_m
-                safe_distance = state.safe_following_distance_m
-
-                safety_margin = min(min_front_distance / (safe_distance + 1e-5), 100)
-
-                if safety_margin >= 1:
-                    r_dist = math.exp(-1 * (safety_margin-1))
-
-                    if safety_margin >= 3 and r_speed < 0.0:
-                        r_speed = (1 + (safety_margin / 50)) * r_speed # r_speed should always be neg here
+        ratio = 0.0
+        if use_dist and state.lead_distance_m is not None and state.lead_distance_m < 150:
+                safe_dist = max(state.safe_following_distance_m, 5.0) # Floor at 5m
+                ratio = state.lead_distance_m / safe_dist
+                if ratio >= 1 and state.lead_distance_m > 5:
+                    r_dist = math.exp(-0.5 * (ratio - 1.0))
                 else:
-                    r_dist = - 7 * ((safety_margin - 1) ** 2) + 1
-                    r_dist = r_dist - r_dist * state.relative_speed_ms
-
-                r_dist = r_dist_weight * r_dist
-
-            else:
-
-                if r_speed < 0.0:
-                    current_speed = max(state.speed_ms, 0.1)
-                    r_speed = (state.speed_limit_ms / current_speed) * r_speed
+                    r_dist = -1.0 / math.exp(0.2 * ratio)
 
 
         ############### TRAFFIC LIGHT ###############
-        r_light = 0.0
-        r_light_weight = 20.0
-        if use_light and (state.light_color == LightColors.red or state.light_color == LightColors.orange):
-            dist = state.light_dist_m
-            if 0 < dist < 50.0:
-                # RUNNING THE LIGHT PENALTY
-                if dist < 7 and state.speed_ms > 2.0:
-                    r_light = -100.0 * (1 + abs(state.speed_ms / 40))
-                    logging.info(f"Red Light Violation! Speed: {state.speed_ms:.2f}")
-                # BRAKING CURVE REWARD
-                else:
-                    target_stop_dist = max(0, dist - 7.5)
-                    desired_speed_at_dist = math.sqrt(2 * 2.0 * target_stop_dist)
-                    speed_excess = max(0, state.speed_ms - desired_speed_at_dist)
-                    r_light = -2.0 * (speed_excess ** 1.5)
-                # STOPPED REWARD
-                if state.speed_ms < 0.1 and dist < 20.0 and dist > 2.0:
-                    r_light += 1.0
-            r_light = r_light * r_light_weight
+        if use_light and state.light_color in [LightColors.red, LightColors.orange]:
+            if state.light_dist_m < 7.0 and state.speed_ms > (0.1 / 3.6):
+                logging.info("Red Light Violation!")
+                r_light = P_LIGHT_VIOLATION - 0.175 * (state.speed_ms - 2)
+            elif state.speed_ms < (0.1 / 3.6) and state.light_dist_m < 15.0:
+                r_light = 0.5
 
 
         #logging.info(f"rewards: {reward}")
@@ -376,18 +348,23 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         #logging.info(f"  [Speed Limit]   : {'ON' if use_speed else 'OFF'}")
         #logging.info(f"  [Safe Distance] : {'ON' if use_dist else 'OFF'}")
 
-        total_reward = r_crash + r_dist + r_geforce + r_speed + r_light
+        r_speed = W_SPEED * r_speed
+        r_dist = W_DIST * r_dist
+        r_comfort = W_COMFORT * r_comfort
+        r_light = W_LIGHT * r_light
+
+        total_reward = r_speed + r_dist + r_comfort + r_light if r_crash == 0 else r_crash
 
 
         components = {
             "Reward/Total": total_reward,
             "Reward/r_crash": r_crash,
-            "Reward/GForce": r_geforce,
+            "Reward/r_comfort": r_comfort,
             "Reward/Speed": r_speed,
             "Reward/Distance": r_dist,
             "Reward/Lights": r_light,
-            "State/distance/safe_distance": safe_distance,
-            "State/distance/safety_margin": safety_margin,
+            "State/distance/safe_distance": state.safe_following_distance_m,
+            "State/distance/safety_margin": ratio,
 
 
             "State/VehicleState/speed_ms": state.speed_ms,
@@ -524,8 +501,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
                         speed_limit_kh = int(state.speed_limit_ms * 3.6)
 
-                        if random.random() < 0.75:
-                            self.lead_speed_limit = random.randint(speed_limit_kh, speed_limit_kh + 15)
+                        if random.random() < 0.80:
+                            self.lead_speed_limit = random.randint(speed_limit_kh, speed_limit_kh + 30)
                         else:
                             self.lead_speed_limit = random.randint(0, speed_limit_kh)
 
