@@ -147,7 +147,6 @@ def main_loop(args):
         print(f"\nAn critical error occurred during simulation loop: {e}")
         traceback.print_exc()
     finally:
-        engine.cleanup()
         # Close loggers
         GT_lead_distance_logger.close()
         lead_distance_logger.close()
@@ -155,6 +154,9 @@ def main_loop(args):
         g_force_logger.close()
         speed_logger.close()
         GT_speed_limit_logger.close()
+
+        engine.cleanup()
+
 
 
 if __name__ == '__main__':
