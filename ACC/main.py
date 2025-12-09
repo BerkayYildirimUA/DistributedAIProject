@@ -10,7 +10,7 @@ from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
 from ACC.Utils.Sensors import CarlaVBWorldStateSensor, CarlaWorldStateSensor
 from ACC.Engine.engine import Engine
-from app.memory.shared_memory import VehicleStateMemory
+from app.memory.shared_memory import VehicleStateMemory, FrameIdMemory
 from app.data_processors.metrics_logger import iter_metrics
 from app.data_processors.metrics_logger import MetricsLogger
 from app.data_processors.metrics_logger import iter_metrics
