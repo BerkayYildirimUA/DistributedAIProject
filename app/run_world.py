@@ -4,18 +4,16 @@ import cv2
 import threading
 import carla
 import math
-import constants
+import app.constants as constants
 
-from engine.world import World
-from memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory, FrameIdMemory
-from data_processors.objects_in_front_calculator import ObjectsInFrontCalculator
-from data_processors.metrics_logger import MetricsLogger
-from data_processors.metrics_logger import iter_metrics
-from data_processors.metrics_logger import clear_metrics_file
-from data_processors.statistics_calculator import StatisticsCalculator
+from app.data_processors.objects_in_front_calculator import ObjectsInFrontCalculator
+from app.data_processors.metrics_logger import MetricsLogger
+from app.data_processors.metrics_logger import iter_metrics
+from app.data_processors.metrics_logger import clear_metrics_file
+from app.data_processors.statistics_calculator import StatisticsCalculator
 
-
-
+from app.engine.world import World
+from app.memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
 
 
 # Define transforms for handling camera data
@@ -204,6 +202,9 @@ if __name__ == "__main__":
             except RuntimeError as e:
                 print(f"Tick failed {e}")
 
+
+            # TODO: feed this distance data into the reinforcement module to calculate acceleration
+            distance_vehicle_in_front_m = vehicle_distance_memory[0]
     except KeyboardInterrupt:
         print("Closing simulation!")
     finally:

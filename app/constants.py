@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 # Sensor constants 
@@ -37,3 +39,4 @@ ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE = "estimated_vehicle_distance_in_front.
 
 MAX_OBJECT_DETECT_DISTANCE = 20.0
 MAX_LEAD_ACTOR_DISTANCE = 60.0
+MAX_STEER_RAD=math.radians(60)

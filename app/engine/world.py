@@ -1,7 +1,7 @@
 import queue
 import random
 import carla
-import constants
+import app.constants as constants
 import math
 import numpy as np
 

@@ -1,23 +1,21 @@
 import cv2
 import numpy as np
-from sympy.physics.units import velocity
 
-import constants
+import app.constants as constants
 
-from data_processors.lane_detector import LaneDetector
-from data_processors.intersection_detector import IntersectionDetector
+from app.data_processors.lane_detector import LaneDetector
+from app.data_processors.intersection_detector import IntersectionDetector
 import torch
-from TrafficLights.TL_color_detector import TL_color_detector
-from data_processors.object_detector import ObjectDetector
-from data_processors.object_distance_calculator import ObjectDistanceCalculator
-from memory.shared_memory import (
-    RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory, CameraCalibrationMemory, FrameIdMemory
+from app.TrafficLights.TL_color_detector import TL_color_detector
+from app.data_processors.object_detector import ObjectDetector
+from app.data_processors.object_distance_calculator import ObjectDistanceCalculator
+from app.memory.shared_memory import (
+    RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory, CameraCalibrationMemory
 )
-from data_processors.motion_tubes import MotionTubeProjector
-from engine.pov_visualiser import POVVisualiser
-from data_processors.radar_points_projector import RadarPointsProjector
-from data_processors.metrics_logger import MetricsLogger
-
+from app.data_processors.motion_tubes import MotionTubeProjector
+from app.engine.pov_visualiser import POVVisualiser
+from app.data_processors.radar_points_projector import RadarPointsProjector
+from app.data_processors.metrics_logger import MetricsLogger
 
 # Attach to shared memory
 rgb_camera_memory = RGBCameraMemory().get_read_access()
@@ -94,8 +92,11 @@ try:
         lane_2 = [tuple(p[0]) for p in lanes[2]]
         lane_1_x = np.array([x[0] for x in lane_1])
         lane_2_x = np.array([x[0] for x in lane_2])
-        min_lane_distance = abs(max(lane_1_x)-min(lane_2_x))
-        is_intersected=intersection_detector.is_intersecting_list_trajectory_based(boxes,lanes[1],min_lane_distance/2,0.1*min_lane_distance)
+        if len(lane_1_x) ==0 or len(lane_2_x) == 0:
+            is_intersected=[False]*len(boxes)
+        else:
+            min_lane_distance = abs(max(lane_1_x)-min(lane_2_x))
+            is_intersected=intersection_detector.is_intersecting_list_trajectory_based(boxes,lanes[1],min_lane_distance/2,0.1*min_lane_distance)
         # is_intersected=intersection_detector.is_intersecting_list(lanes[0],lanes[1],boxes)
 
         # Write distance of closest vehicle in lane to shared memory
@@ -111,9 +112,7 @@ try:
         vehicle_distance_memory.write(closest_vehicle_distance)
 
 
-
-
-        # --- Stage 2: select only traffic lights ---
+        # Only Traffic lights selecting
         if len(class_ids) > 0:
             cls_names = [object_detector.classes[int(c)] for c in class_ids.tolist()]
             is_tl = torch.tensor([n == "traffic light" for n in cls_names],
@@ -122,7 +121,7 @@ try:
         else:
             tl_boxes = torch.empty((0, 4))
 
-        # --- Stage 3: classify traffic light colors ---
+        # Perform the color classification
         tl_boxes_colored, tl_colors, tl_scores = tl_color_detector.predict_colors_batch(frame, tl_boxes)
 
         # Visualise
