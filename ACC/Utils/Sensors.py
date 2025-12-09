@@ -302,6 +302,8 @@ class CarlaVBWorldStateSensor(StateSensor):
         # ctrl.steer in [-1,1] => schaal naar rad
         steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
 
+        traffic_light_dist_m=math.inf
+        traffic_light_color = traffic_light_color.green
         return VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
