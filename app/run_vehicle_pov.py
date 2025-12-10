@@ -107,17 +107,42 @@ try:
         vehicle_distance_memory.write(closest_vehicle_distance)
 
 
-        # Only Traffic lights selecting
+
+        # Traffic lights selecting out of all the recognized objects in the current frame
         if len(class_ids) > 0:
             cls_names = [object_detector.classes[int(c)] for c in class_ids.tolist()]
             is_tl = torch.tensor([n == "traffic light" for n in cls_names],
                                  dtype=torch.bool, device=boxes.device)
             tl_boxes = boxes[is_tl]
+
+
+
+            # Apply ROI filter (to only select the relevant traffic lights for our car)
+            H, W = frame.shape[0], frame.shape[1]
+            #       x ∈ [0.45W, 0.61W] and y ≥ 0.35
+            LEFT_RATIO = 0.45
+            RIGHT_RATIO = 0.67
+            Y_MIN_RATIO = 0.35
+            x_min = LEFT_RATIO * W
+            x_max = RIGHT_RATIO * W
+            y_min = Y_MIN_RATIO * H
+            keep_mask = []
+            for x1, y1, x2, y2 in tl_boxes.tolist():
+                cx = 0.5 * (x1 + x2)
+                cy = 0.5 * (y1 + y2)
+
+                in_roi = (x_min <= cx <= x_max) and (cy >= y_min)
+                keep_mask.append(in_roi)
+
+            keep_mask = torch.tensor(keep_mask, dtype=torch.bool, device=boxes.device)
+            tl_boxes = tl_boxes[keep_mask]
         else:
             tl_boxes = torch.empty((0, 4))
 
+
         # Perform the color classification
-        tl_boxes_colored, tl_colors, tl_scores = tl_color_detector.predict_colors_batch(frame, tl_boxes)
+        tl_boxes_colored, tl_colors, tl_scores, overall_conf = tl_color_detector.predict_colors_batch(frame, tl_boxes)
+        print("Global color distribution:", overall_conf)
 
         # Visualise
         visualiser = POVVisualiser(
