@@ -3,6 +3,14 @@ import logging
 import traceback
 import numpy as np
 import subprocess
+import pygame
+
+import hud_display
+
+from Engine.start_words import CarlaServerManager
+from Utils.implementations import CarlaStateSensor, SimpleAccAgent
+from Engine.engine import Engine
+from hud_display import HUD
 #import carla
 #from carla import BlueprintLibrary
 
@@ -39,7 +47,7 @@ def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
                      map_name=args.map, number_of_npc=0, lead_car_bp_name='vehicle.tesla.model3')
     engine = Engine(args, scene)
-
+    client_clock = pygame.time.Clock()
     try:
         engine.connect_to_worlds()
 
@@ -50,6 +58,17 @@ def main_loop(args):
         sensor_real = CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
 
         decisionAgent = RLDecisionAgent(sensor_real, "251210_001928_TD3_Aldebaran_chunk_7200.msh")
+        #Initialize Pygame HUD Display
+        pygame.init() #initialize pygame modules
+
+        hud_width = 220
+        hud_height = 400
+
+        display = pygame.display.set_mode((hud_width, hud_height))
+        #hud = HUD(args.width, args.height) #HUD initialization
+        hud = HUD(hud_width, hud_height)
+        engine.duo_world.real_world.on_tick(hud.on_world_tick)
+
 
         crash_detected = False
         frames_after_crash = 0
@@ -64,6 +83,12 @@ def main_loop(args):
             except Exception as e:
                 logging.error(f"Failed to tick world: {e}")
                 break
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    raise KeyboardInterrupt
+            client_clock.tick(60)
+            hud.tick(engine.duo_world.real_world, engine.ego.real, client_clock)
 
             # SAFETY CHECK
             if not engine.ego or not engine.ego.is_alive():
@@ -152,6 +177,12 @@ def main_loop(args):
                 engine.update_spectator()
             except Exception as e:
                 logging.debug(f"Spectator update failed: {e}")
+            
+             # Render all components
+            display.fill((0, 0, 0))  # Clear the screen (assuming black background)
+
+            hud.render(display)  # Render the HUD on the Pygame surface
+            pygame.display.flip()  # Update the screen
 
     except KeyboardInterrupt:
         print("\nSimulation stopped by user (KeyboardInterrupt).")
