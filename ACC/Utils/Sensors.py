@@ -243,14 +243,9 @@ class CarlaWorldStateSensor(StateSensor):
         self.counter += 1
 
         # Update calculators
-        self._g_force_ego_calculator.update_speed(ego_velocity_ms)
-        self._relative_speed_lead_calculator.update_speed(result_dist_m)
-        self._speed_light_calculator.update_speed(traffic_light_dist_m)
+        ego_g_force, relative_speed_ms, speed_light_ms = self.get_differentials(ego_velocity_ms, result_dist_m,
+                                                                                traffic_light_dist_m)
 
-        ego_g_force = self._g_force_ego_calculator.get_latest_g_force() or 0
-        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_g_force() or 0
-        speed_light_ms = self._speed_light_calculator.get_latest_g_force() or 0
-        
         state = VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=self.speed_limit / 3.6,
@@ -266,6 +261,15 @@ class CarlaWorldStateSensor(StateSensor):
         if self.counter % 300 == 0 or last_impact > 0.0:
             self.log_vehicle_state(state)
         return state
+
+    def get_differentials(self, ego_velocity_ms, result_dist_m, traffic_light_dist_m):
+        self._g_force_ego_calculator.update_speed(ego_velocity_ms)
+        self._relative_speed_lead_calculator.update_speed(result_dist_m)
+        self._speed_light_calculator.update_speed(traffic_light_dist_m)
+        ego_g_force = self._g_force_ego_calculator.get_latest_g_force() or 0
+        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_g_force() or 0
+        speed_light_ms = self._speed_light_calculator.get_latest_g_force() or 0
+        return ego_g_force, relative_speed_ms, speed_light_ms
 
     def _get_default_crashed_state(self):
         """Return a safe default state when ego is invalid"""
@@ -347,6 +351,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
 
         # G-force
+
         self._g_force_ego_calculator.update_speed(ego_velocity_ms)
         self._relative_speed_lead_calculator.update_speed(distance[0])
         self._speed_light_calculator.update_speed(traffic_light_dist_m)
@@ -354,7 +359,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         ego_g_force = self._g_force_ego_calculator.get_latest_g_force() or 0
         relative_speed_ms = self._relative_speed_lead_calculator.get_latest_g_force() or 0
         speed_light_ms = self._speed_light_calculator.get_latest_g_force() or 0
-        return super().get_state()
 
 
         self.counter += 1
@@ -362,7 +366,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         ctrl = self._ego.get_control()  # get the control applied in the last tick
         # ctrl.steer in [-1,1] => schaal naar rad
         steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
-        state2 = super().get_state()
+        # state2 = super().get_state()
 
         state= VehicleState(
             speed_ms=ego_velocity_ms,
@@ -378,11 +382,8 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             steer_rad=steer_rad
         )
         if self.counter % 300 == 0:
-            print("Grount truth")
-            self.log_vehicle_state(state2)
-            print("Vision based")
             self.log_vehicle_state(state)
-        return state2
+        return state
 
 
     def create_ego_sensors(self):
