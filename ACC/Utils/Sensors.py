@@ -53,7 +53,7 @@ class CarlaWorldStateSensor(StateSensor):
         self._cached_traffic_lights = None
 
     def _get_light_color_enum(self, carla_state):
-        """Maps CARLA TrafficLightState to your LightColors Enum"""
+        """Maps CARLA TrafficLightState to LightColors Enum"""
         if carla_state == carla.TrafficLightState.Red:
             return LightColors.red
         elif carla_state == carla.TrafficLightState.Yellow:
@@ -74,7 +74,7 @@ class CarlaWorldStateSensor(StateSensor):
 
             current_frame = self.__world.get_snapshot().frame if self.__world else 0
             if (self._cached_traffic_lights is None or
-                    current_frame - self._traffic_light_cache_frame > 100):
+                    current_frame - self._traffic_light_cache_frame > 5):
                 try:
                     self._cached_traffic_lights = list(self.__world.get_actors().filter('traffic.traffic_light'))
                     self._traffic_light_cache_frame = current_frame
@@ -216,8 +216,16 @@ class CarlaWorldStateSensor(StateSensor):
 
             if target_light_actor:
                 try:
-                    traffic_light_dist_m = min(ego_loc.distance(target_light_actor.get_location()), traffic_light_dist_m)
-                    traffic_light_color = self._get_light_color_enum(target_light_actor.get_state())
+                    light_loc : carla.Location = target_light_actor.get_location()
+                    road_vec = ego_waypoint.transform.get_forward_vector()
+
+                    car_to_light_vec = light_loc - ego_loc
+                    longitudinal_dist = (car_to_light_vec.x * road_vec.x) + (car_to_light_vec.y * road_vec.y)
+
+                    if longitudinal_dist > 0:
+                        traffic_light_dist_m = min(longitudinal_dist, traffic_light_dist_m)
+                        traffic_light_color = self._get_light_color_enum(target_light_actor.get_state())
+
                 except RuntimeError:
                     pass
         except Exception:

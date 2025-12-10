@@ -135,6 +135,11 @@ def main_loop(args):
                 logging.warning(f"Ego sync failed: {e}")
 
             try:
+                engine.sync_traffic_lights()
+            except Exception as e:
+                logging.warning(f"traffic lights sync failed: {e}")
+
+            try:
                 engine.update_spectator()
             except Exception as e:
                 logging.debug(f"Spectator update failed: {e}")

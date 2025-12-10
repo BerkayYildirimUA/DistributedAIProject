@@ -38,6 +38,7 @@ class Engine():
         # scenario
         self.duo_client: Optional[DuoClient] = None
         self.duo_world: Optional[DuoWorld] = None
+        self.traffic_light_pairs = []
         self.tm_mirror: Optional[carla.TrafficManager] = None
         self.blueprint_library: Optional[carla.BlueprintLibrary] = None
         self.blueprints_vehicles: Optional[carla.BlueprintLibrary] = None
@@ -51,6 +52,12 @@ class Engine():
         self.npcs: List[DuoActor] = []
 
         self.scenario = scenario
+
+        self.traffic_light_timer = 0.0
+        self.traffic_light_state = carla.TrafficLightState.Green
+        self.green_duration = 30.0
+        self.yellow_duration = 3.0
+        self.red_duration = 20.0
 
     def _load_world_safely(self, client: carla.Client, map_name: str, server_name: str) -> Tuple[carla.World, bool]:
         """
@@ -214,9 +221,10 @@ class Engine():
 
             self.duo_world.tick()
 
+            self.map_traffic_lights()
+
             if real_world_is_custom and mirror_world_is_custom:
-                green_time, yellow_time, red_time = self.reset_traffic_lights(self.duo_world.get_real_world())
-                self.reset_traffic_lights(self.duo_world.get_mirror_world(), green_time, yellow_time, red_time)
+                self.reset_traffic_lights(self.duo_world.get_mirror_world())
 
             self.duo_world.tick()
 
@@ -381,6 +389,7 @@ class Engine():
                 if not self.lead: raise RuntimeError("Failed to spawn LEAD pair.")
                 logging.info(f"Spawned LEAD pair: Real ID {self.lead.real.id}, Mirror ID {self.lead.mirror.id}")
 
+
             # --- NPCs ---
             logging.info(f"Attempting to spawn {self.num_npcs} NPC pairs...")
             npc_spawn_count = 0
@@ -419,6 +428,9 @@ class Engine():
             # Spectator setup
             self.spectator = self.duo_world.get_real_world().get_spectator()
 
+            self.reset_traffic_lights()
+
+            self.duo_world.get_mirror_world().tick()
 
 
 
@@ -430,6 +442,89 @@ class Engine():
             logging.error(f"An error occurred during setup: {e}")
             traceback.print_exc()
             return False
+
+    def map_traffic_lights(self):
+        """
+        Creates a list of tuples (Mirror_Light, Real_Light) based on location.
+        Run this ONCE during setup.
+        """
+        if not self.duo_world:
+            return
+
+        logging.info("Mapping Real traffic lights to Mirror traffic lights...")
+
+        real_lights = self.duo_world.get_real_world().get_actors().filter('traffic.traffic_light')
+        mirror_lights = self.duo_world.get_mirror_world().get_actors().filter('traffic.traffic_light')
+
+
+        # Find the matching light in Real world for every Mirror light
+        # We use location because IDs often differ
+        for m_light in mirror_lights:
+            m_loc = m_light.get_transform().location
+
+            best_match = None
+            min_dist = 2.0  # Tolerance in meters
+
+            for r_light in real_lights:
+                r_loc = r_light.get_transform().location
+                dist = m_loc.distance(r_loc)
+
+                if dist < min_dist:
+                    min_dist = dist
+                    best_match = r_light
+
+            if best_match:
+                self.traffic_light_pairs.append((m_light, best_match))
+
+        logging.info(f"Mapped {len(self.traffic_light_pairs)} traffic light pairs.")
+
+    def sync_traffic_lights(self):
+        """
+        Syncs traffic lights based on map type:
+        1. Custom Maps: Runs a manual timer-based cycle (Green -> Yellow -> Red).
+        2. Standard Maps: Copies the state from the Mirror World (Master) to the Real World (Slave).
+        """
+
+        # --- LOGIC 1: CUSTOM MAPS (Manual Control) ---
+        if self.map_name.startswith("CUSTOM_"):
+            self.traffic_light_timer += self.delta_seconds
+
+            # State Machine Logic
+            if self.traffic_light_state == carla.TrafficLightState.Green:
+                if self.traffic_light_timer >= self.green_duration:
+                    self.traffic_light_state = carla.TrafficLightState.Yellow
+                    self.traffic_light_timer = 0.0
+            elif self.traffic_light_state == carla.TrafficLightState.Yellow:
+                if self.traffic_light_timer >= self.yellow_duration:
+                    self.traffic_light_state = carla.TrafficLightState.Red
+                    self.traffic_light_timer = 0.0
+            elif self.traffic_light_state == carla.TrafficLightState.Red:
+                if self.traffic_light_timer >= self.red_duration:
+                    self.traffic_light_state = carla.TrafficLightState.Green
+                    self.traffic_light_timer = 0.0
+
+            # Apply the calculated state to BOTH worlds
+            for m_light, r_light in self.traffic_light_pairs:
+                try:
+                    # We freeze them to ensure they don't fight back
+                    if not m_light.is_frozen(): m_light.freeze(True)
+                    if not r_light.is_frozen(): r_light.freeze(True)
+
+                    m_light.set_state(self.traffic_light_state)
+                    r_light.set_state(self.traffic_light_state)
+                except RuntimeError:
+                    pass
+
+        # --- LOGIC 2: STANDARD MAPS (Mirror Sync) ---
+        else:
+            for m_light, r_light in self.traffic_light_pairs:
+                try:
+                    m_state = m_light.get_state()
+
+                    if r_light.get_state() != m_state:
+                        r_light.set_state(m_state)
+                except RuntimeError:
+                    pass
 
     def synchronization_real_npc_with_mirror_npcs(self):
         if not self.duo_world:
@@ -551,33 +646,31 @@ class Engine():
         logging.debug(f"Successfully repaired {target_side} actor. New ID: {new_actor.id}")
         return True
 
-    def reset_traffic_lights(self, world, green_time=0.0, yellow_time=0.0, red_time=0.0):
-        """Force all traffic lights to cycle"""
-        actors = world.get_actors().filter('traffic.traffic_light')
-        for light in actors:
+    def reset_traffic_lights(self, green_time=0.0, yellow_time=0.0, red_time=0.0):
+        """Force all traffic lights to green"""
+
+        for m_light, r_light in self.traffic_light_pairs:
             try:
                 if green_time == 0.0:
-                   green_time = random.randint(4, 35)
-                   if random.random() <= 0.25:
-                        green_time = 200
+                    self.green_duration = random.randint(4, 35)
+                    if random.random() <= 0.25:
+                        self.green_duration = 200
 
                 if yellow_time == 0.0:
-                    yellow_time = random.randint(3, 5)
-                    if yellow_time == 200:
-                        red_time = 1
+                    self.yellow_duration = random.randint(3, 5)
+                    if self.yellow_duration == 200:
+                        self.red_duration = 1
                 if red_time == 0.0:
-                    red_time = random.randint(4, 35)
-                    if green_time == 200:
-                        red_time = 1
+                    self.red_duration = random.randint(4, 35)
+                    if self.green_duration == 200:
+                        self.red_duration = 1
 
-                light.set_state(carla.TrafficLightState.Green)
-                light.set_green_time(green_time)
-                light.set_yellow_time(yellow_time)
-                light.set_red_time(red_time)
+                logging.info(f"Reset lights - Mirror: {m_light.get_state()}, Real: {r_light.get_state()}")
 
-                return green_time, yellow_time, red_time
-            except:
-                pass
+            except Exception as e:
+                logging.error(f"Failed to reset traffic light pair: {e}")
+
+        return green_time, yellow_time, red_time
 
     def revive_ego_pair(self) -> bool:
         """
@@ -611,6 +704,7 @@ class Engine():
         Specialized repair function for the lead vehicle.
         Handles lead-specific configuration after resurrection (e.g., TM settings).
         """
+
         if not self.lead:
             logging.error("No lead actor exists to revive.")
             return False
@@ -625,8 +719,9 @@ class Engine():
                 if self.tm_mirror and self.lead.mirror:
                     self.lead.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
                     self.lead.set_mirror_physics(True)
-                    self.duo_world.get_mirror_world().tick()
+                    self.tm_mirror.ignore_lights_percentage(self.lead.mirror, 0.0)
 
+                    self.duo_world.get_mirror_world().tick()
                     if speed_limit > 0:
                         self.tm_mirror.set_desired_speed(self.lead.mirror, speed_limit * 3.6)
 
@@ -671,8 +766,8 @@ class Engine():
             time.sleep(0.2)
 
             # Reset traffic lights
-            green_time, yellow_time, red_time = self.reset_traffic_lights(self.duo_world.get_real_world())
-            self.reset_traffic_lights(self.duo_world.get_mirror_world(), green_time, yellow_time, red_time)
+            self.reset_traffic_lights()
+
 
             # 4. Re-run actor spawning (reuse existing spawn logic)
             # Get spawn points
@@ -721,6 +816,9 @@ class Engine():
                 self.lead = self.spawn_actor_pair(lead_bp, lead_spawn_point)
 
                 if self.lead:
+                    self.tm_mirror.ignore_lights_percentage(self.lead.mirror, 0.0)
+                    self.tm_mirror.ignore_signs_percentage(self.lead.mirror, 0.0)
+
                     logging.info(f"Spawned LEAD pair: Real ID {self.lead.real.id}, Mirror ID {self.lead.mirror.id}")
 
             # 5. Configure mirror actors with TM
@@ -733,10 +831,6 @@ class Engine():
             if self.lead:
                 self.lead.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
                 self.lead.set_mirror_physics(True)
-
-
-
-
 
             # 6. Final tick
             self.duo_world.tick()

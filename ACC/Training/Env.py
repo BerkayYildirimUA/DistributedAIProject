@@ -295,17 +295,17 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 r_comfort = -1.0 * (state.g_force_ego / 3.0) ** 2
                 r_comfort = max(r_comfort, -1.0)
 
-
-
         ############### SPEED ###############
         if use_speed:
             target_speed_ms = state.speed_limit_ms
+            dist_to_obstacle = min(state.light_dist_m, state.lead_distance_m)
+
             if use_light and state.light_color in [LightColors.red, LightColors.orange]:
-                if state.light_dist_m < 50.0:
+                if 5 < dist_to_obstacle < 50.0:
                     dist_to_stop = max(0, state.light_dist_m - 2.0)
                     safe_approach_speed = math.sqrt(2 * 1.5 * dist_to_stop)
                     target_speed_ms = min(target_speed_ms, safe_approach_speed)
-                elif state.light_dist_m < 10.0:
+                elif dist_to_obstacle < 5:
                     target_speed_ms = 0.0
 
             if use_dist and state.lead_distance_m is not None and state.lead_distance_m < 150:
@@ -313,12 +313,22 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                     lead_speed = state.speed_ms + state.relative_speed_ms
                     target_speed_ms = min(target_speed_ms, lead_speed)
 
+                if state.lead_distance_m < 3:
+                    target_speed_ms = 0.5 * target_speed_ms
+
             diff_kmh = (state.speed_ms - target_speed_ms) * 3.6
 
             if diff_kmh > 0:
-                r_speed = math.exp(-0.5 * (diff_kmh / 10.0) ** 2)
+                r_speed = 1.5 * math.exp(-0.5 * (diff_kmh / 10.0) ** 2) - 0.5
+
+                if use_light and state.light_color in [LightColors.green]:
+                    if state.speed_ms < target_speed_ms:
+                        r_light = (1 + diff_kmh/10) * r_speed
+
             else:
                 r_speed = math.exp(-0.5 * (diff_kmh / 20.0) ** 2)
+
+
 
 
 
@@ -333,13 +343,17 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                     r_dist = -1.0 / math.exp(0.2 * ratio)
 
 
+
+
         ############### TRAFFIC LIGHT ###############
-        if use_light and state.light_color in [LightColors.red, LightColors.orange]:
-            if state.light_dist_m < 7.0 and state.speed_ms > (0.1 / 3.6):
+        if use_light and state.light_color in [LightColors.red]:
+            dist_to_obstacle = min(state.light_dist_m, state.lead_distance_m)
+            if state.light_dist_m < 2.0 and state.speed_ms > (1 / 3.6):
                 logging.info("Red Light Violation!")
                 r_light = P_LIGHT_VIOLATION - 0.175 * (state.speed_ms - 2)
-            elif state.speed_ms < (0.1 / 3.6) and state.light_dist_m < 15.0:
-                r_light = 0.5
+            elif state.speed_ms < (0.1 / 3.6) and dist_to_obstacle < 5:
+                r_light = (0.5 - 0.5 * (state.speed_ms / 3.6)) / 3
+
 
 
         #logging.info(f"rewards: {reward}")
@@ -365,7 +379,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             "Reward/Lights": r_light,
             "State/distance/safe_distance": state.safe_following_distance_m,
             "State/distance/safety_margin": ratio,
-
+            "State/distance/dist_to_obstacle": min(state.light_dist_m, state.lead_distance_m),
 
             "State/VehicleState/speed_ms": state.speed_ms,
             "State/VehicleState/speed_limit_ms": state.speed_limit_ms,
@@ -400,11 +414,11 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
             if self.engine.lead is not None:
                 if not self.engine.lead.is_alive():
-                    logging.debug("Lead pair incomplete. Attempting revival...")
+                    logging.info("Lead pair incomplete. Attempting revival...")
                     if self.engine.revive_lead_pair(self.lead_speed_limit):
-                        logging.debug("Ego successfully revived. Continuing step.")
+                        logging.info("Lead successfully revived. Continuing step.")
                     else:
-                        raise RuntimeError("Ego vehicle disappeared and revival failed.")
+                        raise RuntimeError("Lead vehicle disappeared and revival failed.")
 
 
 
@@ -439,6 +453,10 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
             # spectator
             self.engine.update_spectator()
+
+            # lights
+            self.engine.sync_traffic_lights()
+
 
             state = self.sensor_real.get_state()
 
