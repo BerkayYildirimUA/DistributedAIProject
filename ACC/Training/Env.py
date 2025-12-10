@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import random
+import time
 from typing import SupportsFloat, Any, Dict
 import carla
 import gymnasium as gym
@@ -44,13 +45,15 @@ def vehicle_state_to_array(state: VehicleState) -> np.ndarray:
 
     norm_acc_ego = np.clip(state.g_force_ego / 5, -1.5, 1.5)
 
+    norm_crash = np.clip(state.crash_intensity / 200000, 0, 3)
+
     obs = np.array([
         norm_speed,
         norm_limit,
         speed_ratio,
         norm_distance,
         norm_safe_dist,
-        1.0 if state.hasCrashed else 0.0,
+        norm_crash,
         norm_light,
         norm_light_dist,
         norm_light_speed,
@@ -105,7 +108,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                  0.0,  # speed_ratio
                  0.0,  # distance to lead
                  0.0,  # safe_following_distance
-                 0.0,  # hasCrashed (0 or 1)
+                 0,  # crash power
                  0.0,  # light_color (0, 1, 2)
                  0.0,  #light distance
                  -3, # norm_light_speed
@@ -119,7 +122,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                  1.5,  # speed ratio
                  1.0,  # distances (max 250m)
                  1.0,  # safe_following_distance
-                 1.0,  # hasCrashed
+                 3,  # crash power
                  1.0, # light_color
                  1.0, # light_dist (max 250m)
                  3, # norm_light_speed
@@ -163,41 +166,58 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
 
 
+
+
     def reset(self, *, seed: int | None = None, options: Dict[str, Any] | None = None) -> \
             tuple[np.ndarray, Dict[str, Any]]:
         super().reset(seed=seed)
 
 
-
-        if self.engine is not None:
-            self.eng_args = self.engine.args
-            self.eng_scene: Scenario = self.engine.scenario
-            self.engine.cleanup()
-            self.engine = None
-
-
-        #self.set_rewards()
-
-        self.engine = Engine(self.eng_args,self.eng_scene)
-        self.engine.connect_to_worlds()
-        self.engine.duo_world.tick()
-
-
-        if not self.engine.setup():
-            raise RuntimeError("Engine setup failed. Exiting.")
-
-
-        #self.sensor_real.reset(self.engine.ego.real, self.engine.duo_world.get_real_world())
         current_speed_limit = 0.0
         counter = 0.0
         if self.sensor_real is not None:
             current_speed_limit = self.sensor_real.speed_limit
             counter = self.sensor_real.counter
-            self.sensor_real.cleanup()
+            try:
+                self.sensor_real.cleanup()
+            except Exception as e:
+                logging.warning(f"Sensor cleanup error: {e}")
+
             self.sensor_real = None
 
+        reset_success = False
+        if self.engine is not None:
+            try:
+                reset_success = self.engine.soft_reset()
+            except Exception as e:
+                logging.warning(f"Soft reset failed: {e}")
+                reset_success = False
 
-        self.sensor_real = CarlaWorldStateSensor(self.engine.ego.real, self.engine.duo_world.get_real_world())
+        if not reset_success:
+            logging.warning("Soft reset failed, performing full reset...")
+
+            if self.engine is not None:
+                self.eng_args = self.engine.args
+                self.eng_scene = self.engine.scenario
+                try:
+                    self.engine.cleanup()
+                except Exception as e:
+                    logging.warning(f"Engine cleanup error: {e}")
+                self.engine = None
+
+            time.sleep(3)
+
+            self.engine = Engine(self.eng_args,self.eng_scene)
+            self.engine.connect_to_worlds()
+            self.engine.duo_world.tick()
+
+            if not self.engine.setup():
+                raise RuntimeError("Engine setup failed. Exiting.")
+
+        self.sensor_real = CarlaWorldStateSensor(
+            self.engine.ego.real,
+            self.engine.duo_world.get_real_world()
+        )
         self.sensor_real.counter = counter
 
         if self.eng_args.random_speed_limit:
@@ -209,18 +229,28 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         state.steering_dir = 0.0
         obs = vehicle_state_to_array(state)
         info: Dict[str, Any] = {}
-        #self.__g_force_calculator = GForceCalculator(self.engine.delta_seconds)
-
-
-        #self.engine.lead.set_mirror_velocity(Vector3D(x=self.lead_speed_limit, y=0, z=0))
 
         return obs, info
 
     def close(self):
-        super().close()
-        self.sensor_real.cleanup()
-        self.sensor_real = None
-        self.engine.cleanup()
+        if self.sensor_real is not None:
+            try:
+                self.sensor_real.cleanup()
+            except Exception as e:
+                logging.error(f"Error cleaning up sensor in close: {e}")
+            self.sensor_real = None
+
+        if self.engine is not None:
+            try:
+                self.engine.cleanup()
+            except Exception as e:
+                logging.error(f"Error cleaning up engine in close: {e}")
+            self.engine = None
+
+        try:
+            super().close()
+        except Exception:
+            pass
 
 
     def _reward(self, state : VehicleState) -> tuple[float, Dict]:
@@ -228,7 +258,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         #self.engine.ego.real
         #self.__g_force_calculator.update_speed(state.speed)
         #g_force = self.__g_force_calculator.get_latest_g_force()
-
 
 
         rewards_dict = self.eng_scene.rewards
@@ -239,85 +268,92 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         use_dist = rewards_dict.get("reward_safe_distance", True)
         use_light = rewards_dict.get("reward_light", True)
 
+        W_SPEED = 1         * 1.3
+        W_DIST = 4/3        * 1.1
+        W_COMFORT = 30*1.5
+        W_LIGHT = 14*2
+
+        P_LIGHT_VIOLATION = -5.0
+        P_CRASH_BASE = -10.0
+
+        r_crash = 0.0
+        r_speed = 0.0
+        r_dist = 0.0
+        r_comfort = 0.0
+        r_light = 0.0
 
         ############### CRASH ###############
-        r_crash = 0
-        if use_crash and state.hasCrashed:
+        if use_crash and state.crash_intensity > 0.0:
             logging.info("Car Crashed!")
-            r_crash = -100 * (1 + abs(state.relative_speed_ms))
+            r_crash = P_CRASH_BASE - min(abs(state.crash_intensity/50000), 1)
+
 
         ############### G-FORCE ###############
-        r_geforce = 0
-        r_geforce_weight = 1
         g_force_ego = state.g_force_ego
         if use_geforce:
             if g_force_ego is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
-                acc = g_force_ego * 9.81
-                r_geforce = max(min(0.5 - 0.02 * acc, 1.05812 - 0.615337 * acc), -1) - 0.01 * acc
-                r_geforce = r_geforce_weight * r_geforce
-
-
+                r_comfort = -1.0 * (state.g_force_ego / 3.0) ** 2
+                r_comfort = max(r_comfort, -1.0)
 
         ############### SPEED ###############
-        r_speed = 0
-        r_speed_weight = 1.0
         if use_speed:
-            speed_diff = (state.speed_ms - state.speed_limit_ms) * 3.6
+            target_speed_ms = state.speed_limit_ms
+            dist_to_obstacle = min(state.light_dist_m, state.lead_distance_m)
 
-            if speed_diff > 0:
-                r_speed = 1.5 * math.exp(-(speed_diff ** 2) / 2.5) - 0.5 - 0.1 * speed_diff # maybe 0.05?
+            if use_light and state.light_color in [LightColors.red, LightColors.orange]:
+                if 5 < dist_to_obstacle < 50.0:
+                    dist_to_stop = max(0, state.light_dist_m - 2.0)
+                    safe_approach_speed = math.sqrt(2 * 1.5 * dist_to_stop)
+                    target_speed_ms = min(target_speed_ms, safe_approach_speed)
+                elif dist_to_obstacle < 5:
+                    target_speed_ms = 0.0
+
+            if use_dist and state.lead_distance_m is not None and state.lead_distance_m < 150:
+                if state.lead_distance_m < state.safe_following_distance_m * 1.5:
+                    lead_speed = state.speed_ms + state.relative_speed_ms
+                    target_speed_ms = min(target_speed_ms, lead_speed)
+
+                if state.lead_distance_m < 3:
+                    target_speed_ms = 0.5 * target_speed_ms
+
+            diff_kmh = (state.speed_ms - target_speed_ms) * 3.6
+
+            if diff_kmh > 0:
+                r_speed = 1.5 * math.exp(-0.5 * (diff_kmh / 10.0) ** 2) - 0.5
+
+                if use_light and state.light_color in [LightColors.green]:
+                    if state.speed_ms < target_speed_ms:
+                        r_light = (1 + diff_kmh/10) * r_speed
+
             else:
-                r_speed = math.exp(-(speed_diff ** 2) / 25) + 0.1 * speed_diff
+                r_speed = math.exp(-0.5 * (diff_kmh / 20.0) ** 2)
 
-            r_speed = r_speed_weight * r_speed
+
+
 
 
         ############### SAFE DISTANCE ###############
-        r_dist = 0
-        r_dist_weight = 2.5
-
-        safe_distance = 0.0
-        safety_margin = 0.0
-
-        if use_dist:
-            if state.lead_distance_m is not None and state.lead_distance_m > 0:
-                min_front_distance = state.lead_distance_m
-                safe_distance = state.safe_following_distance_m
-
-                safety_margin = min(min_front_distance / (safe_distance + 1e-5), 100)
-
-                if safety_margin >= 1:
-                    r_dist = math.exp(-1 * (safety_margin-1))
-
-                    if safety_margin >= 3 and (state.speed_ms * 3.6) < ((state.speed_limit_ms * 3.6) - 3):
-                        r_speed = (1 + (safety_margin / 50)) * r_speed
-
+        ratio = 0.0
+        if use_dist and state.lead_distance_m is not None and state.lead_distance_m < 150:
+                safe_dist = max(state.safe_following_distance_m, 5.0) # Floor at 5m
+                ratio = state.lead_distance_m / safe_dist
+                if ratio >= 1 and state.lead_distance_m > 5:
+                    r_dist = math.exp(-0.5 * (ratio - 1.0))
                 else:
-                    r_dist = - 7 * ((safety_margin - 1) ** 2) + 1
-                    r_dist = r_dist - r_dist * state.relative_speed_ms
+                    r_dist = -1.0 / math.exp(0.2 * ratio)
 
-                r_dist = r_dist_weight * r_dist
+
+
 
         ############### TRAFFIC LIGHT ###############
-        r_light = 0.0
-        r_light_weight = 15.0
-        if use_light and (state.light_color.value == LightColors.red or state.light_color.value == LightColors.orange):
-            dist = state.light_dist_m
-            if 0 < dist < 50.0:
-                # RUNNING THE LIGHT PENALTY
-                if dist < 4.0 and state.speed_ms > 2.0:
-                    r_light = -100.0 * (1 + abs(state.speed_ms / 40))
-                    logging.info(f"Red Light Violation! Speed: {state.speed_ms:.2f}")
-                # BRAKING CURVE REWARD
-                else:
-                    target_stop_dist = max(0, dist - 3.0)
-                    desired_speed_at_dist = math.sqrt(2 * 2.0 * target_stop_dist)
-                    speed_excess = max(0, state.speed_ms - desired_speed_at_dist)
-                    r_light = -1.0 * (speed_excess ** 1.5)
-                # STOPPED REWARD
-                if state.speed_ms < 0.1 and dist < 15.0 and dist > 2.0:
-                    r_light += 1.0
-        r_light = r_light * r_light_weight
+        if use_light and state.light_color in [LightColors.red]:
+            dist_to_obstacle = min(state.light_dist_m, state.lead_distance_m)
+            if state.light_dist_m < 2.0 and state.speed_ms > (1 / 3.6):
+                logging.info("Red Light Violation!")
+                r_light = P_LIGHT_VIOLATION - 0.175 * (state.speed_ms - 2)
+            elif state.speed_ms < (0.1 / 3.6) and dist_to_obstacle < 5:
+                r_light = (0.5 - 0.5 * (state.speed_ms / 3.6)) / 3
+
 
 
         #logging.info(f"rewards: {reward}")
@@ -326,24 +362,30 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         #logging.info(f"  [Speed Limit]   : {'ON' if use_speed else 'OFF'}")
         #logging.info(f"  [Safe Distance] : {'ON' if use_dist else 'OFF'}")
 
-        total_reward = r_crash + r_dist + r_geforce + r_speed + r_light if r_crash == 0 else r_crash
+        r_speed = W_SPEED * r_speed
+        r_dist = W_DIST * r_dist
+        r_comfort = W_COMFORT * r_comfort
+        r_light = W_LIGHT * r_light
+
+        total_reward = r_speed + r_dist + r_comfort + r_light if r_crash == 0 else r_crash
+
 
         components = {
             "Reward/Total": total_reward,
-            "Reward/Crash": r_crash,
-            "Reward/GForce": r_geforce,
+            "Reward/r_crash": r_crash,
+            "Reward/r_comfort": r_comfort,
             "Reward/Speed": r_speed,
             "Reward/Distance": r_dist,
             "Reward/Lights": r_light,
-            "State/distance/safe_distance": safe_distance,
-            "State/distance/safety_margin": safety_margin,
-
+            "State/distance/safe_distance": state.safe_following_distance_m,
+            "State/distance/safety_margin": ratio,
+            "State/distance/dist_to_obstacle": min(state.light_dist_m, state.lead_distance_m),
 
             "State/VehicleState/speed_ms": state.speed_ms,
             "State/VehicleState/speed_limit_ms": state.speed_limit_ms,
             "State/VehicleState/lead_distance_m": state.lead_distance_m,
             "State/VehicleState/safe_following_distance_m": state.safe_following_distance_m,
-            "State/VehicleState/hasCrashed": state.hasCrashed,
+            "State/VehicleState/crash_intensity": state.crash_intensity,
             "State/VehicleState/light_color": state.light_color.value,
             "State/VehicleState/light_dist_m": state.light_dist_m,
             "State/VehicleState/light_speed_ms": state.light_speed_ms,
@@ -372,11 +414,11 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
             if self.engine.lead is not None:
                 if not self.engine.lead.is_alive():
-                    logging.debug("Lead pair incomplete. Attempting revival...")
+                    logging.info("Lead pair incomplete. Attempting revival...")
                     if self.engine.revive_lead_pair(self.lead_speed_limit):
-                        logging.debug("Ego successfully revived. Continuing step.")
+                        logging.info("Lead successfully revived. Continuing step.")
                     else:
-                        raise RuntimeError("Ego vehicle disappeared and revival failed.")
+                        raise RuntimeError("Lead vehicle disappeared and revival failed.")
 
 
 
@@ -412,9 +454,13 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             # spectator
             self.engine.update_spectator()
 
+            # lights
+            self.engine.sync_traffic_lights()
+
+
             state = self.sensor_real.get_state()
 
-            if state.hasCrashed:
+            if state.crash_intensity > 0.0:
                 logging.info("Car Crashed!")
                 terminated = True
             state.steering_dir = steering_dir
@@ -452,6 +498,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                     if dist_to_lead > 300:
                         target_catchup_speed = max(0.0, state.speed_ms * 3.6 * random.uniform(0.5, 0.8))
 
+                        if random.random() < 0.10:
+                            target_catchup_speed = 0.0
+
                         # Only update if meaningful change to avoid spamming TM
                         if abs(self.lead_speed_limit - target_catchup_speed) > 1.0:
                             self.lead_speed_limit = target_catchup_speed
@@ -468,7 +517,15 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                         self.engine.lead.real.set_location(lead_location)
                         self.engine.lead.mirror.set_location(lead_location)
 
-                        self.lead_speed_limit = state.speed_limit_ms * 3.6 + random.randint(-15, 15)
+                        speed_limit_kh = int(state.speed_limit_ms * 3.6)
+
+                        if random.random() < 0.80:
+                            self.lead_speed_limit = random.randint(speed_limit_kh, speed_limit_kh + 30)
+                        else:
+                            self.lead_speed_limit = random.randint(0, speed_limit_kh)
+
+                        if random.random() < 0.1:
+                            self.lead_speed_limit = 0.0
 
                         self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
 
@@ -499,27 +556,40 @@ class GymnasiumToGymWrapper:
         return self.env._mdp_info
 
     def reset(self, state=None):
+        """Reset with extended retry logic and better error recovery."""
         max_retries = 10
 
         for attempt in range(max_retries):
             try:
                 obs, _ = self.env.reset()
 
+                # Verify ego is actually alive
                 if self.env.engine.ego is not None and self.env.engine.ego.is_alive():
                     return obs
 
-                logging.warning(f"Reset attempt {attempt}: Ego is dead or None. Retrying...")
+                logging.warning(f"Reset attempt {attempt + 1}: Ego is dead or None. Retrying...")
 
             except Exception as e:
-                logging.warning(f"Reset attempt {attempt} crashed: {e}. Retrying...")
-                traceback.print_exc()
+                logging.warning(f"Reset attempt {attempt + 1} crashed: {e}. Retrying...")
 
-        raise RuntimeError("Critical: Failed to reset environment after 10 attempts.")
+                # Try to cleanup the broken state
+                if hasattr(self.env, 'engine') and self.env.engine is not None:
+                    try:
+                        self.env.engine.cleanup()
+                    except:
+                        pass
+                    self.env.engine = None
+
+                # Increasing delay between retries
+                time.sleep(2.0 + attempt)
+
+        raise RuntimeError(f"Critical: Failed to reset environment after {max_retries} attempts.")
+
 
     def step(self, action):
         action = np.clip(action, -1.0, 1.0)
         obs, reward, terminated, truncated, info = self.env.step(action)
-        done = terminated or truncated
+        done = terminated
 
         if wandb.run is not None:
             log_dict = {k: v for k, v in info.items() if isinstance(v, (int, float))}
@@ -528,7 +598,7 @@ class GymnasiumToGymWrapper:
 
         self.step_count += 1
 
-        return obs, reward, done, info
+        return obs, reward, terminated, info
 
     def render(self):
         return self.env.render()
