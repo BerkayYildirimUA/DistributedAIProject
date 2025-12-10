@@ -319,7 +319,7 @@ def get_speed_from_image(img, model, class_names):
 if __name__ == "__main__":
     print("Script started, beginning training...")
 
-#Tthis trains and loads the trained model for inference...uses the already ,pth file I already saved
+#This trains and loads the trained model for inference...uses the already ,pth file I already saved
 
 
     model_path = "sign_text_classifier_best.pth"
