@@ -52,7 +52,7 @@ def main_loop(args):
         sensor_real =  CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
 
         #decisionAgent = SimpleAccAgent(engine.ego.real, sensor_real)
-        decisionAgent = RLDecisionAgent(sensor_real, "251208_032755_TD3_speed_lead_chunk_600.msh")
+        decisionAgent = RLDecisionAgent(sensor_real, "251210_001928_TD3_Aldebaran_chunk_7200.msh")
 
         # Create needed memory access to sync carla data from sensors to newer python env
         vehicle_state_memory = VehicleStateMemory().get_write_access()
