@@ -45,7 +45,7 @@ class CarlaWorldStateSensor(StateSensor):
 
     def log_vehicle_state(self,state:VehicleState):
         logging.info(
-            f"speed: {state.speed_ms * 3.6:.2f}fkm/h, speed limit: {state.speed_limit_ms*3.6:.2f} km/h, distance to nearest: {state.lead_distance_m:.2f}m, safe dist: {state.safe_following_distance_m:.2f}m,traffic light color: {state.light_color}, traffic light distance: {state.light_dist_m:.2f}m, CRASH: {state.hasCrashed}, g-forces:{state.g_force_ego}, {state.relative_speed_ms}, {state.light_speed_ms}")
+            f"speed: {state.speed_ms * 3.6:.2f}fkm/h, speed limit: {state.speed_limit_ms*3.6:.2f} km/h, distance to nearest: {state.lead_distance_m:.2f}m, safe dist: {state.safe_following_distance_m:.2f}m,traffic light color: {state.light_color}, traffic light distance: {state.light_dist_m:.2f}m, CRASH: {state.crash_intensity}, g-forces:{state.g_force_ego}, {state.relative_speed_ms}, {state.light_speed_ms}")
 
     def cleanup(self):
 
