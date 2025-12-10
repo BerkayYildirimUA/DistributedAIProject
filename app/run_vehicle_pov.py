@@ -3,7 +3,7 @@ import numpy as np
 from sympy.physics.units import velocity
 
 import constants
-from app.data_processors.sign_classifier import SignClassifier
+from data_processors.sign_classifier import SignClassifier
 
 from data_processors.lane_detector import LaneDetector
 from data_processors.intersection_detector import IntersectionDetector
