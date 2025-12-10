@@ -259,6 +259,7 @@ class CarlaWorldStateSensor(StateSensor):
             light_speed_ms=speed_light_ms
         )
         if self.counter % 300 == 0 or last_impact > 0.0:
+            print("Ground truth")
             self.log_vehicle_state(state)
         return state
 
@@ -382,6 +383,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             steer_rad=steer_rad
         )
         if self.counter % 300 == 0:
+            print("Vison based")
             self.log_vehicle_state(state)
         return state
 

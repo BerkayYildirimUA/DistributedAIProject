@@ -114,9 +114,9 @@ def main_loop(args):
                 tm_control = engine.ego.get_mirror_control()
                 agent_control = decisionAgent.make_decision(tm_control)
                 debug_agent_control = decisionAgent_debug.make_decision(tm_control)
-
-                print(f"Agent controls -- throtle: {agent_control.throttle}, brake: {agent_control.brake}")
-                print(f"[DEBUG] Agent controls -- throtle: {debug_agent_control.throttle}, brake: {debug_agent_control.brake}")
+                if mirror_frame % 300 == 0:
+                    print(f"Agent controls -- throtle: {agent_control.throttle}, brake: {agent_control.brake}")
+                    print(f"[DEBUG] Agent controls -- throtle: {debug_agent_control.throttle}, brake: {debug_agent_control.brake}")
 
                 engine.ego.apply_real_control(agent_control)
             except Exception as e:
