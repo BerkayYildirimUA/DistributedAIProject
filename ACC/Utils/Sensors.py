@@ -287,7 +287,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
     def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World):
         super().__init__(ego_vehicle, world)
 
-        self._safe_time_distance_seconds = 2
+        self._safe_time_distance_seconds = 3
         self.counter = 0
 
         self.override_speed_limit = False
@@ -309,7 +309,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         self.start_sensor_threads()
 
-        self.prev_lead_distance=500.0
+        self.prev_lead_distance=250.0
 
     def cleanup(self):
         pass
