@@ -5,12 +5,11 @@ import numpy as np
 import subprocess
 import pygame
 
-import hud_display
 
 from Engine.start_words import CarlaServerManager
 from Utils.implementations import CarlaStateSensor, SimpleAccAgent
 from Engine.engine import Engine
-from hud_display import HUD
+from ACC.hud_display import HUD
 #import carla
 #from carla import BlueprintLibrary
 
