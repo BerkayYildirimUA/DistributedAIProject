@@ -286,7 +286,11 @@ class CarlaWorldStateSensor(StateSensor):
             relative_speed_ms=0,
             light_speed_ms=0
         )
-
+    def isvalid(self,number):
+        if number is None or np.isnan(number):
+            return False
+        else:
+            return True
 class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
     def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World):
@@ -357,10 +361,16 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self._relative_speed_lead_calculator.update_speed(distance[0])
         self._speed_light_calculator.update_speed(traffic_light_dist_m)
 
-        ego_g_force = self._g_force_ego_calculator.get_latest_g_force() or 0
-        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_g_force() or 0
-        speed_light_ms = self._speed_light_calculator.get_latest_g_force() or 0
+        ego_g_force = self._g_force_ego_calculator.get_latest_g_force()
+        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_g_force()
+        speed_light_ms = self._speed_light_calculator.get_latest_g_force()
 
+        if not self.isvalid(ego_g_force):
+            ego_g_force = 0.0
+        if not self.isvalid(relative_speed_ms):
+            relative_speed_ms = 0.0
+        if not self.isvalid(speed_light_ms):
+            speed_light_ms = 0.0
 
         self.counter += 1
 
