@@ -322,7 +322,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
     @override
     def get_state(self) -> VehicleState:
-        return super().get_state()
 
         ego_velocity_vec: Vector3D = self._ego.get_velocity()
         ego_velocity_ms = ego_velocity_vec.length()
@@ -345,6 +344,8 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         # TODO: get speed limit from computer vision
         speed_limit=self.speed_limit
+
+        return super().get_state()
 
         # G-force
         self._g_force_ego_calculator.update_speed(ego_velocity_ms)
