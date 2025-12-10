@@ -360,6 +360,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # ctrl.steer in [-1,1] => schaal naar rad
         steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
         state2 = super().get_state()
+
         state= VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
