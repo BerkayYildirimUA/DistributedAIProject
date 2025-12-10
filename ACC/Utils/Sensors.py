@@ -363,7 +363,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         state= VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
-            lead_distance_m=state2.lead_distance_m,
+            lead_distance_m=lead_distance,
             safe_following_distance_m=safe_distance,
             crash_intensity=0.0,
             light_color=traffic_light_color,
@@ -374,8 +374,11 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             steer_rad=steer_rad
         )
         if self.counter % 300 == 0:
+            print("Grount truth")
+            self.log_vehicle_state(state2)
+            print("Vision based")
             self.log_vehicle_state(state)
-        return state
+        return state2
 
 
     def create_ego_sensors(self):
