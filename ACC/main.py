@@ -48,7 +48,10 @@ def main_loop(args):
 
         # sensor and agent Setup (Real World)
         sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+        sensor_debug = CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+
         decisionAgent = RLDecisionAgent(sensor_real, "251210_001928_TD3_Aldebaran_chunk_7200.msh")
+        decisionAgent_debug = RLDecisionAgent(sensor_debug, "251210_001928_TD3_Aldebaran_chunk_7200.msh")
 
         crash_detected = False
         frames_after_crash = 0
@@ -110,6 +113,11 @@ def main_loop(args):
                 # Get TM control for steering
                 tm_control = engine.ego.get_mirror_control()
                 agent_control = decisionAgent.make_decision(tm_control)
+                debug_agent_control = decisionAgent_debug.make_decision(tm_control)
+
+                print(f"Agent controls -- throtle: {agent_control.throttle}, brake: {agent_control.brake}")
+                print(f"[DEBUG] Agent controls -- throtle: {debug_agent_control.throttle}, brake: {debug_agent_control.brake}")
+
                 engine.ego.apply_real_control(agent_control)
             except Exception as e:
                 logging.error(f"Error in control loop: {e}")
