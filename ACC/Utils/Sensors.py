@@ -345,7 +345,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # TODO: get speed limit from computer vision
         speed_limit=self.speed_limit
 
-        return super().get_state()
 
         # G-force
         self._g_force_ego_calculator.update_speed(ego_velocity_ms)
@@ -355,6 +354,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         ego_g_force = self._g_force_ego_calculator.get_latest_g_force() or 0
         relative_speed_ms = self._relative_speed_lead_calculator.get_latest_g_force() or 0
         speed_light_ms = self._speed_light_calculator.get_latest_g_force() or 0
+        return super().get_state()
 
 
         self.counter += 1
