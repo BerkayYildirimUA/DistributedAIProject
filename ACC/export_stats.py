@@ -14,6 +14,8 @@ def main_loop():
         actual_key="lead_distance",
         estimated_key="lead_distance",
         frame_key="frame_id",
+        plot_title="Predicted distance vs actual distance to vehicle in front",
+        display_name="Lead distance (m)"
     )
 
     stats.add_metric_from_files(
@@ -23,6 +25,8 @@ def main_loop():
         actual_key="safe_following_distance",
         estimated_key="lead_distance",
         frame_key="frame_id",
+        plot_title="Distance to vehicle in front vs the advised safe following distance",
+        display_name="Following distance (m)"
     )
 
     stats.add_metric_from_files(
@@ -32,8 +36,10 @@ def main_loop():
         actual_key="speed_limit",
         estimated_key="speed",
         frame_key="frame_id",
-    )
+        plot_title="Driving speed vehicle vs the speed limit",
+        display_name="Speed limit (m/s)"
 
+    )
     stats.add_metric_from_files(
         name="g-force",
         actual_file=constants.G_FORCE_FILE,
@@ -41,6 +47,9 @@ def main_loop():
         actual_key="force",
         estimated_key="force",
         frame_key="frame_id",
+        plot_title="Experienced G-force vs conformable G-force",
+        display_name="G-force"
+
     )
 
     stats.plot_all("run_002_metrics.png", suptitle="Run 002 metrics")

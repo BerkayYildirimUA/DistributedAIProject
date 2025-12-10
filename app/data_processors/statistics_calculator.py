@@ -99,6 +99,11 @@ class StatisticsCalculator:
         actual_key: str,
         estimated_key: str,
         frame_key: str = "frame_id",
+        actual_label=None,
+        estimated_label=None,
+        display_name=None,
+        plot_title=None,
+        error_plot_title=None
     ) -> None:
         """
         Register a metric stored in two files.
@@ -150,6 +155,11 @@ class StatisticsCalculator:
             "frame_ids": frame_ids,
             "actual": actual,
             "estimated": estimated,
+            "display_name":display_name,
+            "actual_label":actual_label,
+            "estimated_label":estimated_label,
+            "plot_title":plot_title,
+            "error_plot_title":error_plot_title
         }
 
     def plot_all(
@@ -202,11 +212,20 @@ class StatisticsCalculator:
 
             # Left: actual vs estimated
             ax_val = axes[row_idx, 0]
-            ax_val.plot(frame_ids, actual, label="actual")
-            ax_val.plot(frame_ids, estimated, linestyle="--", label="estimated")
+            ax_val.plot(
+                frame_ids,
+                actual,
+                label="Actual" if data["actual_label"] is None else data["actual_label"]
+                )
+            ax_val.plot(
+                frame_ids,
+                estimated,
+                linestyle="--",
+                label="Estimated" if data["estimated_label"] is None else data["estimated_label"]
+            )
             ax_val.set_xlabel("frame_id")
-            ax_val.set_ylabel(name)
-            ax_val.set_title(f"{name}: actual vs estimated")
+            ax_val.set_ylabel(name if data["display_name"] is None else data["display_name"])
+            ax_val.set_title(f"{name}: actual vs estimated" if data["plot_title"] is None else data["plot_title"])
             ax_val.legend(loc="best")
             ax_val.text(
                 0.01,
@@ -223,7 +242,7 @@ class StatisticsCalculator:
             ax_err.plot(frame_ids, err_pct)
             ax_err.set_xlabel("frame_id")
             ax_err.set_ylabel("error [%]")
-            ax_err.set_title(f"{name}: % error (estimated vs actual)")
+            ax_err.set_title(f"{name}: % error (estimated vs actual)" if data["error_plot_title"] is None else data["error_plot_title"])
             ax_err.axhline(0.0, linestyle=":", linewidth=1)
             mean_err_pct = np.nanmean(err_pct)
             max_err_pct = np.nanmax(np.abs(err_pct))
