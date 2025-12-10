@@ -4,6 +4,8 @@ from PIL import Image
 import numpy as np
 import re
 
+
+
 class SignClassifier:
     def __init__(self, use_tracking = True):
         # Initialize model
@@ -36,6 +38,28 @@ class SignClassifier:
             )
         ])
 
+    def cropped_traffic_signs(self, frame, boxes, class_ids):
+        # I should assume that the boxes is a list of yolo coordinates.
+        # Now I should extract the boxes of the frames and return a list of those new images.
+        crops_img = []
+
+        #putting the  frame i a numpy array
+        for box, class_id in zip(boxes, class_ids):
+            if class_id == 4:
+
+                x1, y1, x2, y2 = box
+
+        #cropping from the numpy array
+                crop = frame[y1:y2, x1:x2]
+
+                crops_img.append(crop)
+
+        return crops_img
+
+
+
+
+
     def label_to_speed(self, label):
         nums = re.findall(r"\d+", label)
         if not nums:
@@ -53,10 +77,10 @@ class SignClassifier:
         tensor = self.transform(frame).unsqueeze(0).to(self.device)
         return tensor
     @torch.no_grad()
-    def read_sign(self, frame):
+    def read_sign(self, x):
 
         # TODO: call the preprocess fucntion here
-        x = self.preprocess_frame(frame)
+        #x = self.preprocess_frame(frame)
 
         # TODO: Pass the return tensor through the model
         #with torch.no_grad():
@@ -68,3 +92,21 @@ class SignClassifier:
         speed_value = self.label_to_speed(label)
 
         return label, speed_value
+
+    def signal_classifier(self, frame, boxes, class_ids):
+        frame = self.preprocess_frame(frame)
+        images = self.cropped_traffic_signs(frame, boxes, class_ids)
+
+        labels=[]
+        for image in images:
+            label, speed_value = self.read_sign(image)
+            labels.append(label)
+
+        if len(labels) == 0:
+            return -1
+        return labels[0]
+
+
+
+
+

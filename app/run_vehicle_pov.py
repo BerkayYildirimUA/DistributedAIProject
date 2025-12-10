@@ -3,6 +3,7 @@ import numpy as np
 from sympy.physics.units import velocity
 
 import constants
+from app.data_processors.sign_classifier import SignClassifier
 
 from data_processors.lane_detector import LaneDetector
 from data_processors.intersection_detector import IntersectionDetector
@@ -42,6 +43,7 @@ intersection_detector=IntersectionDetector()
 tl_color_detector = TL_color_detector()
 # lane_detector=LaneDetector()
 
+sign_classifier = SignClassifier()
 
 radar_points_projector = RadarPointsProjector()
 try:
@@ -116,6 +118,11 @@ try:
 
         # Perform the color classification
         tl_boxes_colored, tl_colors, tl_scores = tl_color_detector.predict_colors_batch(frame, tl_boxes)
+
+        traffic_signs = sign_classifier.signal_classifier(frame, boxes, class_ids)
+        print(traffic_signs)
+
+
 
         # Visualise
         visualiser = POVVisualiser(
