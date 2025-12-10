@@ -45,7 +45,7 @@ def main_loop(args):
 
         # sensor and agent Setup (Real World)
         sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
-        decisionAgent = RLDecisionAgent(sensor_real, "251210_001928_TD3_Aldebaran_chunk_7200.msh")
+        decisionAgent = RLDecisionAgent(sensor_real, "251210_200048_TD3_Capella_chunk_12600.msh")
 
         crash_detected = False
         frames_after_crash = 0

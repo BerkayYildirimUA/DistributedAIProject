@@ -11,6 +11,26 @@ from ACC.Engine.duo_classes import DuoActor, DuoClient, DuoWorld
 import time
 import gc
 
+
+class SingletonLightState(object):
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            # 1. Create the instance
+            cls._instance = super(SingletonLightState, cls).__new__(cls)
+
+            # 2. Initialize your variable ONLY ONCE
+            cls._instance.light_state = "OFF"
+
+        return cls._instance
+
+    def set_state(self, status):
+        self.light_state = status
+
+    def get_state(self):
+        return self.light_state
+
 class Engine():
 
     def __init__(self, args, scenario : Optional[Scenario] = None):
@@ -371,7 +391,7 @@ class Engine():
             # --- LEAD ---
             lead_is_not_skipped = True
             if self.args.do_train:
-                lead_is_not_skipped = random.random() > 0.25
+                lead_is_not_skipped = random.random() > 0.25 # TODO PLEASE BREAKPOINT
 
 
             if self.scenario.lead_car_bp_name != "" and lead_is_not_skipped:
@@ -492,14 +512,17 @@ class Engine():
             # State Machine Logic
             if self.traffic_light_state == carla.TrafficLightState.Green:
                 if self.traffic_light_timer >= self.green_duration:
+                    SingletonLightState().set_state(carla.TrafficLightState.Yellow)
                     self.traffic_light_state = carla.TrafficLightState.Yellow
                     self.traffic_light_timer = 0.0
             elif self.traffic_light_state == carla.TrafficLightState.Yellow:
                 if self.traffic_light_timer >= self.yellow_duration:
+                    SingletonLightState().set_state(carla.TrafficLightState.Red)
                     self.traffic_light_state = carla.TrafficLightState.Red
                     self.traffic_light_timer = 0.0
             elif self.traffic_light_state == carla.TrafficLightState.Red:
                 if self.traffic_light_timer >= self.red_duration:
+                    SingletonLightState().set_state(carla.TrafficLightState.Green)
                     self.traffic_light_state = carla.TrafficLightState.Green
                     self.traffic_light_timer = 0.0
 
@@ -805,7 +828,12 @@ class Engine():
             logging.info(f"Spawned EGO pair: Real ID {self.ego.real.id}, Mirror ID {self.ego.mirror.id}")
 
             # Spawn LEAD if configured
-            if self.scenario and self.scenario.lead_car_bp_name:
+
+            lead_is_not_skipped = True
+            if self.args.do_train:
+                lead_is_not_skipped = random.random() > 0.25
+
+            if self.scenario and self.scenario.lead_car_bp_name and lead_is_not_skipped:
                 if available_spawn_points:
                     lead_spawn_point = available_spawn_points.pop(0)
                 else:
@@ -822,7 +850,6 @@ class Engine():
                     logging.info(f"Spawned LEAD pair: Real ID {self.lead.real.id}, Mirror ID {self.lead.mirror.id}")
 
             # 5. Configure mirror actors with TM
-            actors_to_configure = []
             if self.ego:
                 self.ego.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
                 self.ego.set_mirror_physics(True)

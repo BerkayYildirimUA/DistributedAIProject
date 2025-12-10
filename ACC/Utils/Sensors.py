@@ -11,6 +11,7 @@ import logging
 
 from jedi.debug import speed
 
+from ACC.Engine.engine import SingletonLightState
 from ACC.Utils.GForce_Class import GForceCalculator
 from ACC.Utils.abstractions import StateSensor, UI, VehicleState, LightColors
 
@@ -54,6 +55,11 @@ class CarlaWorldStateSensor(StateSensor):
 
     def _get_light_color_enum(self, carla_state):
         """Maps CARLA TrafficLightState to LightColors Enum"""
+
+        temp = SingletonLightState().get_state()
+        if temp != "OFF":
+            carla_state = temp
+
         if carla_state == carla.TrafficLightState.Red:
             return LightColors.red
         elif carla_state == carla.TrafficLightState.Yellow:
