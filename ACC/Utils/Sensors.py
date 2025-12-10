@@ -296,12 +296,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
     def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World):
         super().__init__(ego_vehicle, world)
 
-        # self._safe_time_distance_seconds = 3
-        # self.counter = 0
-        #
-        # self.override_speed_limit = False
-        # self.speed_limit = 0
-
         # Create Sensors
         self.create_ego_sensors()
 
@@ -354,9 +348,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # TODO: get speed limit from computer vision
         speed_limit=self.speed_limit
 
-
         # G-force
-
         self._g_force_ego_calculator.update_speed(ego_velocity_ms)
         self._relative_speed_lead_calculator.update_speed(distance[0])
         self._speed_light_calculator.update_speed(traffic_light_dist_m)
@@ -377,7 +369,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         ctrl = self._ego.get_control()  # get the control applied in the last tick
         # ctrl.steer in [-1,1] => schaal naar rad
         steer_rad = -float(ctrl.steer) * constants.MAX_STEER_RAD
-        # state2 = super().get_state()
 
         state= VehicleState(
             speed_ms=ego_velocity_ms,
@@ -396,7 +387,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             print("Vison based")
             self.log_vehicle_state(state)
         return state
-
 
     def create_ego_sensors(self):
         sensor_location = carla.Location(x=constants.SENSOR_POS_X, z=constants.SENSOR_POS_Z)
