@@ -287,11 +287,11 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
     def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World):
         super().__init__(ego_vehicle, world)
 
-        self._safe_time_distance_seconds = 3
-        self.counter = 0
-
-        self.override_speed_limit = False
-        self.speed_limit = 0
+        # self._safe_time_distance_seconds = 3
+        # self.counter = 0
+        #
+        # self.override_speed_limit = False
+        # self.speed_limit = 0
 
         # Create Sensors
         self.create_ego_sensors()
