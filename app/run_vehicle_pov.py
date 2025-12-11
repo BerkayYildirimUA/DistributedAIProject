@@ -11,7 +11,8 @@ from app.TrafficLights.TL_color_detector import TL_color_detector
 from app.data_processors.object_detector import ObjectDetector
 from app.data_processors.object_distance_calculator import ObjectDistanceCalculator
 from app.memory.shared_memory import (
-    RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory, CameraCalibrationMemory
+    RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory,
+    CameraCalibrationMemory, TrafficSignMemory, TrafficLightMemory
 )
 from app.data_processors.motion_tubes import MotionTubeProjector
 from app.engine.pov_visualiser import POVVisualiser
@@ -26,6 +27,8 @@ camera_calibration_memory = CameraCalibrationMemory().get_read_access()
 
 object_detector = ObjectDetector()
 state_memory = VehicleStateMemory().get_read_access()
+traffic_sign_memory=TrafficSignMemory().get_write_access()
+traffic_light_memory=TrafficLightMemory().get_write_access()
 lane_mem = LaneTubeMemory(max_pts=256).get_write_access()
 object_distance_calculator=ObjectDistanceCalculator()
 tube_projector = MotionTubeProjector(
@@ -159,11 +162,14 @@ try:
         # Perform the color classification
         tl_boxes_colored, tl_colors, tl_scores, overall_conf = tl_color_detector.predict_colors_batch(frame, tl_boxes)
         # print("Global color distribution:", overall_conf)
+        tl_color = max(overall_conf, key=overall_conf.get)
+        tr_color_index= constants.TL_COLOR_TO_INDEX[tl_color]
+        traffic_light_memory.write(tr_color_index)
 
-
-        traffic_signs = sign_classifier.signal_classifier(frame, boxes, class_ids)
-        if not (traffic_signs == -1):
-            print(traffic_signs)
+        traffic_sign = sign_classifier.signal_classifier(frame, boxes, class_ids)
+        traffic_sign_memory.write(traffic_sign)
+        # if not (traffic_signs == -1):
+        #     print(traffic_signs)
 
         # Visualise
         visualiser = POVVisualiser(

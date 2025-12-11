@@ -15,7 +15,8 @@ from typing_extensions import override
 from ACC.Utils.GForce_Class import GForceCalculator
 from ACC.Utils.abstractions import StateSensor, UI, VehicleState, LightColors
 import app.constants  as constants
-from app.memory.shared_memory import RGBCameraMemory, VehicleDistanceMemory, RadarMemory, CameraCalibrationMemory
+from app.memory.shared_memory import RGBCameraMemory, VehicleDistanceMemory, RadarMemory, CameraCalibrationMemory, \
+    TrafficLightMemory, TrafficSignMemory
 
 
 class CarlaWorldStateSensor(StateSensor):
@@ -293,9 +294,10 @@ class CarlaWorldStateSensor(StateSensor):
             return True
 class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
-    def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World):
+    def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World, use_traffic_signs=False,use_traffic_lights=False):
         super().__init__(ego_vehicle, world)
-
+        self.use_traffic_signs = use_traffic_signs
+        self.use_traffic_lights = use_traffic_lights
         # Create Sensors
         self.create_ego_sensors()
 
@@ -303,6 +305,8 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self.rgb_camera_memory = RGBCameraMemory().get_write_access()
         # depht_camera_memory = DepthCameraMemory().get_write_access()
         self.vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
+        self.tl_memory=TrafficLightMemory().get_read_access()
+        self.ts_memory=TrafficSignMemory().get_read_access()
         self.radar_memory = RadarMemory().get_write_access()
         self.camera_calibration_memory = CameraCalibrationMemory().get_write_access()
         # Create camera properties
@@ -331,8 +335,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         safe_distance = self._safe_time_distance_seconds * ego_velocity_ms
 
-        self.speed_limit = self._ego.get_speed_limit()
-
         distance= self.vehicle_distance_memory.read()
         # Keep track of previous distance and use it in case radar returns inf values
         if np.isinf(distance[0]):
@@ -341,12 +343,28 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             self.prev_lead_distance = distance[0]
             lead_distance = distance[0]
 
-        # TODO: replace with computer vision based logic
-        traffic_light_dist_m = self.min_dist
-        traffic_light_color = LightColors.green
+        # Traffic light color
+        if self.use_traffic_lights:
+            traffic_light_dist_m = self.min_dist
+            tl_color_index = self.tl_memory.read()
+            if tl_color_index == 1:
+                traffic_light_color = LightColors.green
+            elif tl_color_index == 2:
+                traffic_light_color = LightColors.red
+            else:
+                traffic_light_color = LightColors.orange
+        else:
+            traffic_light_dist_m = self.min_dist
+            traffic_light_color = LightColors.green
 
-        # TODO: get speed limit from computer vision
-        speed_limit=self.speed_limit
+        # Speed limit
+        if self.use_traffic_signs:
+            ts = self.ts_memory.read()
+            if ts != -1:
+                self.speed_limit=ts
+            speed_limit=self.speed_limit
+        else:
+            speed_limit = self._ego.get_speed_limit()
 
         # G-force
         self._g_force_ego_calculator.update_speed(ego_velocity_ms)

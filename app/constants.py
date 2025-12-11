@@ -30,3 +30,9 @@ RADAR_MAX_DETECTIONS = 50000
 QUEUE_MAXSIZE = 10
 
 MAX_STEER_RAD=math.radians(60)
+
+TL_COLOR_TO_INDEX={
+    "red":1,
+    "green":2,
+    "yellow":3,
+}

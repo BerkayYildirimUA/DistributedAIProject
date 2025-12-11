@@ -32,7 +32,8 @@ class SignClassifier:
 
         # classes: ['back', 'speed_30', 'speed_60', 'speed_90', 'speed_limit_30', 'speed_limit_40',
         #           'speed_limit_60', 'stop']
-        self.classes= ['back',30,60,90,30,40,60,'stop']
+        # self.classes= ['back',30,60,90,30,40,60,'stop']
+        self.classes = [-1, 30, 60, 90, 30, 40, 60, -1]
         # self.classes = checkpoint["class_names"]
 
         # TODO define transformations
