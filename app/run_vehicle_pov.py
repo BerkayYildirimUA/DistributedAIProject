@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-import app.constants as constants
+import constants
 
 from app.data_processors.lane_detector import LaneDetector
 from app.data_processors.intersection_detector import IntersectionDetector
