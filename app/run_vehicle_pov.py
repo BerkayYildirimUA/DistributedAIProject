@@ -1,5 +1,10 @@
 import cv2
 import numpy as np
+import os, sys
+
+print("CWD:", os.getcwd())
+print("__file__:", __file__ if '__file__' in globals() else "<no __file__>")
+print("sys.path:", sys.path)
 
 import constants
 
