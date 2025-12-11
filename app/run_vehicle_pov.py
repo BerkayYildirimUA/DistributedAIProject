@@ -169,6 +169,7 @@ try:
 
         # Get minimal traffic light distance
         tl_min_distance = np.array(distances)[tl_indexes]
+        print(distances, tl_indexes,tl_min_distance)
         traffic_light_distance_memory.write(tl_min_distance)
 
 
