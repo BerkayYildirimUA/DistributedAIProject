@@ -34,6 +34,7 @@ class CarlaServerManager:
                     "-nullrhi",
                     f"-carla-rpc-port={real_port}",
                     f"-carla-streaming-port={real_stream_port}",
+                    #"-quality-level=Low",
                     "-nosound",
                 ]
             else:
@@ -41,6 +42,7 @@ class CarlaServerManager:
                     self.carla_path,
                     f"-carla-rpc-port={real_port}",
                     f"-carla-streaming-port={real_stream_port}",
+                    #"-quality-level=Low",
                     "-nosound",
                 ]
             logging.info(f"Starting REAL server: {' '.join(real_cmd)}")
@@ -53,6 +55,7 @@ class CarlaServerManager:
                 "-nullrhi",
                 f"-carla-rpc-port={mirror_port}",
                 f"-carla-streaming-port={mirror_stream_port}",
+                #"-quality - level = Low",
                 "-nosound"
             ]
             logging.info(f"Starting MIRROR server: {' '.join(mirror_cmd)}")

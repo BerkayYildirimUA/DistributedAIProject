@@ -18,7 +18,7 @@ class VehicleState: #maybe add steering direction?
     speed_limit_ms: float #speed limit the geo should follow
     lead_distance_m: float #distance to the car in front
     safe_following_distance_m: float #safe driving distance from the car in front
-    hasCrashed: bool #has crashed or not
+    crash_intensity: float #has crashed or not
     light_color: LightColors #color of lights
     light_dist_m: float #distance to nearest light
     light_speed_ms: float #how fast we are approaching that light
