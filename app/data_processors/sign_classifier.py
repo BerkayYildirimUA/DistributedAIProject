@@ -121,10 +121,11 @@ class SignClassifier:
     def signal_classifier(self, frame, boxes, class_ids):
         frame = self.preprocess_frame(frame)
         images = self.cropped_traffic_signs(frame, boxes, class_ids)
-
+        print(len(images))
         labels=[]
         for image in images:
             label, speed_value = self.read_sign(image)
+            print(label, speed_value)
             labels.append(label)
 
         if len(labels) == 0:
