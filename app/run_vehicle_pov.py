@@ -60,7 +60,6 @@ try:
     import time
 
     while True:
-        print("Test")
         frame_id = int(frame_id_memory.read()[0])
         # Convert to Torch tensor and normalize
         frame = rgb_camera_memory.read()
