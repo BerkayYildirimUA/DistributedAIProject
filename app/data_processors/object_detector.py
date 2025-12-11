@@ -4,7 +4,7 @@ import torchvision
 from ultralytics import YOLO
 import sys, os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import constants
+import app.constants as constants
 # https://medium.com/@zain.18j2000/how-to-use-your-yolov11-model-with-onnx-runtime-69f4ea243c01
 
 class ObjectDetector:

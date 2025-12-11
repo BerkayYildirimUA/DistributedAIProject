@@ -6,7 +6,7 @@ print("CWD:", os.getcwd())
 print("__file__:", __file__ if '__file__' in globals() else "<no __file__>")
 print("sys.path:", sys.path)
 
-import constants
+import app.constants as constants
 
 from app.data_processors.lane_detector import LaneDetector
 from app.data_processors.intersection_detector import IntersectionDetector
