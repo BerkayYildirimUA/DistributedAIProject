@@ -125,15 +125,14 @@ try:
 
         vehicle_distance_memory.write(closest_vehicle_distance)
 
-
+        cls_names = []
+        if len(class_ids) > 0:
+            for c in class_ids:  # we convert the number values to the class names
+                cls_names.append(object_detector.classes[int(c)])
 
         # Traffic lights selecting out of all the recognized objects in the current frame
         if abs(steer_rad) < 0.15:                #to avoid that the car detects non-relevant traffic lights during a turn on intersection
             if len(class_ids) > 0:                  # if there are objects detected present
-                cls_names = []
-                for c in class_ids:                         #we convert the number values to the class names
-                    cls_names.append(object_detector.classes[int(c)])
-
                 mask = []
                 for n in cls_names:                         #creating a mask for traffic light class
                     if n == "traffic light":
@@ -228,7 +227,7 @@ try:
             filtered_boxes = boxes[:0]  # empty slice of same type/shape
 
         # Count classes only on filtered boxes
-        counted_classes = detected_classes_count.count_objects(filtered_boxes)
+        counted_classes = detected_classes_count.count_objects(filtered_boxes, cls_names)
 
         counted_vehicles = counted_classes["vehicle"]
         counted_pedestrians = counted_classes["pedestrians"]
