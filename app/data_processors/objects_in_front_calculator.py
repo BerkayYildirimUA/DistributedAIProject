@@ -88,7 +88,7 @@ class ObjectsInFrontCalculator:
             "vehicles": num_vehicles,
             "pedestrians": num_pedestrians,
             "traffic_lights": num_tlights,
-            "speed_signs": num_traffic_signs,
+            "traffic_signs": num_traffic_signs,
             "total": total,
         }
 
