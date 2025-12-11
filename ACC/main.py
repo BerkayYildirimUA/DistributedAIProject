@@ -48,7 +48,6 @@ def main_loop(args):
     speed_logger = MetricsLogger(constants.SPEED_FILE, compress=True)
     g_force_logger = MetricsLogger(constants.G_FORCE_FILE, compress=True)
     GT_safe_following_distance_logger = MetricsLogger(constants.GT_SAFE_FOLLOWING_DISTANCE_FILE, compress=True)
-    objects_in_front_calculator = ObjectsInFrontCalculator(engine.duo_world.get_real_world(), engine.ego.real, max_distance=20.0)
     GT_object_count_metrics_logger = MetricsLogger(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
 
     frame_id_memory = FrameIdMemory().get_write_access()
@@ -69,6 +68,9 @@ def main_loop(args):
         MAX_FRAMES_AFTER_CRASH = 60  # then reset or exit
         # Create needed memory access to sync carla data from sensors to newer python env
         vehicle_state_memory = VehicleStateMemory().get_write_access()
+        # Used for logging
+        objects_in_front_calculator = ObjectsInFrontCalculator(engine.duo_world.get_real_world(), engine.ego.real,
+                                                               max_distance=20.0)
 
         while True:
             # Tick the simulation
