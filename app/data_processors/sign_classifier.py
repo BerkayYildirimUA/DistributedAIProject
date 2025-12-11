@@ -104,7 +104,8 @@ class SignClassifier:
                 # Valid crop check
                 if x2 > x1 and y2 > y1:
                     crop = frame[y1:y2, x1:x2]
-                    crops_img.append(crop)
+                    crop_pil = Image.fromarray(crop)
+                    crops_img.append(crop_pil)
                 else:
                     print("INVALID CROP")
 
@@ -129,10 +130,12 @@ class SignClassifier:
     #     return frame  # returns PIL image
 
     @torch.no_grad()
-    def read_sign(self, x):
+    def read_sign(self, image_pil):
 
         # TODO: call the preprocess fucntion here
         #x = self.preprocess_frame(frame)
+        x = self.transform(image_pil).unsqueeze(0).to(self.device)
+
 
         # TODO: Pass the return tensor through the model
         #with torch.no_grad():
@@ -147,6 +150,7 @@ class SignClassifier:
 
     def signal_classifier(self, frame, boxes, class_ids):
         # frame = self.preprocess_frame(frame)
+        frame=Image.fromarray(frame)
         images = self.cropped_traffic_signs(frame, boxes, class_ids)
         print(len(images))
         labels=[]
