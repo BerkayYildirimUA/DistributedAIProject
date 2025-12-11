@@ -214,20 +214,26 @@ try:
         estimated_objects_in_front = int(valid_indices.size)
 
         # Filter boxes based on the distance mask
-        if estimated_objects_in_front > 0:
+        if valid_indices.size > 0:
+            # Filter boxes
             if isinstance(boxes, torch.Tensor):
-                # convert indices to tensor on the same device as boxes
                 valid_indices_t = torch.from_numpy(valid_indices).to(boxes.device)
                 filtered_boxes = boxes[valid_indices_t]
             else:
-                # if boxes is a numpy array-like
                 filtered_boxes = boxes[valid_distance_mask]
+
+            # Filter cls_names in exactly the same way
+            filtered_cls_names = [cls_names[i] for i in valid_indices]
         else:
-            # no valid objects in front
-            filtered_boxes = boxes[:0]  # empty slice of same type/shape
+            # No valid objects: empty boxes + empty names
+            if isinstance(boxes, torch.Tensor):
+                filtered_boxes = boxes[:0]  # shape [0, 4]
+            else:
+                filtered_boxes = boxes[0:0]
+            filtered_cls_names = []
 
         # Count classes only on filtered boxes
-        counted_classes = detected_classes_count.count_objects(filtered_boxes, cls_names)
+        counted_classes = detected_classes_count.count_objects(filtered_boxes, filtered_cls_names)
 
         counted_vehicles = counted_classes["vehicle"]
         counted_pedestrians = counted_classes["pedestrians"]
