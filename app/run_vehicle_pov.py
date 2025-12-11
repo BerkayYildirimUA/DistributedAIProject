@@ -54,11 +54,13 @@ estimated_object_count_metrics_logger = MetricsLogger(constants.ESTIMATED_OBJECT
 estimated_tl_count_metrics_logger = MetricsLogger(constants.ESTIMATED_TRAFFIC_LIGHT_COUNT_FILE, compress=True)
 estimated_ts_count_metrics_logger = MetricsLogger(constants.ESTIMATED_TRAFFIC_SIGN_COUNT_FILE, compress=True)
 estimated_vehicle_count_metrics_logger = MetricsLogger(constants.ESTIMATED_VEHICLE_COUNT_FILE, compress=True)
+estimated_pedestrian_count_metrics_logger = MetricsLogger(constants.ESTIMATED_PEDESTRIAN_COUNT_FILE, compress=True)
 
 try:
     import time
 
     while True:
+        print("Test")
         frame_id = int(frame_id_memory.read()[0])
         # Convert to Torch tensor and normalize
         frame = rgb_camera_memory.read()
@@ -240,14 +242,19 @@ try:
             estimated_yolo_ts=counted_traffic_lights
         )
 
-        estimated_ts_count_metrics_logger.log(
+        estimated_tl_count_metrics_logger.log(
             frame_id=frame_id,
-            estimated_yolo_ts=counted_traffic_signs
+            estimated_yolo_tl=counted_traffic_signs
         )
 
         estimated_vehicle_count_metrics_logger.log(
             frame_id=frame_id,
             estimated_yolo_vehicles=counted_vehicles,
+        )
+
+        estimated_pedestrian_count_metrics_logger.log(
+            frame_id=frame_id,
+            estimated_yolo_pedestrians=counted_pedestrians
         )
 finally:
     try:
@@ -255,6 +262,7 @@ finally:
         estimated_tl_count_metrics_logger.close()
         estimated_ts_count_metrics_logger.close()
         estimated_vehicle_count_metrics_logger.close()
+        estimated_pedestrian_count_metrics_logger.close()
         print("Loggers closed in new_env")
     except Exception as e:
         print(f"Error closing loggers: {e}")
