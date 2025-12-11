@@ -203,6 +203,7 @@ def main_loop(args):
                 frame_id=frame_id,
                 speed_limit=GT_speed_limit
             )
+            print("count: ", GT_object_count)
             GT_object_count_metrics_logger.log(
                 frame_id=frame_id,
                 ground_truth_objects=GT_object_count,
