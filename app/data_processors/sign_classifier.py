@@ -105,6 +105,8 @@ class SignClassifier:
                 y1 = max(0, min(y1, h - 1))
                 y2 = max(0, min(y2, h - 1))
 
+
+                print(f"{x1},{x2},{y1},{y2}")
                 # Valid crop check
                 if x2 > x1 and y2 > y1:
                     crop = frame[y1:y2, x1:x2]
