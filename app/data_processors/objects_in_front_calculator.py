@@ -65,27 +65,30 @@ class ObjectsInFrontCalculator:
         pedestrians = actors.filter('walker.pedestrian.*')
         traffic_lights = actors.filter('traffic.traffic_light*')
         speed_signs = actors.filter('traffic.speed_limit.*')
+        stop_signs = actors.filter('traffic.stop')
 
         def in_front(actor):
             # Don’t count ego itself
             if actor.id == self.ego_vehicle.id:
                 return False
-            return self._is_in_front_and_wigthin_range(
+            return self._is_in_front_and_within_range(
                 ego_transform, actor.get_location()
             )
 
         num_vehicles = sum(1 for v in vehicles if in_front(v))
         num_pedestrians = sum(1 for w in pedestrians if in_front(w))
         num_tlights = sum(1 for t in traffic_lights if in_front(t))
-        num_ssigns = sum(1 for s in speed_signs if in_front(s))
+        num_speed_signs = sum(1 for s in speed_signs if in_front(s))
+        num_stop_signs = sum(1 for s in stop_signs if in_front(s))
+        num_traffic_signs = num_speed_signs + num_stop_signs
 
-        total = num_vehicles + num_pedestrians + num_tlights
+        total = num_vehicles + num_pedestrians + num_tlights + num_traffic_signs
 
         return {
             "vehicles": num_vehicles,
             "pedestrians": num_pedestrians,
             "traffic_lights": num_tlights,
-            "speed_signs": num_ssigns,
+            "speed_signs": num_traffic_signs,
             "total": total,
         }
 

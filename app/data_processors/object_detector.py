@@ -2,6 +2,9 @@ import numpy as np
 import torch
 import torchvision
 from ultralytics import YOLO
+import sys, os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import constants
 # https://medium.com/@zain.18j2000/how-to-use-your-yolov11-model-with-onnx-runtime-69f4ea243c01
 
 class ObjectDetector:
@@ -9,7 +12,7 @@ class ObjectDetector:
         # Initialize model
         print("CUDA:", torch.cuda.is_available())
         self.model = YOLO("app/resources/best6.pt")
-        self.classes = ["Vehicle", "Motor", "Bike","traffic light","traffic sign","pedestrian"]
+        self.classes = constants.OBJECT_CLASS_NAMES
         # TODO: create model with smaller input size
         self.input_size = 640
 

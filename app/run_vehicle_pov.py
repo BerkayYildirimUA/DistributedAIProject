@@ -1,3 +1,5 @@
+from lzma import compress
+
 import cv2
 import numpy as np
 
@@ -16,6 +18,7 @@ from app.data_processors.motion_tubes import MotionTubeProjector
 from app.engine.pov_visualiser import POVVisualiser
 from app.data_processors.radar_points_projector import RadarPointsProjector
 from app.data_processors.metrics_logger import MetricsLogger
+from app.data_processors.detected_classes_count import detected_classes_count
 
 # Attach to shared memory
 rgb_camera_memory = RGBCameraMemory().get_read_access()
@@ -43,7 +46,11 @@ intersection_detector=IntersectionDetector()
 tl_color_detector = TL_color_detector()
 # lane_detector=LaneDetector()
 radar_points_projector = RadarPointsProjector()
+detected_classes_count = detected_classes_count()
 estimated_object_count_metrics_logger = MetricsLogger(constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE, compress=True)
+estimated_tl_count_metrics_logger = MetricsLogger(constants.ESTIMATED_TRAFFIC_LIGHT_COUNT_FILE, compress=True)
+estimated_ts_count_metrics_logger = MetricsLogger(constants.ESTIMATED_TRAFFIC_SIGN_COUNT_FILE, compress=True)
+estimated_vehicle_count_metrics_logger = MetricsLogger(constants.ESTIMATED_VEHICLE_COUNT_FILE, compress=True)
 
 try:
     import time
@@ -112,6 +119,7 @@ try:
         vehicle_distance_memory.write(closest_vehicle_distance)
 
 
+
         # Only Traffic lights selecting
         if len(class_ids) > 0:
             cls_names = [object_detector.classes[int(c)] for c in class_ids.tolist()]
@@ -146,24 +154,71 @@ try:
 
         # if len(lanes) > 0:
         #     bird_eye_visualiser.show(boxes,class_ids,lanes)
-        dist_arr = np.asarray(distances, dtype=np.float64)
+
 
         # TODO: if distance contains nan values, this does not work. We are comparing object counts while relying on distances
         #       that are not the same (radar vs ground truth), therefore containing two layers of errors. Difference in python
         #       environments makes this difficult though
-        valid_distance_mask = np.isfinite(dist_arr) & (dist_arr <= constants.MAX_OBJECT_DETECT_DISTANCE)
+        dist_arr = np.asarray(distances, dtype=np.float64)
 
-        estimated_objects_in_front = int(np.sum(valid_distance_mask))
+        # Build mask of boxes that are within a valid distance
+        valid_distance_mask = np.isfinite(dist_arr) & (
+                dist_arr <= constants.MAX_OBJECT_DETECT_DISTANCE
+        )
+
+        # Turn mask into indices
+        valid_indices = np.nonzero(valid_distance_mask)[0]
+
+        # How many objects are in front (within distance)
+        estimated_objects_in_front = int(valid_indices.size)
+
+        # Filter boxes based on the distance mask
+        if estimated_objects_in_front > 0:
+            if isinstance(boxes, torch.Tensor):
+                # convert indices to tensor on the same device as boxes
+                valid_indices_t = torch.from_numpy(valid_indices).to(boxes.device)
+                filtered_boxes = boxes[valid_indices_t]
+            else:
+                # if boxes is a numpy array-like
+                filtered_boxes = boxes[valid_distance_mask]
+        else:
+            # no valid objects in front
+            filtered_boxes = boxes[:0]  # empty slice of same type/shape
+
+        # Count classes only on filtered boxes
+        counted_classes = detected_classes_count.count_objects(filtered_boxes)
+
+        counted_vehicles = counted_classes["vehicle"]
+        counted_pedestrians = counted_classes["pedestrians"]
+        counted_traffic_lights = counted_classes["traffic_light"]
+        counted_traffic_signs = counted_classes["traffic_sign"]
+        total_counted = counted_classes["total"]
 
         estimated_object_count_metrics_logger.log(
             frame_id=frame_id,
-            estimated_yolo_objects=estimated_objects_in_front,
+            estimated_yolo_objects=total_counted,
         )
 
+        estimated_ts_count_metrics_logger.log(
+            frame_id=frame_id,
+            estimated_yolo_ts=counted_traffic_lights
+        )
 
+        estimated_ts_count_metrics_logger.log(
+            frame_id=frame_id,
+            estimated_yolo_ts=counted_traffic_signs
+        )
+
+        estimated_vehicle_count_metrics_logger.log(
+            frame_id=frame_id,
+            estimated_yolo_vehicles=counted_vehicles,
+        )
 finally:
     try:
         estimated_object_count_metrics_logger.close()
+        estimated_tl_count_metrics_logger.close()
+        estimated_ts_count_metrics_logger.close()
+        estimated_vehicle_count_metrics_logger.close()
         print("Loggers closed in new_env")
     except Exception as e:
         print(f"Error closing loggers: {e}")

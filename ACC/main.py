@@ -49,6 +49,7 @@ def main_loop(args):
     g_force_logger = MetricsLogger(constants.G_FORCE_FILE, compress=True)
     GT_safe_following_distance_logger = MetricsLogger(constants.GT_SAFE_FOLLOWING_DISTANCE_FILE, compress=True)
     GT_object_count_metrics_logger = MetricsLogger(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
+    GT_traffic_sign_count = MetricsLogger(constants.GT_TRAFFIC_SIGN_COUNT_FILE, compress=True)
 
     frame_id_memory = FrameIdMemory().get_write_access()
     try:
@@ -178,6 +179,7 @@ def main_loop(args):
             GT_safe_following_distance=ground_truth_state.safe_following_distance_m
             object_count = objects_in_front_calculator.count_objects_in_front()
             GT_object_count = object_count["total"]
+            GT_traffic_sign_count = object_count["ssign"]
 
             GT_lead_distance_logger.log(
                 frame_id=frame_id,
@@ -206,6 +208,10 @@ def main_loop(args):
             GT_object_count_metrics_logger.log(
                 frame_id=frame_id,
                 ground_truth_objects=int(GT_object_count),
+            )
+            GT_traffic_sign_count-metrics.log(
+                frame_id=frame_id,
+                ground_truth_ssigns=int(GT_traffic_sign_count),
             )
 
     except KeyboardInterrupt:
