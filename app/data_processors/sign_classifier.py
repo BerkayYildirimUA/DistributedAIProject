@@ -156,7 +156,7 @@ class SignClassifier:
         print(len(images))
         labels=[]
         for image in images:
-            label, speed_value = self.read_sign(self.transform(image))
+            label, speed_value = self.read_sign(image)
             print(label, speed_value)
             labels.append(label)
 
