@@ -19,87 +19,36 @@ from torch import nn
 
 
 # ---------------- CUSTOM CNN ----------------
-class TrafficLightNet(nn.Module):
+
+class TinyTrafficLightNet(nn.Module):
     """
-    CNN for 3x64x32 inputs
-    64x32 -> 32x16 -> 16x8 -> 8x4 feature maps
+    CNN for 3x64x32 inputs.
+    Two conv blocks + global average pooling + linear.
     """
     def __init__(self, num_classes: int = 3):
         super().__init__()
         self.features = nn.Sequential(
-            # 3 x 64 x 32 -> 32 x 32 x 16
-            nn.Conv2d(3, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
-
-            # 32 x 32 x 16 -> 64 x 16 x 8
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
-
-            # 64 x 16 x 8 -> 128 x 8 x 4
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
-        )
-
-        # After 3x MaxPool(2): 64x32 -> 32x16 -> 16x8 -> 8x4
-        self.classifier = nn.Sequential(
-            nn.Dropout(0.5),
-            nn.Linear(128 * 8 * 4, 256),  # 4096 -> 256
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
-            nn.Linear(256, num_classes),
-        )
-
-    def forward(self, x):
-        x = self.features(x)          # [B, 128, 8, 4]
-        x = x.view(x.size(0), -1)     # [B, 4096]
-        x = self.classifier(x)        # [B, num_classes]
-        return x
-
-
-
-class TrafficLightNet2(nn.Module):
-    """
-    Tiny CNN for 3x64x32 inputs
-    64x32 -> 32x16 -> 16x8 feature maps (only 2 blocks)
-    """
-    def __init__(self, num_classes: int = 3):
-        super().__init__()
-
-        self.features = nn.Sequential(
-            # Block 1: 3 x 64 x 32 -> 16 x 32 x 16
+            # 3 x 64 x 32 -> 16 x 32 x 16
             nn.Conv2d(3, 16, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),
 
-            # Block 2: 16 x 32 x 16 -> 24 x 16 x 8
-            nn.Conv2d(16, 24, kernel_size=3, padding=1),
+            # 16 x 32 x 16 -> 32 x 16 x 8
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),
+
+            # 32 x 16 x 8 -> 32 x 1 x 1
+            nn.AdaptiveAvgPool2d((1, 1)),
         )
 
-        # After 2x MaxPool(2): 64x32 -> 32x16 -> 16x8
-        flat_dim = 24 * 16 * 8  # 24 channels, 16x8 spatial = 3072
-
-        self.classifier = nn.Sequential(
-            nn.Dropout(0.3),
-            nn.Linear(flat_dim, 32),
-            nn.ReLU(inplace=True),
-            nn.Linear(32, num_classes),
-        )
+        self.classifier = nn.Linear(32, num_classes)
 
     def forward(self, x):
-        x = self.features(x)          # [B, 24, 16, 8]
-        x = x.view(x.size(0), -1)     # [B, 3072]
-        x = self.classifier(x)        # [B, num_classes]
+        x = self.features(x)        # [B, 32, 1, 1]
+        x = x.view(x.size(0), -1)   # [B, 32]
+        x = self.classifier(x)      # [B, num_classes]
         return x
-
-
 
 
 class TL_color_detector:
@@ -122,13 +71,13 @@ class TL_color_detector:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = torch.device(device)
         # model setup
-        self.model = self.load_tl_model("app/TrafficLights/Models/traffic_light_classifier3.pth", self.device)
+        self.model = self.load_tl_model("app/TrafficLights/Models/traffic_light_classifier16.pth", self.device)
         #self.model = self.make_model(num_classes=len(self.classes)).to(self.device)
         #self._load_weights(ckpt_path)
         self.model.eval()
 
         # Match fields present in ObjectDetector for easier drop-in
-        self.input_h, self.input_w = 96, 96       # crop size used by the classifier
+        self.input_h, self.input_w = 64, 32       # crop size used by the classifier
         self.use_tracking = False    # not used here, but keeps attribute parity
         self.last_track_ids = torch.empty(0, dtype=torch.long)  # parity
         self.conf_default = 0.0      # unused, kept for parity
@@ -159,15 +108,15 @@ class TL_color_detector:
     #                      num_classes)  # we replace the orignal 1000 output by 3 (traffic light colors)
     #     return m
 
-    # @staticmethod
-    # def make_model(num_classes: int = 3):
-    #     return TrafficLightNet(num_classes=num_classes)
-
     @staticmethod
     def make_model(num_classes: int = 3):
-        m = shufflenet_v2_x0_5(weights=None)  # keep None; you load your own ckpt
-        m.fc = nn.Linear(m.fc.in_features, num_classes)
-        return m
+        return TinyTrafficLightNet(num_classes=num_classes)
+
+    # @staticmethod
+    # def make_model(num_classes: int = 3):
+    #     m = shufflenet_v2_x0_5(weights=None)  # keep None; you load your own ckpt
+    #     m.fc = nn.Linear(m.fc.in_features, num_classes)
+    #     return m
 
     @classmethod
     # at runtime
@@ -193,101 +142,11 @@ class TL_color_detector:
             pass
 
 
-    def _classify_crop_hsv(self, crop_bgr: np.ndarray):
-        """
-        Heuristic HSV-based color classification for a single crop.
-        Returns (label:str | None, score:float)
-        """
-        # BGR --> HSV  (OpenCV: H in [0,179], S,V in [0,255])
-        hsv = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2HSV)
-
-        lower_red1 = np.array([0, 80, 80], dtype=np.uint8)
-        upper_red1 = np.array([10, 255, 255], dtype=np.uint8)
-        lower_red2 = np.array([160, 80, 80], dtype=np.uint8)
-        upper_red2 = np.array([179, 255, 255], dtype=np.uint8)
-
-        # Yellow: around H≈30 in OpenCV
-        lower_yellow = np.array([15, 60, 60], dtype=np.uint8)
-        upper_yellow = np.array([35, 255, 255], dtype=np.uint8)
-
-        # Green: around H≈60 in OpenCV, allow some slack
-        lower_green = np.array([35, 40, 40], dtype=np.uint8)
-        upper_green = np.array([90, 255, 255], dtype=np.uint8)
-
-        # --- Masks ---
-        mask_red1 = cv2.inRange(hsv, lower_red1, upper_red1)
-        mask_red2 = cv2.inRange(hsv, lower_red2, upper_red2)
-        mask_red = cv2.bitwise_or(mask_red1, mask_red2)
-        mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
-        mask_green = cv2.inRange(hsv, lower_green, upper_green)
-
-
-
-        # bgr_green = np.uint8([[[0, 255, 0]]])  # BGR for green
-        # bgr_yellow = np.uint8([[[0, 255, 255]]])  # BGR for yellow (G + R)
-        # bgr_red = np.uint8([[[0, 0, 255]]])  # BGR for red
-        #
-        # # Convert to HSV
-        # hsvGreen = cv2.cvtColor(bgr_green, cv2.COLOR_BGR2HSV)
-        # hsvYellow = cv2.cvtColor(bgr_yellow, cv2.COLOR_BGR2HSV)
-        # hsvRed = cv2.cvtColor(bgr_red, cv2.COLOR_BGR2HSV)
-        #
-        # # Extract hue channel as ints
-        # h_green = int(hsvGreen[0, 0, 0])
-        # h_yellow = int(hsvYellow[0, 0, 0])
-        # h_red = int(hsvRed[0, 0, 0])
-        #
-        # def make_bounds(h_center, delta=10):
-        #     h_min = max(h_center - delta, 0)
-        #     h_max = min(h_center + delta, 179)  # OpenCV hue is [0,179]
-        #     lower = np.array([h_min, 100, 100], dtype=np.uint8)
-        #     upper = np.array([h_max, 255, 255], dtype=np.uint8)
-        #     return lower, upper
-        #
-        # lowerLimitGreen, upperLimitGreen = make_bounds(h_green)
-        # lowerLimitYellow, upperLimitYellow = make_bounds(h_yellow)
-        # lowerLimitRed, upperLimitRed = make_bounds(h_red)
-
-        # --- Masks ---
-        # mask_red = cv2.inRange(hsv, lowerLimitRed, upperLimitRed)
-        # mask_yellow = cv2.inRange(hsv, lowerLimitYellow, upperLimitYellow)
-        # mask_green = cv2.inRange(hsv, lowerLimitGreen, upperLimitGreen)
-
-        red_count    = cv2.countNonZero(mask_red)
-        yellow_count = cv2.countNonZero(mask_yellow)
-        green_count  = cv2.countNonZero(mask_green)
-
-        print(
-            "H range:", hsv[..., 0].min(), hsv[..., 0].max(),
-            "S range:", hsv[..., 1].min(), hsv[..., 1].max(),
-            "V range:", hsv[..., 2].min(), hsv[..., 2].max(),
-        )
-
-        print("counts R/Y/G:", red_count, yellow_count, green_count)
-
-        counts = np.array([green_count, yellow_count, red_count], dtype=np.int32)
-        labels = ["green", "yellow", "red"]
-
-        best_idx = int(np.argmax(counts))
-        best_count = counts[best_idx]
-        total_colored = counts.sum()
-
-        # # Ignore tiny noise
-        MIN_PIXELS = 5
-        if best_count < MIN_PIXELS or total_colored == 0:
-            return None, 0.0
-
-        # # Simple "confidence": share of dominant color among all colored pixels
-        score = float(best_count) / float(total_colored)
-        return labels[best_idx], score
-
-
 
     @torch.no_grad()
     def predict_colors_batch(self,
                     frame_bgr: np.ndarray,                      #frame of the camera (H, W, 3)
                     boxes_xyxy: torch.Tensor | None = None,
-                    conf_threshold: float | None = None,        #filters out low-confidence predictions (not used yet)
                     pad_ratio: float = 0.02):                   #adds padding around the box when cropping
         """
         returns: list of (label, confidence) for each input box
@@ -318,7 +177,7 @@ class TL_color_detector:
         boxes_cpu = boxes_xyxy.detach().cpu()
         for (x1, y1, x2, y2) in boxes_cpu.tolist():
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-            # optional padding around bbox for robustness
+            # padding around bbox for robustness
             pw, ph = int(pad_ratio * (x2 - x1)), int(pad_ratio * (y2 - y1))
             x1p, y1p = max(0, x1 - pw), max(0, y1 - ph)
             x2p, y2p = min(W, x2 + pw), min(H, y2 + ph)
@@ -332,7 +191,9 @@ class TL_color_detector:
         if len(crops) == 0:
             empty_boxes = torch.empty((0, 4), dtype=torch.float32)
             empty_scores = torch.empty((0,), dtype=torch.float32)
-            overall_conf = {cls: 0.0 for cls in self.classes}
+            overall_conf = {}
+            for cls in self.classes:
+                overall_conf[cls] = 0.0
             return empty_boxes, [], empty_scores, overall_conf
 
         x = torch.stack(crops, dim=0).to(self.device)   # [N, 3, H, W]
