@@ -48,7 +48,7 @@ def main_loop(args):
     speed_logger = MetricsLogger(constants.SPEED_FILE, compress=True)
     g_force_logger = MetricsLogger(constants.G_FORCE_FILE, compress=True)
     GT_safe_following_distance_logger = MetricsLogger(constants.GT_SAFE_FOLLOWING_DISTANCE_FILE, compress=True)
-    GT_object_count_metrics_logger = MetricsLogger(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
+    GT_object_count_metrics_logger = MetricsLogger(constants.GT_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
     GT_traffic_sign_count = MetricsLogger(constants.GT_TRAFFIC_SIGN_COUNT_FILE, compress=True)
 
     frame_id_memory = FrameIdMemory().get_write_access()

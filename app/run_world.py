@@ -142,7 +142,7 @@ if __name__ == "__main__":
     MAX_STEER_RAD = math.radians(60)  # ruwe schatting
 
     objects_in_front_calculator = ObjectsInFrontCalculator(world.world, world.ego_vehicle, max_distance=20.0)
-    actual_object_count_metrics_logger = MetricsLogger(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
+    actual_object_count_metrics_logger = MetricsLogger(constants.GT_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
     actual_vehicle_distance_in_front_logger = MetricsLogger(constants.GT_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
     estimated_vehicle_distance_in_front_logger = MetricsLogger(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
 
