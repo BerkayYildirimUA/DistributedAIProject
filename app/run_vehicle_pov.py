@@ -177,6 +177,7 @@ try:
         # Perform the color classification
         tl_boxes_colored, tl_colors, tl_scores, overall_conf = tl_color_detector.predict_colors_batch(frame, tl_boxes)
         # print("Global color distribution:", overall_conf)
+        print(overall_conf)
         tl_color = max(overall_conf, key=overall_conf.get)
         tr_color_index= constants.TL_COLOR_TO_INDEX[tl_color]
         traffic_light_memory.write(tr_color_index)
