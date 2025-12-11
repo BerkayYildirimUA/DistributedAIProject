@@ -100,13 +100,6 @@ class SignClassifier:
                 # Ensure all coordinates are ints
                 x1, y1, x2, y2 = self._yolo_to_xyxy(box)
 
-                # Clip to valid bounds
-                # x1 = max(0, min(x1, w - 1))
-                # x2 = max(0, min(x2, w - 1))
-                # y1 = max(0, min(y1, h - 1))
-                # y2 = max(0, min(y2, h - 1))
-
-
                 print(f"{x1},{x2},{y1},{y2}")
                 # Valid crop check
                 if x2 > x1 and y2 > y1:
@@ -125,14 +118,16 @@ class SignClassifier:
 
     # TODO: this function should take image from carla as input and return a tensor
     # you will need to apply your defined transformations here as well
-    def preprocess_frame(self,frame) -> torch.Tensor:
-        if isinstance(frame, np.ndarray):
-            frame = frame[:, :, ::-1]
-            frame = Image.fromarray(frame)
-        if not isinstance(frame, Image.Image):
-            frame = Image.fromarray(frame)
-        tensor = self.transform(frame).unsqueeze(0).to(self.device)
-        return tensor
+    # def preprocess_frame(self, frame):
+    #     if isinstance(frame, np.ndarray):
+    #         frame = frame[:, :, ::-1]  # BGR → RGB
+    #         frame = Image.fromarray(frame)
+    #
+    #     if not isinstance(frame, Image.Image):
+    #         frame = Image.fromarray(frame)
+    #
+    #     return frame  # returns PIL image
+
     @torch.no_grad()
     def read_sign(self, x):
 
@@ -151,7 +146,7 @@ class SignClassifier:
         return label, speed_value
 
     def signal_classifier(self, frame, boxes, class_ids):
-        frame = self.preprocess_frame(frame)
+        # frame = self.preprocess_frame(frame)
         images = self.cropped_traffic_signs(frame, boxes, class_ids)
         print(len(images))
         labels=[]
