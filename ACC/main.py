@@ -181,32 +181,31 @@ def main_loop(args):
 
             GT_lead_distance_logger.log(
                 frame_id=frame_id,
-                lead_distance=GT_lead_distance,
+                lead_distance=float(GT_lead_distance),
             )
             lead_distance_logger.log(
                 frame_id=frame_id,
-                lead_distance=lead_distance,
+                lead_distance=float(lead_distance),
             )
             GT_safe_following_distance_logger.log(
                 frame_id=frame_id,
-                safe_following_distance=GT_safe_following_distance,
+                safe_following_distance=float(GT_safe_following_distance),
             )
             g_force_logger.log(
                 frame_id=frame_id,
-                force=experienced_g_force
+                force=float(experienced_g_force)
             )
             speed_logger.log(
                 frame_id=frame_id,
-                speed=driving_speed
+                speed=float(driving_speed)
             )
             GT_speed_limit_logger.log(
                 frame_id=frame_id,
-                speed_limit=GT_speed_limit
+                speed_limit=float(GT_speed_limit)
             )
-            print("count: ", GT_object_count)
             GT_object_count_metrics_logger.log(
                 frame_id=frame_id,
-                ground_truth_objects=GT_object_count,
+                ground_truth_objects=int(GT_object_count),
             )
 
     except KeyboardInterrupt:
