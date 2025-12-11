@@ -4,7 +4,7 @@ from PIL import Image
 import numpy as np
 import re
 
-
+import os
 
 class SignClassifier:
     def __init__(self, use_tracking = True):
@@ -18,7 +18,12 @@ class SignClassifier:
         self.model.fc = torch.nn.Linear(in_feats, 8)
 
         # TODO load checkpoint into model
-        checkpoint = torch.load("./data_processors/model/sign_text_classifier_best.pth", map_location=self.device)
+        # Directory where THIS script is located
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(base_dir, "model", "sign_text_classifier_best.pth")
+
+        checkpoint = torch.load(model_path, map_location=self.device)
+        # checkpoint = torch.load("./data_processors/model/sign_text_classifier_best.pth", map_location=self.device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
 
         # TODO place model in eval mode
