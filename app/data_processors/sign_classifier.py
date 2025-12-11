@@ -91,19 +91,20 @@ class SignClassifier:
     def cropped_traffic_signs(self, frame, boxes, class_ids):
         crops_img = []
 
-        h, w = frame.shape[:2]
+        # h, w = frame.shape[:2]
 
         for box, class_id in zip(boxes, class_ids):
             if class_id == 4:
                 print("SIGN FOUND")
+                print(box)
                 # Ensure all coordinates are ints
                 x1, y1, x2, y2 = self._yolo_to_xyxy(box)
 
                 # Clip to valid bounds
-                x1 = max(0, min(x1, w - 1))
-                x2 = max(0, min(x2, w - 1))
-                y1 = max(0, min(y1, h - 1))
-                y2 = max(0, min(y2, h - 1))
+                # x1 = max(0, min(x1, w - 1))
+                # x2 = max(0, min(x2, w - 1))
+                # y1 = max(0, min(y1, h - 1))
+                # y2 = max(0, min(y2, h - 1))
 
 
                 print(f"{x1},{x2},{y1},{y2}")
