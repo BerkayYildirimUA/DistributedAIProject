@@ -233,6 +233,13 @@ try:
         counted_traffic_lights = counted_classes["traffic_lights"]
         counted_traffic_signs = counted_classes["traffic_signs"]
         total_counted = counted_classes["total"]
+        print("===========")
+        print(counted_vehicles)
+        print(counted_pedestrians)
+        print(counted_traffic_lights)
+        print(counted_traffic_signs)
+        print("===========")
+
 
         estimated_object_count_metrics_logger.log(
             frame_id=frame_id,
