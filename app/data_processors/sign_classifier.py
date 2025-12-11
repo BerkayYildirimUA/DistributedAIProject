@@ -92,6 +92,7 @@ class SignClassifier:
         crops_img = []
 
         # h, w = frame.shape[:2]
+        frame = np.array(frame)
 
         for box, class_id in zip(boxes, class_ids):
             if class_id == 4:
