@@ -13,7 +13,7 @@ from app.data_processors.metrics_logger import clear_metrics_file
 from app.data_processors.statistics_calculator import StatisticsCalculator
 
 from app.engine.world import World
-from app.memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
+from app.memory.shared_memory import RGBCameraMemory,FrameIdMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
 
 
 # Define transforms for handling camera data
@@ -141,10 +141,10 @@ if __name__ == "__main__":
     vehicle_state_memory = VehicleStateMemory().get_write_access()
     MAX_STEER_RAD = math.radians(60)  # ruwe schatting
 
-    objects_in_front_calculator = ObjectsInFrontCalculator(world.world, world.ego_vehicle, max_distance=20.0)
+    # objects_in_front_calculator = ObjectsInFrontCalculator(world.world, world.ego_vehicle, max_distance=20.0)
     actual_object_count_metrics_logger = MetricsLogger(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
     actual_vehicle_distance_in_front_logger = MetricsLogger(constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
-    estimated_vehicle_distance_in_front_logger = MetricsLogger(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
+    # estimated_vehicle_distance_in_front_logger = MetricsLogger(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
 
 
     # Start threads
@@ -171,32 +171,32 @@ if __name__ == "__main__":
                 # --------------------------------------
 
                 # Fetch CARLA ground-truth of object detection and distance to vehicle in front
-                object_count = objects_in_front_calculator.count_objects_in_front()
-                actual_object_count = object_count["total"]
+                # object_count = objects_in_front_calculator.count_objects_in_front()
+                # actual_object_count = object_count["total"]
 
-                actual_object_count_metrics_logger.log(
-                    frame_id=frame_id,
-                    ground_truth_objects=actual_object_count,
-                )
+                # actual_object_count_metrics_logger.log(
+                #     frame_id=frame_id,
+                #     ground_truth_objects=actual_object_count,
+                # )
+                #
+                # vehicle_in_front, actual_vehicle_distance_in_front_m = (
+                #     objects_in_front_calculator.get_lead_actor_in_lane()
+                # )
+                #
+                # if actual_vehicle_distance_in_front_m is None:
+                #     actual_vehicle_distance_in_front_m = float("inf")
+                #
+                # actual_vehicle_distance_in_front_logger.log(
+                #     frame_id=frame_id,
+                #     ground_truth_distance=actual_vehicle_distance_in_front_m,
+                # )
 
-                vehicle_in_front, actual_vehicle_distance_in_front_m = (
-                    objects_in_front_calculator.get_lead_actor_in_lane()
-                )
-
-                if actual_vehicle_distance_in_front_m is None:
-                    actual_vehicle_distance_in_front_m = float("inf")
-
-                actual_vehicle_distance_in_front_logger.log(
-                    frame_id=frame_id,
-                    ground_truth_distance=actual_vehicle_distance_in_front_m,
-                )
-
-                estimated_distance_vehicle_in_front_m = float(vehicle_distance_memory[0, 0])
-
-                estimated_vehicle_distance_in_front_logger.log(
-                    frame_id=frame_id,
-                    estimated_radar_distance=estimated_distance_vehicle_in_front_m,
-                )
+                # estimated_distance_vehicle_in_front_m = float(vehicle_distance_memory[0, 0])
+                #
+                # estimated_vehicle_distance_in_front_logger.log(
+                #     frame_id=frame_id,
+                #     estimated_radar_distance=estimated_distance_vehicle_in_front_m,
+                # )
 
                 frame_id_memory.write(frame_id)
             except RuntimeError as e:
@@ -214,37 +214,10 @@ if __name__ == "__main__":
         try:
             actual_object_count_metrics_logger.close()
             actual_vehicle_distance_in_front_logger.close()
-            estimated_vehicle_distance_in_front_logger.close()
+            # estimated_vehicle_distance_in_front_logger.close()
             print("Loggers closed in old_env")
         except Exception as e:
             print(f"Error closing loggers: {e}")
-
-        stats = StatisticsCalculator(reader_fn=iter_metrics)
-
-        stats.add_metric_from_files(
-            name="lead_distance_m",
-            actual_file=constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE,
-            estimated_file=constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE,
-            actual_key="ground_truth_distance",
-            estimated_key="estimated_radar_distance",
-            frame_key="frame_id",
-        )
-
-        stats.add_metric_from_files(
-            name="objects_in_front_count",
-            actual_file=constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE,
-            estimated_file=constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE,
-            actual_key="ground_truth_objects",
-            estimated_key="estimated_yolo_objects",
-            frame_key="frame_id",
-        )
-
-        stats.plot_all("run_001_metrics.png", suptitle="Run 001 metrics")
-
-        clear_metrics_file(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE)
-        clear_metrics_file(constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE)
-        clear_metrics_file(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE)
-        clear_metrics_file(constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE)
 
         print("Statistics clean up complete")
 
