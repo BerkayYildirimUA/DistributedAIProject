@@ -217,7 +217,7 @@ def main_loop(args):
             )
             GT_traffic_sign_count_metrics_logger.log(
                 frame_id=frame_id,
-                ground_truth_ssigns=int(GT_traffic_sign_count),
+                ground_truth_traffic_signs=int(GT_traffic_sign_count),
             )
             GT_traffic_light_count_metrics_logger.log(
                 frame_id=frame_id,
@@ -225,7 +225,7 @@ def main_loop(args):
             )
             GT_vehicle_count_metrics_logger.log(
                 frame_id=frame_id,
-                ground_truth_vehicles=int(GT_vehicle_count),
+                ground_truth_vehicles_front_count=int(GT_vehicle_count),
             )
             GT_pedestrian_count_metrics_logger.log(
                 frame_id=frame_id,
