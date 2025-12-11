@@ -9,16 +9,16 @@ from torchvision import datasets, transforms, models
 
 # ---------------- CONFIG ----------------
 IMG_SIZE    = 64
-IMG_H = 96 # 64
-IMG_W = 96 # 32
+IMG_H =  64
+IMG_W =  32
 BATCH_TRAIN = 64
 BATCH_VAL   = 128
-EPOCHS      = 10
-LR          = 1e-3
+EPOCHS      = 20
+LR          = 2e-4
 DEVICE      = "cuda" if torch.cuda.is_available() else "cpu"
 
-CKPT_OUT = Path("Models/traffic_light_classifier6.pth")
-META_OUT = Path("Models/traffic_light_classifier_meta6.json")
+CKPT_OUT = Path("Models/traffic_light_classifier16.pth")
+META_OUT = Path("Models/traffic_light_classifier_meta16.json")
 
 TEST_DIR = Path("data/test")
 TRAIN_DIR = Path("data/train")
@@ -200,44 +200,87 @@ with open(META_OUT, "w") as f:
 
 
 #----------------------Model--------------------------------------
-class TrafficLightNet2(nn.Module):
+# class TrafficLightNet2(nn.Module):
+#     """
+#     Tiny CNN for 3x64x32 inputs
+#     64x32 -> 32x16 -> 16x8 feature maps (only 2 blocks)
+#     """
+#     def __init__(self, num_classes: int = 3):
+#         super().__init__()
+#
+#         self.features = nn.SequentTrafficLightNet2ial(
+#             # Block 1: 3 x 64 x 32 -> 16 x 32 x 16
+#             nn.Conv2d(3, 16, kernel_size=3, padding=1),
+#             nn.ReLU(inplace=True),
+#             nn.MaxPool2d(2, 2),
+#
+#             # Block 2: 16 x 32 x 16 -> 24 x 16 x 8
+#             nn.Conv2d(16, 24, kernel_size=3, padding=1),
+#             nn.ReLU(inplace=True),
+#             nn.MaxPool2d(2, 2),
+#         )
+#
+#         # After 2x MaxPool(2): 64x32 -> 32x16 -> 16x8
+#         flat_dim = 24 * 16 * 8  # 24 channels, 16x8 spatial = 3072
+#
+#         self.classifier = nn.Sequential(
+#             nn.Dropout(0.3),
+#             nn.Linear(flat_dim, 32),
+#             nn.ReLU(inplace=True),
+#             nn.Linear(32, num_classes),
+#         )
+#
+#     def forward(self, x):
+#         x = self.features(x)          # [B, 24, 16, 8]
+#         x = x.view(x.size(0), -1)     # [B, 3072]
+#         x = self.classifier(x)        # [B, num_classes]
+#         return x
+#
+# num_classes = len(train_ds.classes)  # should be 3: red/green/yellow
+# model = TrafficLightNet2(num_classes=num_classes).to(DEVICE)
+#
+# # Loss (use class weights here if you want)
+# criterion = nn.CrossEntropyLoss()
+#
+# # Optimizer + AMP
+# optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+# scaler = torch.cuda.amp.GradScaler(enabled=(DEVICE == "cuda"))
+
+
+
+class TinyTrafficLightNet(nn.Module):
     """
-    Tiny CNN for 3x64x32 inputs
-    64x32 -> 32x16 -> 16x8 feature maps (only 2 blocks)
+    CNN for 3x64x32 inputs.
+    Two conv blocks + global average pooling + linear.
     """
     def __init__(self, num_classes: int = 3):
         super().__init__()
-
         self.features = nn.Sequential(
-            # Block 1: 3 x 64 x 32 -> 16 x 32 x 16
+            # 3 x 64 x 32 -> 16 x 32 x 16
             nn.Conv2d(3, 16, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),
 
-            # Block 2: 16 x 32 x 16 -> 24 x 16 x 8
-            nn.Conv2d(16, 24, kernel_size=3, padding=1),
+            # 16 x 32 x 16 -> 32 x 16 x 8
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),
+
+            # 32 x 16 x 8 -> 32 x 1 x 1
+            nn.AdaptiveAvgPool2d((1, 1)),
         )
 
-        # After 2x MaxPool(2): 64x32 -> 32x16 -> 16x8
-        flat_dim = 24 * 16 * 8  # 24 channels, 16x8 spatial = 3072
-
-        self.classifier = nn.Sequential(
-            nn.Dropout(0.3),
-            nn.Linear(flat_dim, 32),
-            nn.ReLU(inplace=True),
-            nn.Linear(32, num_classes),
-        )
+        self.classifier = nn.Linear(32, num_classes)
 
     def forward(self, x):
-        x = self.features(x)          # [B, 24, 16, 8]
-        x = x.view(x.size(0), -1)     # [B, 3072]
-        x = self.classifier(x)        # [B, num_classes]
+        x = self.features(x)        # [B, 32, 1, 1]
+        x = x.view(x.size(0), -1)   # [B, 32]
+        x = self.classifier(x)      # [B, num_classes]
         return x
 
+
 num_classes = len(train_ds.classes)  # should be 3: red/green/yellow
-model = TrafficLightNet2(num_classes=num_classes).to(DEVICE)
+model = TinyTrafficLightNet(num_classes=num_classes).to(DEVICE)
 
 # Loss (use class weights here if you want)
 criterion = nn.CrossEntropyLoss()
@@ -245,6 +288,8 @@ criterion = nn.CrossEntropyLoss()
 # Optimizer + AMP
 optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 scaler = torch.cuda.amp.GradScaler(enabled=(DEVICE == "cuda"))
+
+
 
 
 # ---------------- TRAIN ----------------
