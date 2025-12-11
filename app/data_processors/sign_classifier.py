@@ -81,10 +81,10 @@ class SignClassifier:
         y2_f = cy + half_h
 
         # round and convert to int (use round to reduce off-by-one)
-        x1 = int(round(x1_f))
-        y1 = int(round(y1_f))
-        x2 = int(round(x2_f))
-        y2 = int(round(y2_f))
+        x1 = int(x1_f)
+        y1 = int(y1_f)
+        x2 = int(x2_f)
+        y2 = int(y2_f)
 
         return x1, y1, x2, y2
 
