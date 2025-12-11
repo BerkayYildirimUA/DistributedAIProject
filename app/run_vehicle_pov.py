@@ -136,8 +136,9 @@ try:
 
 
                 boxes_indexes=np.array(range(len(boxes)))
+                is_tl_np = is_tl.cpu().numpy()
                 tl_boxes = boxes[is_tl]         #filtering and selecting only the boxes of traffic lights
-                tl_indexes = boxes_indexes[is_tl]
+                tl_indexes = boxes_indexes[is_tl_np]
 
 
 
@@ -159,8 +160,9 @@ try:
                     keep_mask.append(in_roi)
 
                 keep_mask = torch.tensor(keep_mask, dtype=torch.bool, device=boxes.device)
+                keep_mask_np = keep_mask.cpu().numpy()
                 tl_boxes = tl_boxes[keep_mask]          # with the mask we filter the relevant traffic lights
-                tl_indexes = tl_indexes[keep_mask]
+                tl_indexes = tl_indexes[keep_mask_np]
             else:
                 tl_boxes = torch.empty((0, 4))
                 tl_indexes = torch.empty((0, 0))
