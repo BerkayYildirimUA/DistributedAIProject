@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 
 import app.constants as constants
+from data_processors.sign_classifier import SignClassifier
 
 from app.data_processors.lane_detector import LaneDetector
 from app.data_processors.intersection_detector import IntersectionDetector
@@ -44,6 +45,7 @@ tl_color_detector = TL_color_detector()
 
 # lane_detector=LaneDetector()
 
+sign_classifier = SignClassifier()
 
 radar_points_projector = RadarPointsProjector()
 try:
@@ -157,6 +159,11 @@ try:
         # Perform the color classification
         tl_boxes_colored, tl_colors, tl_scores, overall_conf = tl_color_detector.predict_colors_batch(frame, tl_boxes)
         print("Global color distribution:", overall_conf)
+
+        traffic_signs = sign_classifier.signal_classifier(frame, boxes, class_ids)
+        print(traffic_signs)
+
+
 
         # Visualise
         visualiser = POVVisualiser(
