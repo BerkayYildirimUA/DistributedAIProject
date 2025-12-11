@@ -241,12 +241,12 @@ try:
 
         estimated_ts_count_metrics_logger.log(
             frame_id=frame_id,
-            estimated_yolo_ts=counted_traffic_lights
+            estimated_yolo_ts=counted_traffic_signs
         )
 
         estimated_tl_count_metrics_logger.log(
             frame_id=frame_id,
-            estimated_yolo_tl=counted_traffic_signs
+            estimated_yolo_tl=counted_traffic_lights
         )
 
         estimated_vehicle_count_metrics_logger.log(
