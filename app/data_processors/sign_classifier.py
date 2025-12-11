@@ -68,6 +68,7 @@ class SignClassifier:
 
         for box, class_id in zip(boxes, class_ids):
             if class_id == 4:
+                print("SIGN FOUND")
                 # Ensure all coordinates are ints
                 x1, y1, x2, y2 = [int(v) for v in box]
 

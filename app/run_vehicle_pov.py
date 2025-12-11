@@ -158,7 +158,8 @@ try:
 
         # Perform the color classification
         tl_boxes_colored, tl_colors, tl_scores, overall_conf = tl_color_detector.predict_colors_batch(frame, tl_boxes)
-        print("Global color distribution:", overall_conf)
+        # print("Global color distribution:", overall_conf)
+
 
         traffic_signs = sign_classifier.signal_classifier(frame, boxes, class_ids)
         print(traffic_signs)
