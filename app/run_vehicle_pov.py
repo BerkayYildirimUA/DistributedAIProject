@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 import app.constants as constants
-from data_processors.sign_classifier import SignClassifier
+from app.data_processors.sign_classifier import SignClassifier
 
 from app.data_processors.lane_detector import LaneDetector
 from app.data_processors.intersection_detector import IntersectionDetector
