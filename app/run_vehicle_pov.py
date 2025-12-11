@@ -248,22 +248,22 @@ try:
 
         estimated_ts_count_metrics_logger.log(
             frame_id=frame_id,
-            estimated_yolo_ts=counted_traffic_signs
+            estimated_traffic_signs=counted_traffic_signs
         )
 
         estimated_tl_count_metrics_logger.log(
             frame_id=frame_id,
-            estimated_yolo_tl=counted_traffic_lights
+            estimated_traffic_lights=counted_traffic_lights
         )
 
         estimated_vehicle_count_metrics_logger.log(
             frame_id=frame_id,
-            estimated_yolo_vehicles=counted_vehicles,
+            estimated_vehicles_front_count=counted_vehicles,
         )
 
         estimated_pedestrian_count_metrics_logger.log(
             frame_id=frame_id,
-            estimated_yolo_pedestrians=counted_pedestrians
+            estimated_pedestrians=counted_pedestrians
         )
 finally:
     try:
