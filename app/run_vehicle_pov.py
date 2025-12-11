@@ -1,21 +1,20 @@
 import cv2
 import numpy as np
-from sympy.physics.units import velocity
 
-import constants
+import app.constants as constants
 
-from data_processors.lane_detector import LaneDetector
-from data_processors.intersection_detector import IntersectionDetector
+from app.data_processors.lane_detector import LaneDetector
+from app.data_processors.intersection_detector import IntersectionDetector
 import torch
-from TrafficLights.TL_color_detector import TL_color_detector
-from data_processors.object_detector import ObjectDetector
-from data_processors.object_distance_calculator import ObjectDistanceCalculator
-from memory.shared_memory import (
+from app.TrafficLights.TL_color_detector import TL_color_detector
+from app.data_processors.object_detector import ObjectDetector
+from app.data_processors.object_distance_calculator import ObjectDistanceCalculator
+from app.memory.shared_memory import (
     RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory, CameraCalibrationMemory
 )
-from data_processors.motion_tubes import MotionTubeProjector
-from engine.pov_visualiser import POVVisualiser
-from data_processors.radar_points_projector import RadarPointsProjector
+from app.data_processors.motion_tubes import MotionTubeProjector
+from app.engine.pov_visualiser import POVVisualiser
+from app.data_processors.radar_points_projector import RadarPointsProjector
 
 # Attach to shared memory
 rgb_camera_memory = RGBCameraMemory().get_read_access()
@@ -40,6 +39,9 @@ tube_projector = MotionTubeProjector(
 # bird_eye_visualiser=BirdVisualiser(640,480)
 intersection_detector=IntersectionDetector()
 tl_color_detector = TL_color_detector()
+
+
+
 # lane_detector=LaneDetector()
 
 
@@ -90,8 +92,11 @@ try:
         lane_2 = [tuple(p[0]) for p in lanes[2]]
         lane_1_x = np.array([x[0] for x in lane_1])
         lane_2_x = np.array([x[0] for x in lane_2])
-        min_lane_distance = abs(max(lane_1_x)-min(lane_2_x))
-        is_intersected=intersection_detector.is_intersecting_list_trajectory_based(boxes,lanes[1],min_lane_distance/2,0.1*min_lane_distance)
+        if len(lane_1_x) ==0 or len(lane_2_x) == 0:
+            is_intersected=[False]*len(boxes)
+        else:
+            min_lane_distance = abs(max(lane_1_x)-min(lane_2_x))
+            is_intersected=intersection_detector.is_intersecting_list_trajectory_based(boxes,lanes[1],min_lane_distance/2,0.1*min_lane_distance)
         # is_intersected=intersection_detector.is_intersecting_list(lanes[0],lanes[1],boxes)
 
         # Write distance of closest vehicle in lane to shared memory
@@ -105,17 +110,53 @@ try:
         vehicle_distance_memory.write(closest_vehicle_distance)
 
 
-        # Only Traffic lights selecting
-        if len(class_ids) > 0:
-            cls_names = [object_detector.classes[int(c)] for c in class_ids.tolist()]
-            is_tl = torch.tensor([n == "traffic light" for n in cls_names],
-                                 dtype=torch.bool, device=boxes.device)
-            tl_boxes = boxes[is_tl]
+
+        # Traffic lights selecting out of all the recognized objects in the current frame
+        if abs(steer_rad) < 0.15:                #to avoid that the car detects non-relevant traffic lights during a turn on intersection
+            if len(class_ids) > 0:                  # if there are objects detected present
+                cls_names = []
+                for c in class_ids:                         #we convert the number values to the class names
+                    cls_names.append(object_detector.classes[int(c)])
+
+                mask = []
+                for n in cls_names:                         #creating a mask for traffic light class
+                    if n == "traffic light":
+                        mask.append(True)
+                    else:
+                        mask.append(False)
+                is_tl = torch.tensor(mask, dtype=torch.bool, device=boxes.device)
+
+                tl_boxes = boxes[is_tl]         #filtering and selecting only the boxes of traffic lights
+
+
+
+                # Apply ROI filter (to only select the relevant traffic lights for our car)
+                H, W = frame.shape[0], frame.shape[1]
+                #       x ∈ [0.45W, 0.61W] and y ≥ 0.35
+                LEFT_RATIO = 0.45           # borders that match for town 5
+                RIGHT_RATIO = 0.67
+                Y_MIN_RATIO = 0.35
+                x_min = LEFT_RATIO * W
+                x_max = RIGHT_RATIO * W
+                y_min = Y_MIN_RATIO * H
+                keep_mask = []
+                for x1, y1, x2, y2 in tl_boxes.tolist():
+                    cx = 0.5 * (x1 + x2)                    #we calculate the centers
+                    cy = 0.5 * (y1 + y2)
+
+                    in_roi = (x_min <= cx <= x_max) and (cy >= y_min)
+                    keep_mask.append(in_roi)
+
+                keep_mask = torch.tensor(keep_mask, dtype=torch.bool, device=boxes.device)
+                tl_boxes = tl_boxes[keep_mask]          # with the mask we filter the relevant traffic lights
+            else:
+                tl_boxes = torch.empty((0, 4))
         else:
-            tl_boxes = torch.empty((0, 4))
+            tl_boxes = torch.empty((0, 4))              #avoid that it prints random tl boxes while taking a turn
 
         # Perform the color classification
-        tl_boxes_colored, tl_colors, tl_scores = tl_color_detector.predict_colors_batch(frame, tl_boxes)
+        tl_boxes_colored, tl_colors, tl_scores, overall_conf = tl_color_detector.predict_colors_batch(frame, tl_boxes)
+        print("Global color distribution:", overall_conf)
 
         # Visualise
         visualiser = POVVisualiser(
