@@ -12,7 +12,7 @@ from app.data_processors.object_detector import ObjectDetector
 from app.data_processors.object_distance_calculator import ObjectDistanceCalculator
 from app.memory.shared_memory import (
     RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory,
-    CameraCalibrationMemory, TrafficSignMemory, TrafficLightMemory
+    CameraCalibrationMemory, TrafficSignMemory, TrafficLightMemory, TrafficLightDistanceMemory
 )
 from app.data_processors.motion_tubes import MotionTubeProjector
 from app.engine.pov_visualiser import POVVisualiser
@@ -29,6 +29,7 @@ object_detector = ObjectDetector()
 state_memory = VehicleStateMemory().get_read_access()
 traffic_sign_memory=TrafficSignMemory().get_write_access()
 traffic_light_memory=TrafficLightMemory().get_write_access()
+traffic_light_distance_memory=TrafficLightDistanceMemory().get_write_access()
 lane_mem = LaneTubeMemory(max_pts=256).get_write_access()
 object_distance_calculator=ObjectDistanceCalculator()
 tube_projector = MotionTubeProjector(
@@ -131,7 +132,10 @@ try:
                         mask.append(False)
                 is_tl = torch.tensor(mask, dtype=torch.bool, device=boxes.device)
 
+
+                boxes_indexes=np.array(range(len(boxes)))
                 tl_boxes = boxes[is_tl]         #filtering and selecting only the boxes of traffic lights
+                tl_indexes = boxes_indexes[is_tl]
 
 
 
@@ -154,10 +158,20 @@ try:
 
                 keep_mask = torch.tensor(keep_mask, dtype=torch.bool, device=boxes.device)
                 tl_boxes = tl_boxes[keep_mask]          # with the mask we filter the relevant traffic lights
+                tl_indexes = tl_indexes[keep_mask]
             else:
                 tl_boxes = torch.empty((0, 4))
+                tl_indexes = torch.empty((0, 0))
+
         else:
             tl_boxes = torch.empty((0, 4))              #avoid that it prints random tl boxes while taking a turn
+            tl_indexes = torch.empty((0, 0))
+
+        # Get minimal traffic light distance
+        tl_min_distance = np.array(distances)[tl_indexes]
+        traffic_light_distance_memory.write(tl_min_distance)
+
+
 
         # Perform the color classification
         tl_boxes_colored, tl_colors, tl_scores, overall_conf = tl_color_detector.predict_colors_batch(frame, tl_boxes)

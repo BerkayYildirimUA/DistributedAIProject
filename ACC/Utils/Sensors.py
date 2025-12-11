@@ -16,7 +16,7 @@ from ACC.Utils.GForce_Class import GForceCalculator
 from ACC.Utils.abstractions import StateSensor, UI, VehicleState, LightColors
 import app.constants  as constants
 from app.memory.shared_memory import RGBCameraMemory, VehicleDistanceMemory, RadarMemory, CameraCalibrationMemory, \
-    TrafficLightMemory, TrafficSignMemory
+    TrafficLightMemory, TrafficSignMemory, TrafficLightDistanceMemory
 
 
 class CarlaWorldStateSensor(StateSensor):
@@ -306,6 +306,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # depht_camera_memory = DepthCameraMemory().get_write_access()
         self.vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
         self.tl_memory=TrafficLightMemory().get_read_access()
+        self.tl_distance_memory=TrafficLightDistanceMemory().get_read_access()
         self.ts_memory=TrafficSignMemory().get_read_access()
         self.radar_memory = RadarMemory().get_write_access()
         self.camera_calibration_memory = CameraCalibrationMemory().get_write_access()
@@ -345,7 +346,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         # Traffic light color
         if self.use_traffic_lights:
-            traffic_light_dist_m = self.min_dist
+            traffic_light_dist_m = self.tl_distance_memory.read()
             tl_color_index = self.tl_memory.read()
             if tl_color_index == 1:
                 traffic_light_color = LightColors.green
