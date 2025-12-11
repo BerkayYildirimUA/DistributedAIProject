@@ -96,7 +96,7 @@ class SignClassifier:
 
         value = self.classes[pred_index]
 
-        return value, outputs[pred_index]
+        return value, outputs[0,pred_index]
 
     def signal_classifier(self, frame, boxes, class_ids):
         frame=Image.fromarray(frame)
