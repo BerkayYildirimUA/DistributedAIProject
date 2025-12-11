@@ -43,27 +43,46 @@ class SignClassifier:
             )
         ])
 
+    # def cropped_traffic_signs(self, frame, boxes, class_ids):
+    #     # I should assume that the boxes is a list of yolo coordinates.
+    #     # Now I should extract the boxes of the frames and return a list of those new images.
+    #     crops_img = []
+    #
+    #     #putting the  frame i a numpy array
+    #     for box, class_id in zip(boxes, class_ids):
+    #         if class_id == 4:
+    #
+    #             x1, y1, x2, y2 = box
+    #
+    #     #cropping from the numpy array
+    #             crop = frame[y1:y2, x1:x2]
+    #
+    #             crops_img.append(crop)
+    #
+    #     return crops_img
+
     def cropped_traffic_signs(self, frame, boxes, class_ids):
-        # I should assume that the boxes is a list of yolo coordinates.
-        # Now I should extract the boxes of the frames and return a list of those new images.
         crops_img = []
 
-        #putting the  frame i a numpy array
+        h, w = frame.shape[:2]
+
         for box, class_id in zip(boxes, class_ids):
             if class_id == 4:
+                # Ensure all coordinates are ints
+                x1, y1, x2, y2 = [int(v) for v in box]
 
-                x1, y1, x2, y2 = box
+                # Clip to valid bounds
+                x1 = max(0, min(x1, w - 1))
+                x2 = max(0, min(x2, w - 1))
+                y1 = max(0, min(y1, h - 1))
+                y2 = max(0, min(y2, h - 1))
 
-        #cropping from the numpy array
-                crop = frame[y1:y2, x1:x2]
-
-                crops_img.append(crop)
+                # Valid crop check
+                if x2 > x1 and y2 > y1:
+                    crop = frame[y1:y2, x1:x2]
+                    crops_img.append(crop)
 
         return crops_img
-
-
-
-
 
     def label_to_speed(self, label):
         nums = re.findall(r"\d+", label)
