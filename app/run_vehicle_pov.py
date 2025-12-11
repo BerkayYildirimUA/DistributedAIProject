@@ -235,10 +235,10 @@ try:
         # Count classes only on filtered boxes
         counted_classes = detected_classes_count.count_objects(filtered_boxes, filtered_cls_names)
 
-        counted_vehicles = counted_classes["vehicle"]
+        counted_vehicles = counted_classes["vehicles"]
         counted_pedestrians = counted_classes["pedestrians"]
-        counted_traffic_lights = counted_classes["traffic_light"]
-        counted_traffic_signs = counted_classes["traffic_sign"]
+        counted_traffic_lights = counted_classes["traffic_lights"]
+        counted_traffic_signs = counted_classes["traffic_signs"]
         total_counted = counted_classes["total"]
 
         estimated_object_count_metrics_logger.log(
