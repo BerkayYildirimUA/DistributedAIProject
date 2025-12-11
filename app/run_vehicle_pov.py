@@ -186,6 +186,8 @@ try:
         # print("Global color distribution:", overall_conf)
         print(overall_conf)
         # tl_color = max(overall_conf, key=overall_conf.get)
+        if overall_conf==None:
+            overall_conf="green"
         tr_color_index= constants.TL_COLOR_TO_INDEX[overall_conf]
         traffic_light_memory.write(tr_color_index)
 
