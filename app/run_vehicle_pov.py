@@ -162,9 +162,8 @@ try:
 
 
         traffic_signs = sign_classifier.signal_classifier(frame, boxes, class_ids)
-        print(traffic_signs)
-
-
+        if not (traffic_signs == -1):
+            print(traffic_signs)
 
         # Visualise
         visualiser = POVVisualiser(
