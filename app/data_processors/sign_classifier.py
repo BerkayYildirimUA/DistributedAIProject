@@ -60,6 +60,33 @@ class SignClassifier:
     #             crops_img.append(crop)
     #
     #     return crops_img
+    def _yolo_to_xyxy(self,box):
+        """
+        Convert a single YOLO box (cx, cy, w, h) to pixel xyxy (x1,y1,x2,y2).
+        If normalized=True, assume values are in [0,1] and scale by img size.
+        Returns integer coordinates.
+        """
+        cx, cy, bw, bh = box
+
+
+
+        # compute half sizes
+        half_w = bw / 2.0
+        half_h = bh / 2.0
+
+        # compute xyxy (float)
+        x1_f = cx - half_w
+        y1_f = cy - half_h
+        x2_f = cx + half_w
+        y2_f = cy + half_h
+
+        # round and convert to int (use round to reduce off-by-one)
+        x1 = int(round(x1_f))
+        y1 = int(round(y1_f))
+        x2 = int(round(x2_f))
+        y2 = int(round(y2_f))
+
+        return x1, y1, x2, y2
 
     def cropped_traffic_signs(self, frame, boxes, class_ids):
         crops_img = []
@@ -70,7 +97,7 @@ class SignClassifier:
             if class_id == 4:
                 print("SIGN FOUND")
                 # Ensure all coordinates are ints
-                x1, y1, x2, y2 = [int(v) for v in box]
+                x1, y1, x2, y2 = self._yolo_to_xyxy(box)
 
                 # Clip to valid bounds
                 x1 = max(0, min(x1, w - 1))
@@ -82,6 +109,8 @@ class SignClassifier:
                 if x2 > x1 and y2 > y1:
                     crop = frame[y1:y2, x1:x2]
                     crops_img.append(crop)
+                else:
+                    print("INVALID CROP")
 
         return crops_img
 
