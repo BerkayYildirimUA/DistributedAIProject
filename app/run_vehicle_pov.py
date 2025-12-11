@@ -1,3 +1,5 @@
+import math
+
 import cv2
 import numpy as np
 
@@ -168,7 +170,12 @@ try:
             tl_indexes = torch.empty((0, 0))
 
         # Get minimal traffic light distance
-        tl_min_distance = min(np.array(distances)[tl_indexes])
+        tls = np.array(distances)[tl_indexes]
+        if len(tls)==0:
+            tl_min_distance=math.inf
+        else:
+            tl_min_distance = min(tls)
+
         print(distances, tl_indexes,tl_min_distance)
         traffic_light_distance_memory.write(tl_min_distance)
 
