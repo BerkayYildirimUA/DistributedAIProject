@@ -13,7 +13,7 @@ from app.data_processors.metrics_logger import clear_metrics_file
 from app.data_processors.statistics_calculator import StatisticsCalculator
 
 from app.engine.world import World
-from app.memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
+from app.memory.shared_memory import RGBCameraMemory,FrameIdMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
 
 
 # Define transforms for handling camera data
@@ -146,7 +146,6 @@ if __name__ == "__main__":
     actual_vehicle_distance_in_front_logger = MetricsLogger(constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
     estimated_vehicle_distance_in_front_logger = MetricsLogger(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
 
-
     # Start threads
     rgb_thread = threading.Thread(target=process_rgb_images, daemon=True)
     depth_thread = threading.Thread(target=process_depth_images, daemon=True)
@@ -218,33 +217,6 @@ if __name__ == "__main__":
             print("Loggers closed in old_env")
         except Exception as e:
             print(f"Error closing loggers: {e}")
-
-        stats = StatisticsCalculator(reader_fn=iter_metrics)
-
-        stats.add_metric_from_files(
-            name="lead_distance_m",
-            actual_file=constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE,
-            estimated_file=constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE,
-            actual_key="ground_truth_distance",
-            estimated_key="estimated_radar_distance",
-            frame_key="frame_id",
-        )
-
-        stats.add_metric_from_files(
-            name="objects_in_front_count",
-            actual_file=constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE,
-            estimated_file=constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE,
-            actual_key="ground_truth_objects",
-            estimated_key="estimated_yolo_objects",
-            frame_key="frame_id",
-        )
-
-        stats.plot_all("run_001_metrics.png", suptitle="Run 001 metrics")
-
-        clear_metrics_file(constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE)
-        clear_metrics_file(constants.ACTUAL_VEHICLE_DISTANCE_IN_FRONT_FILE)
-        clear_metrics_file(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE)
-        clear_metrics_file(constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE)
 
         print("Statistics clean up complete")
 

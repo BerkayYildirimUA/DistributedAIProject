@@ -10,7 +10,7 @@ from app.TrafficLights.TL_color_detector import TL_color_detector
 from app.data_processors.object_detector import ObjectDetector
 from app.data_processors.object_distance_calculator import ObjectDistanceCalculator
 from app.memory.shared_memory import (
-    RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory, CameraCalibrationMemory
+    RGBCameraMemory, FrameIdMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory, CameraCalibrationMemory
 )
 from app.data_processors.motion_tubes import MotionTubeProjector
 from app.engine.pov_visualiser import POVVisualiser

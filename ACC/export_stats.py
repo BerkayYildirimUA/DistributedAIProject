@@ -52,6 +52,17 @@ def main_loop():
 
     )
 
+    stats.add_metric_from_files(
+        name="objects_in_front_count",
+        actual_file=constants.ACTUAL_OBJECTS_IN_FRONT_COUNT_FILE,
+        estimated_file=constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE,
+        actual_key="ground_truth_objects",
+        estimated_key="estimated_yolo_objects",
+        frame_key="frame_id",
+        plot_title="Number of objects vs detected objects in front of the vehicle",
+        display_name="Count"
+    )
+
     stats.plot_all("run_002_metrics.png", suptitle="Run 002 metrics")
 
     clear_metrics_file(constants.GT_LEAD_DISTANCE_FILE)
@@ -62,8 +73,10 @@ def main_loop():
     clear_metrics_file(constants.GT_SPEED_LIMIT_FILE)
     clear_metrics_file(constants.G_FORCE_FILE)
 
-    print("GETTING STATS")
+    clear_metrics_file(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE)
+    clear_metrics_file(constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE)
 
+    print("GETTING STATS")
 
 
 if __name__ == '__main__':
