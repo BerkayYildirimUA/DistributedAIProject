@@ -4,7 +4,7 @@ import carla
 from typing import Dict, Optional, Tuple
 import sys, os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import constants
+import app.constants as constants
 
 class ObjectsInFrontCalculator:
     """
