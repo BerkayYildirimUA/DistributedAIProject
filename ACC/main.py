@@ -54,7 +54,7 @@ def main_loop(args):
             use_traffic_signs=True
         )
 
-        decisionAgent = RLDecisionAgent(sensor_real, "251210_200048_TD3_Capella_chunk_12600.msh")
+        decisionAgent = RLDecisionAgent(sensor_real, "251210_001928_TD3_Aldebaran_chunk_7200.msh")
 
         crash_detected = False
         frames_after_crash = 0
