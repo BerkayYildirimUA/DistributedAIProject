@@ -300,6 +300,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self.use_traffic_lights = use_traffic_lights
 
         self.frame_buffer=100
+        self.speed_limit=60
         self.previous_tl_distance=math.inf
         self.prev_lead_distance=250.0
         self.tl_counter=0.0
@@ -420,7 +421,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             light_speed_ms=speed_light_ms,
             steer_rad=steer_rad
         )
-        if self.counter % 300 == 0:
+        if self.counter % 20 == 0:
             print("Vison based")
             self.log_vehicle_state(state)
         return state
