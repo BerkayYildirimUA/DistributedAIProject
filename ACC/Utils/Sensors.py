@@ -298,6 +298,12 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         super().__init__(ego_vehicle, world)
         self.use_traffic_signs = use_traffic_signs
         self.use_traffic_lights = use_traffic_lights
+
+        self.frame_buffer=100
+        self.previous_tl_distance=math.inf
+        self.prev_lead_distance=250.0
+        self.tl_counter=0.0
+        self.ld_counter=0.0
         # Create Sensors
         self.create_ego_sensors()
 
@@ -317,7 +323,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         self.start_sensor_threads()
 
-        self.prev_lead_distance=250.0
 
     def cleanup(self):
         pass
@@ -340,6 +345,10 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # Keep track of previous distance and use it in case radar returns inf values
         if np.isinf(distance[0]):
             lead_distance=self.prev_lead_distance
+            self.ld_counter+=1
+            if self.ld_counter >= self.frame_buffer:
+                self.prev_lead_distance=self.min_dist
+                self.counter=0.0
         else:
             self.prev_lead_distance = distance[0]
             lead_distance = distance[0]
@@ -347,6 +356,15 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # Traffic light color
         if self.use_traffic_lights:
             traffic_light_dist_m = self.tl_distance_memory.read()
+            if not self.isvalid(traffic_light_dist_m):
+                traffic_light_dist_m=self.previous_tl_distance
+                self.tl_counter+=1
+                if self.tl_counter >= self.frame_buffer:
+                    self.prev_tl_distance=self.min_dist
+                    self.tl_counter=0.0
+            else:
+                self.prev_tl_distance = traffic_light_dist_m
+
             tl_color_index = self.tl_memory.read()
             if tl_color_index == 1:
                 traffic_light_color = LightColors.green

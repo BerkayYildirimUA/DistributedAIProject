@@ -178,16 +178,10 @@ try:
         else:
             tl_min_distance = min(tls)
 
-        print(distances, tl_indexes,tl_min_distance)
         traffic_light_distance_memory.write(tl_min_distance)
-
-
 
         # Perform the color classification
         tl_boxes_colored, tl_colors, tl_scores, overall_conf = tl_color_detector.predict_colors_batch(frame, tl_boxes)
-        # print("Global color distribution:", overall_conf)
-        print(overall_conf)
-        # tl_color = max(overall_conf, key=overall_conf.get)
         if overall_conf==None:
             overall_conf="green"
         tr_color_index= constants.TL_COLOR_TO_INDEX[overall_conf]
