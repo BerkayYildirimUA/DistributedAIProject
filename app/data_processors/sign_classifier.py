@@ -18,7 +18,7 @@ class SignClassifier:
         self.model.fc = torch.nn.Linear(in_feats, 8)
 
         # TODO load checkpoint into model
-        checkpoint = torch.load("sign_text_classifier_best.pth", map_location=self.device)
+        checkpoint = torch.load("./data_processors/model/sign_text_classifier_best.pth", map_location=self.device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
 
         # TODO place model in eval mode
