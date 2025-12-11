@@ -61,22 +61,23 @@ class ObjectsInFrontCalculator:
         ego_transform = self.ego_vehicle.get_transform()
         actors = self.world.get_actors()
 
-        # You can refine filters depending on your CARLA version/blueprints
         vehicles = actors.filter('vehicle.*')
         pedestrians = actors.filter('walker.pedestrian.*')
         traffic_lights = actors.filter('traffic.traffic_light*')
+        speed_signs = actors.filter('traffic.speed_limit.*')
 
         def in_front(actor):
             # Don’t count ego itself
             if actor.id == self.ego_vehicle.id:
                 return False
-            return self._is_in_front_and_within_range(
+            return self._is_in_front_and_wigthin_range(
                 ego_transform, actor.get_location()
             )
 
         num_vehicles = sum(1 for v in vehicles if in_front(v))
         num_pedestrians = sum(1 for w in pedestrians if in_front(w))
         num_tlights = sum(1 for t in traffic_lights if in_front(t))
+        num_ssigns = sum(1 for s in speed_signs if in_front(s))
 
         total = num_vehicles + num_pedestrians + num_tlights
 
@@ -84,6 +85,7 @@ class ObjectsInFrontCalculator:
             "vehicles": num_vehicles,
             "pedestrians": num_pedestrians,
             "traffic_lights": num_tlights,
+            "speed_signs": num_ssigns,
             "total": total,
         }
 

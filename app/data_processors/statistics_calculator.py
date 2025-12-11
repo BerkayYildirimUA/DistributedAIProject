@@ -200,11 +200,6 @@ class StatisticsCalculator:
             estimated = data["estimated"]
             err_pct = self._percentage_error(actual, estimated)
 
-            frame_ids = data["frame_ids"]
-            actual = data["actual"]
-            estimated = data["estimated"]
-            err_pct = self._percentage_error(actual, estimated)
-
             # Absolute error statistics
             abs_err = np.abs(estimated - actual)
             mean_abs_err = np.nanmean(abs_err)

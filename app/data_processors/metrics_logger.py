@@ -112,7 +112,6 @@ def iter_metrics(path):
                 try:
                     yield json.loads(line)
                 except json.JSONDecodeError:
-                    logger.warning("Skipping bad JSON line in %s: %r", path, line[:100])
                     continue
     except EOFError:
         # Truncated gzip – ignore the rest of the file
