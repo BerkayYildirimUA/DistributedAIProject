@@ -14,7 +14,7 @@ import re
 
 
 #Directory of the dataset
-DATA_DIR = Path(r"C:/Users/Kelvin Agbonde/Downloads/Traffic Signs Data set/Carla Traffic Signs/traffic_signs")
+DATA_DIR = Path(r"C:\Users\Kelvin Agbonde\Downloads\Masters Docs\Distributed AI\Project\Traffic Signs Data set\Carla Traffic Signs\traffic_signs")
 
 BATCH_SIZE = 32
 NUM_EPOCHS = 10
@@ -161,78 +161,78 @@ def train():
         train_acc = running_correct / total
 
     # Validation Mode
-    model.eval()
-    val_correct = 0
-    val_total = 0
+        model.eval()
+        val_correct = 0
+        val_total = 0
 
-    # Disable gradient calculation during validation
-    with torch.no_grad():
-        for imgs, labels in val_loader:
-            imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
+        # Disable gradient calculation during validation
+        with torch.no_grad():
+            for imgs, labels in val_loader:
+                imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
 
-            outputs = model(imgs)
-            preds = outputs.argmax(dim=1)
+                outputs = model(imgs)
+                preds = outputs.argmax(dim=1)
 
-            val_correct += (preds == labels).sum().item()
-            val_total += imgs.size(0)
+                val_correct += (preds == labels).sum().item()
+                val_total += imgs.size(0)
 
-    val_acc = val_correct / val_total
+        val_acc = val_correct / val_total
 
-    # This is to save the metrics for the graphs...I think
-    history_train_loss.append(train_loss)
-    history_train_acc.append(train_acc)
-    history_val_acc.append(val_acc)
+        # This is to save the metrics for the graphs...I think
+        history_train_loss.append(train_loss)
+        history_train_acc.append(train_acc)
+        history_val_acc.append(val_acc)
 
-    # Print epoch results to console
-    print(f"Epoch [{epoch + 1}/{NUM_EPOCHS}]  "
-          f"Train Loss: {train_loss:.4f}  "
-          f"Train Acc: {train_acc:.3f}  "
-          f"Val Acc: {val_acc:.3f}")
+        # Print epoch results to console
+        print(f"Epoch [{epoch + 1}/{NUM_EPOCHS}]  "
+              f"Train Loss: {train_loss:.4f}  "
+              f"Train Acc: {train_acc:.3f}  "
+              f"Val Acc: {val_acc:.3f}")
 
-    # This is to save the best model so far that is the one with the highest val accuracy
-    if val_acc > best_val_acc:
-        best_val_acc = val_acc
+        # This is to save the best model so far that is the one with the highest val accuracy
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
 
-        # Save checkpoint
-        torch.save({
-            "model_state_dict": model.state_dict(),
-            "class_names": class_names,
-        }, "sign_text_classifier_best.pth")
+            # Save checkpoint
+            torch.save({
+                "model_state_dict": model.state_dict(),
+                "class_names": class_names,
+            }, "sign_text_classifier_best.pth")
 
-        print("Saved new best-performing model")
+            print("Saved new best-performing model")
 
 
 
     # PLOT TRAINING RESULTS (GRAPHS)
         # X-axis = epoch numbers
-        epochs = range(1, len(history_train_loss) + 1)
+    epochs = range(1, len(history_train_loss) + 1)
 
-        # ---- Graph 1: Training Loss ----
-        plt.figure()
-        plt.plot(epochs, history_train_loss, marker="o", label="Training Loss")
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-        plt.title("Training Loss Curve")
-        plt.grid(True)
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig("training_loss_curve.png")  # save graph to file
+    # ---- Graph 1: Training Loss ----
+    plt.figure()
+    plt.plot(epochs, history_train_loss, marker="o", label="Training Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Training Loss Curve")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("training_loss_curve.png")  # save graph to file
 
-        # ---- Graph 2: Training + Validation Accuracy ----
-        plt.figure()
-        plt.plot(epochs, history_train_acc, marker="o", label="Train Accuracy")
-        plt.plot(epochs, history_val_acc, marker="o", label="Validation Accuracy")
-        plt.xlabel("Epoch")
-        plt.ylabel("Accuracy")
-        plt.title("Accuracy Curves")
-        plt.grid(True)
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig("accuracy_curves.png")
+    # ---- Graph 2: Training + Validation Accuracy ----
+    plt.figure()
+    plt.plot(epochs, history_train_acc, marker="o", label="Train Accuracy")
+    plt.plot(epochs, history_val_acc, marker="o", label="Validation Accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.title("Accuracy Curves")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("accuracy_curves.png")
 
-        print("Saved graphs as:")
-        print("   training_loss_curve.png")
-        print("   accuracy_curves.png")
+    print("Saved graphs as:")
+    print("   training_loss_curve.png")
+    print("   accuracy_curves.png")
 
 #This will give from image to label to speed value
 inference_tfms = transforms.Compose([
@@ -316,35 +316,35 @@ def get_speed_from_image(img, model, class_names):
     return predicted_label, speed_value
 
 # The main entry point
+# if __name__ == "__main__":
+#     print("Script started, beginning training...")
+#
+# #This trains and loads the trained model for inference...uses the already ,pth file I already saved
+#
+#
+#     model_path = "sign_text_classifier_best.pth"
+#     model, class_names = load_trained_model(model_path)
+#     print("Loaded trained model with classes:", class_names)
+#
+# #Using a test example from a single image in any of the folder
+#     test_image_path = r"C:/Users/Kelvin Agbonde/Downloads/Traffic Signs Data set/Carla Traffic Signs/traffic_signs/val/speed_limit_30/speed_limit_30_5.JPG"
+#     if os.path.exists(test_image_path):
+#         test_img = Image.open(test_image_path)
+#
+#         predicted_label, speed_value = get_speed_from_image(test_img, model, class_names)
+#
+#         print("Predicted label:", predicted_label)
+#         print("Predicted speed value:", speed_value)
+#     else:
+#         print("No test image found at:", test_image_path)
+#         print("Skip test inference; just model loading is verified.")
+#
+#     print("Script finished.")
+
+
+
+#Run Training
 if __name__ == "__main__":
     print("Script started, beginning training...")
-
-#This trains and loads the trained model for inference...uses the already ,pth file I already saved
-
-
-    model_path = "sign_text_classifier_best.pth"
-    model, class_names = load_trained_model(model_path)
-    print("Loaded trained model with classes:", class_names)
-
-#Using a test example from a single image in any of the folder
-    test_image_path = r"C:/Users/Kelvin Agbonde/Downloads/Traffic Signs Data set/Carla Traffic Signs/traffic_signs/val/speed_limit_30/speed_limit_30_5.JPG"
-    if os.path.exists(test_image_path):
-        test_img = Image.open(test_image_path)
-
-        predicted_label, speed_value = get_speed_from_image(test_img, model, class_names)
-
-        print("Predicted label:", predicted_label)
-        print("Predicted speed value:", speed_value)
-    else:
-        print("No test image found at:", test_image_path)
-        print("Skip test inference; just model loading is verified.")
-
-    print("Script finished.")
-
-
-
-# Run Training
-#if __name__ == "__main__":
-  #  print("Script started, beginning training...")
-   # train()
-   # print("Training finished.")
+    train()
+    print("Training finished.")
