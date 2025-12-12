@@ -3,10 +3,14 @@ import logging
 import traceback
 import numpy as np
 import subprocess
+
+import pygame
+
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
 from ACC.Utils.Sensors import CarlaVBWorldStateSensor, CarlaWorldStateSensor
 from ACC.Engine.engine import Engine
+from ACC.hud_display import HUD
 from app.data_processors.objects_in_front_calculator import ObjectsInFrontCalculator
 from app.memory.shared_memory import VehicleStateMemory, FrameIdMemory
 from app.data_processors.metrics_logger import MetricsLogger
