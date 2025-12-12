@@ -382,7 +382,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         # Speed limit
         if self.use_traffic_signs:
-            ts = self.ts_memory.read()
+            ts = self.ts_memory.read()[0]
             if ts != -1:
                 self.speed_limit=ts
             speed_limit=self.speed_limit
