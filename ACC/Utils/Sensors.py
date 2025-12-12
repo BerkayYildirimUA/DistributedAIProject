@@ -15,7 +15,8 @@ from typing_extensions import override
 from ACC.Utils.GForce_Class import GForceCalculator
 from ACC.Utils.abstractions import StateSensor, UI, VehicleState, LightColors
 import app.constants  as constants
-from app.memory.shared_memory import RGBCameraMemory, VehicleDistanceMemory, RadarMemory, CameraCalibrationMemory
+from app.memory.shared_memory import RGBCameraMemory, VehicleDistanceMemory, RadarMemory, CameraCalibrationMemory, \
+    TrafficLightMemory, TrafficSignMemory, TrafficLightDistanceMemory
 
 
 class CarlaWorldStateSensor(StateSensor):
@@ -293,9 +294,17 @@ class CarlaWorldStateSensor(StateSensor):
             return True
 class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
-    def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World):
+    def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World, use_traffic_signs=False,use_traffic_lights=False):
         super().__init__(ego_vehicle, world)
+        self.use_traffic_signs = use_traffic_signs
+        self.use_traffic_lights = use_traffic_lights
 
+        self.frame_buffer=100
+        self.speed_limit=self._ego.get_speed_limit()
+        self.previous_tl_distance=250.0
+        self.prev_lead_distance=250.0
+        self.tl_counter=0.0
+        self.ld_counter=0.0
         # Create Sensors
         self.create_ego_sensors()
 
@@ -303,6 +312,9 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self.rgb_camera_memory = RGBCameraMemory().get_write_access()
         # depht_camera_memory = DepthCameraMemory().get_write_access()
         self.vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
+        self.tl_memory=TrafficLightMemory().get_read_access()
+        self.tl_distance_memory=TrafficLightDistanceMemory().get_read_access()
+        self.ts_memory=TrafficSignMemory().get_read_access()
         self.radar_memory = RadarMemory().get_write_access()
         self.camera_calibration_memory = CameraCalibrationMemory().get_write_access()
         # Create camera properties
@@ -312,7 +324,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         self.start_sensor_threads()
 
-        self.prev_lead_distance=250.0
 
     def cleanup(self):
         pass
@@ -331,22 +342,53 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         safe_distance = self._safe_time_distance_seconds * ego_velocity_ms
 
-        self.speed_limit = self._ego.get_speed_limit()
-
         distance= self.vehicle_distance_memory.read()
         # Keep track of previous distance and use it in case radar returns inf values
         if np.isinf(distance[0]):
             lead_distance=self.prev_lead_distance
+            self.ld_counter+=1
+            if self.ld_counter >= self.frame_buffer:
+                self.prev_lead_distance=self.min_dist
+                self.counter=0.0
         else:
             self.prev_lead_distance = distance[0]
             lead_distance = distance[0]
 
-        # TODO: replace with computer vision based logic
-        traffic_light_dist_m = self.min_dist
-        traffic_light_color = LightColors.green
+        # Traffic light color
+        if self.use_traffic_lights:
+            traffic_light_dist_m = self.tl_distance_memory.read()[0]
+            if np.isinf(traffic_light_dist_m):
+                traffic_light_dist_m=self.min_dist
+            if not self.isvalid(traffic_light_dist_m):
+                traffic_light_dist_m=self.previous_tl_distance
+                self.tl_counter+=1
+                if self.tl_counter >= self.frame_buffer:
+                    self.prev_tl_distance=self.min_dist
+                    self.tl_counter=0.0
+            else:
+                self.prev_tl_distance = traffic_light_dist_m
 
-        # TODO: get speed limit from computer vision
-        speed_limit=self.speed_limit
+            tl_color_index = self.tl_memory.read()
+            if tl_color_index == 1:
+                traffic_light_color = LightColors.green
+            elif tl_color_index == 2:
+                traffic_light_color = LightColors.red
+            else:
+                traffic_light_color = LightColors.orange
+
+        else:
+            traffic_light_dist_m = self.min_dist
+            traffic_light_color = LightColors.green
+
+        # Speed limit
+        if self.use_traffic_signs:
+            ts = self.ts_memory.read()[0]
+            if ts != -1:
+                print(f"SPEED SIGN USED: {ts}")
+                self.speed_limit=ts
+            speed_limit=self.speed_limit
+        else:
+            speed_limit = self._ego.get_speed_limit()
 
         # G-force
         self._g_force_ego_calculator.update_speed(ego_velocity_ms)

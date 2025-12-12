@@ -164,7 +164,7 @@ class TL_color_detector:
             empty_boxes = torch.empty((0, 4), dtype=torch.float32)
             empty_scores = torch.empty((0,), dtype=torch.float32)
             overall_conf = {cls: 0.0 for cls in self.classes}
-            return empty_boxes, [], empty_scores, overall_conf
+            return empty_boxes, [], empty_scores, None
 
         # Convert once to PIL RGB
         pil_img = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
@@ -194,7 +194,7 @@ class TL_color_detector:
             overall_conf = {}
             for cls in self.classes:
                 overall_conf[cls] = 0.0
-            return empty_boxes, [], empty_scores, overall_conf
+            return empty_boxes, [], empty_scores, None
 
         x = torch.stack(crops, dim=0).to(self.device)   # [N, 3, H, W]
         logits = self.model(x)                          # [N, C]

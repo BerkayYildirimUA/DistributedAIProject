@@ -1,6 +1,9 @@
+import math
+
 import cv2
 import numpy as np
 import app.constants as constants
+from app.data_processors.sign_classifier import SignClassifier
 
 from app.data_processors.intersection_detector import IntersectionDetector
 import torch
@@ -8,7 +11,8 @@ from app.TrafficLights.TL_color_detector import TL_color_detector
 from app.data_processors.object_detector import ObjectDetector
 from app.data_processors.object_distance_calculator import ObjectDistanceCalculator
 from app.memory.shared_memory import (
-    RGBCameraMemory, FrameIdMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory, CameraCalibrationMemory
+    RGBCameraMemory, DepthCameraMemory, VehicleDistanceMemory, VehicleStateMemory, LaneTubeMemory, RadarMemory,
+    CameraCalibrationMemory, TrafficSignMemory, TrafficLightMemory, TrafficLightDistanceMemory,FrameIdMemory
 )
 from app.data_processors.motion_tubes import MotionTubeProjector
 from app.engine.pov_visualiser import POVVisualiser
@@ -26,6 +30,9 @@ frame_id_memory = FrameIdMemory().get_read_access()
 
 object_detector = ObjectDetector()
 state_memory = VehicleStateMemory().get_read_access()
+traffic_sign_memory=TrafficSignMemory().get_write_access()
+traffic_light_memory=TrafficLightMemory().get_write_access()
+traffic_light_distance_memory=TrafficLightDistanceMemory().get_write_access()
 lane_mem = LaneTubeMemory(max_pts=256).get_write_access()
 object_distance_calculator=ObjectDistanceCalculator()
 tube_projector = MotionTubeProjector(
@@ -45,6 +52,7 @@ tl_color_detector = TL_color_detector()
 
 # lane_detector=LaneDetector()
 
+sign_classifier = SignClassifier()
 
 radar_points_projector = RadarPointsProjector()
 detected_classes_count = detected_classes_count()
@@ -134,7 +142,11 @@ try:
                         mask.append(False)
                 is_tl = torch.tensor(mask, dtype=torch.bool, device=boxes.device)
 
+
+                boxes_indexes=np.array(range(len(boxes)))
+                is_tl_np = is_tl.cpu().numpy()
                 tl_boxes = boxes[is_tl]         #filtering and selecting only the boxes of traffic lights
+                tl_indexes = boxes_indexes[is_tl_np]
 
 
 
@@ -156,15 +168,37 @@ try:
                     keep_mask.append(in_roi)
 
                 keep_mask = torch.tensor(keep_mask, dtype=torch.bool, device=boxes.device)
+                keep_mask_np = keep_mask.cpu().numpy()
                 tl_boxes = tl_boxes[keep_mask]          # with the mask we filter the relevant traffic lights
+                tl_indexes = tl_indexes[keep_mask_np]
             else:
                 tl_boxes = torch.empty((0, 4))
+                tl_indexes = torch.empty((0, 0))
+
         else:
             tl_boxes = torch.empty((0, 4))              #avoid that it prints random tl boxes while taking a turn
+            tl_indexes = torch.empty((0, 0))
+
+        # Get minimal traffic light distance
+        tls = np.array(distances)[tl_indexes]
+        if len(tls)==0:
+            tl_min_distance=math.inf
+        else:
+            tl_min_distance = min(tls)
+
+        traffic_light_distance_memory.write(tl_min_distance)
 
         # Perform the color classification
         tl_boxes_colored, tl_colors, tl_scores, overall_conf = tl_color_detector.predict_colors_batch(frame, tl_boxes)
-        print("Global color distribution:", overall_conf)
+        if overall_conf==None:
+            overall_conf="green"
+        tr_color_index= constants.TL_COLOR_TO_INDEX[overall_conf]
+        traffic_light_memory.write(tr_color_index)
+
+        traffic_sign = sign_classifier.signal_classifier(frame, boxes, class_ids)
+        traffic_sign_memory.write(traffic_sign)
+        # if not (traffic_signs == -1):
+        #     print(traffic_signs)
 
         # Visualise
         visualiser = POVVisualiser(

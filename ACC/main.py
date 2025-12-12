@@ -3,18 +3,16 @@ import logging
 import traceback
 import numpy as np
 import subprocess
-
 from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
 from ACC.Utils.Sensors import CarlaVBWorldStateSensor, CarlaWorldStateSensor
-from ACC.Agents.SimpleAgent import SimpleAccAgent
 from ACC.Engine.engine import Engine
 from app.data_processors.objects_in_front_calculator import ObjectsInFrontCalculator
 from app.memory.shared_memory import VehicleStateMemory, FrameIdMemory
 from app.data_processors.metrics_logger import MetricsLogger
+from app.memory.shared_memory import VehicleStateMemory
 from ACC.Agents.RLAgents import RLDecisionAgent
 import app.constants  as constants
-
 """
 RL FEEDBACK 
 
@@ -56,6 +54,7 @@ def main_loop(args):
     GT_vehicle_count_metrics_logger = MetricsLogger(constants.GT_VEHICLE_COUNT_FILE, compress=True)
 
     frame_id_memory = FrameIdMemory().get_write_access()
+    client_clock = pygame.time.Clock()
     try:
         engine.connect_to_worlds()
 
@@ -64,9 +63,25 @@ def main_loop(args):
 
         # sensor and agent Setup (Real World)
         sensor_ground_truth =  CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
-        sensor_real =  CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+        sensor_real = CarlaVBWorldStateSensor(
+            engine.ego.real,
+            engine.duo_world.get_real_world(),
+            use_traffic_lights=True,
+            use_traffic_signs=True
+        )
 
         decisionAgent = RLDecisionAgent(sensor_real, "251210_001928_TD3_Aldebaran_chunk_7200.msh")
+        #Initialize Pygame HUD Display
+        pygame.init() #initialize pygame modules
+
+        hud_width = 220
+        hud_height = 400
+
+        display = pygame.display.set_mode((hud_width, hud_height))
+        #hud = HUD(args.width, args.height) #HUD initialization
+        hud = HUD(hud_width, hud_height)
+        engine.duo_world.real_world.on_tick(hud.on_world_tick)
+
 
         crash_detected = False
         frames_after_crash = 0
@@ -85,6 +100,12 @@ def main_loop(args):
             except Exception as e:
                 logging.error(f"Failed to tick world: {e}")
                 break
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    raise KeyboardInterrupt
+            client_clock.tick(60)
+            hud.tick(engine.duo_world.real_world, engine.ego.real, client_clock)
 
             # SAFETY CHECK
             if not engine.ego or not engine.ego.is_alive():
@@ -236,6 +257,12 @@ def main_loop(args):
                 frame_id=frame_id,
                 ground_truth_pedestrians=int(GT_pedestrian_count),
             )
+            
+             # Render all components
+            display.fill((0, 0, 0))  # Clear the screen (assuming black background)
+
+            hud.render(display)  # Render the HUD on the Pygame surface
+            pygame.display.flip()  # Update the screen
 
     except KeyboardInterrupt:
         print("\nSimulation stopped by user (KeyboardInterrupt).")

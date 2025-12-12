@@ -60,3 +60,10 @@ ESTIMATED_PEDESTRIAN_COUNT_FILE = "estimated_pedestrian_in_front_count.gz"
 MAX_OBJECT_DETECT_DISTANCE = 20.0
 MAX_LEAD_ACTOR_DISTANCE = 60.0
 MAX_STEER_RAD=math.radians(60)
+MAX_STEER_RAD=math.radians(60)
+
+TL_COLOR_TO_INDEX={
+    "red":1,
+    "green":2,
+    "yellow":3,
+}

@@ -92,3 +92,23 @@ class FrameIdMemory(SharedMemory):
         shape = (1,)
         dtype= np.int32
         super().__init__(filename, shape, dtype)
+class TrafficSignMemory(SharedMemory):
+    def __init__(self):
+        filename = "TRAFFIC_SIGN_MEMORY.dat"
+        shape = (1,)
+        dtype = np.float32
+        super().__init__(filename,shape,dtype)
+
+class TrafficLightMemory(SharedMemory):
+    def __init__(self):
+        filename = "TRAFFIC_Light_MEMORY.dat"
+        shape = (1,)
+        dtype = np.float32
+        super().__init__(filename,shape,dtype)
+
+class TrafficLightDistanceMemory(SharedMemory):
+    def __init__(self):
+        filename = "TRAFFIC_LIGHT_DISTANCE_MEMORY.dat"
+        shape = (1,)
+        dtype = np.float32
+        super().__init__(filename,shape,dtype)
