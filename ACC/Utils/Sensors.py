@@ -301,7 +301,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         self.frame_buffer=100
         self.speed_limit=60
-        self.previous_tl_distance=math.inf
+        self.previous_tl_distance=250.0
         self.prev_lead_distance=250.0
         self.tl_counter=0.0
         self.ld_counter=0.0
