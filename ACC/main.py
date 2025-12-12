@@ -34,7 +34,7 @@ maybe change action space center if need be, like 0 =! do nothing, perhabs.
 
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=0, lead_car_bp_name='vehicle.tesla.model3')
+                     map_name=args.map, number_of_npc=20, lead_car_bp_name='vehicle.tesla.model3')
     engine = Engine(args, scene)
 
     try:
@@ -45,7 +45,7 @@ def main_loop(args):
 
         # sensor and agent Setup (Real World)
         sensor_real = CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
-        decisionAgent = RLDecisionAgent(sensor_real, "251210_200048_TD3_Capella_chunk_12600.msh")
+        decisionAgent = RLDecisionAgent(sensor_real, "251211_133645_TD3_Diphda_chunk_12600.msh")
 
         crash_detected = False
         frames_after_crash = 0

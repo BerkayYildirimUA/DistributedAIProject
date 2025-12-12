@@ -70,7 +70,7 @@ def training_loop(args):
 
             (
             #loop_info(2 * 60 * 60, f"speed_lead_lights_r_{args.model_nr}"),
-                loop_info(3.5 * 60 * 60, f"Capella"),
+                loop_info(4 * 60 * 60, f"Electra"),
                 Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
@@ -86,7 +86,7 @@ def training_loop(args):
         )
     ]
 
-    current_model_name = "251210_001928_TD3_Aldebaran_chunk_7200.msh "#args.load_model
+    current_model_name = "251211_133645_TD3_Diphda_chunk_12600.msh "#args.load_model
 
     chunk_duration_seconds = 40 * 60 * 60
 
@@ -127,7 +127,7 @@ def training_loop(args):
                 else:
                     agent = ACC_TD3Agent(args, scene=scene)
 
-                if elapsed_duration == 0: #TODO: I MADE IT -1 SO IT NEVER TRIGGERS
+                if elapsed_duration == 0: #TODO: MAKE SURE ITS WHAT YOU WANT IT TO BE, -1 OR 1
                     agent.reset_buffer()
 
                 agent.train(duration_seconds=current_chunk_duration)

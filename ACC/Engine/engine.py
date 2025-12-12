@@ -543,9 +543,8 @@ class Engine():
             for m_light, r_light in self.traffic_light_pairs:
                 try:
                     m_state = m_light.get_state()
-
-                    if r_light.get_state() != m_state:
-                        r_light.set_state(m_state)
+                    r_light.freeze(True)
+                    r_light.set_state(m_state)
                 except RuntimeError:
                     pass
 
