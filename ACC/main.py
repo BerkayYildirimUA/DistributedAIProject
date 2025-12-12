@@ -210,11 +210,11 @@ def main_loop(args):
             )
             speed_logger.log(
                 frame_id=frame_id,
-                speed=float(driving_speed)
+                speed=float(driving_speed*3.6)
             )
             GT_speed_limit_logger.log(
                 frame_id=frame_id,
-                speed_limit=float(GT_speed_limit)
+                speed_limit=float(GT_speed_limit*3.6)
             )
             GT_object_count_metrics_logger.log(
                 frame_id=frame_id,

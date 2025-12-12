@@ -31,14 +31,14 @@ def main_loop():
     )
 
     stats.add_metric_from_files(
-        name="Speed vs speed limit (ms)",
+        name="Speed vs speed limit",
         actual_file=constants.GT_SPEED_LIMIT_FILE,
         estimated_file=constants.SPEED_FILE,
         actual_key="speed_limit",
         estimated_key="speed",
         frame_key="frame_id",
         plot_title="Driving speed vehicle vs the speed limit",
-        display_name="Speed (m/s)"
+        display_name="Speed (km/h)"
 
     )
     stats.add_metric_from_files(
