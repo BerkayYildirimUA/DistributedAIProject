@@ -4,29 +4,37 @@ from PIL import Image
 import numpy as np
 import re
 
-
+import os
 
 class SignClassifier:
     def __init__(self, use_tracking = True):
         # Initialize model
         print("CUDA:", torch.cuda.is_available())
 
-        # TODO: init in your model
+        # Init model
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = models.resnet18(weights=None)
         in_feats = self.model.fc.in_features
         self.model.fc = torch.nn.Linear(in_feats, 8)
 
-        # TODO load checkpoint into model
-        checkpoint = torch.load("sign_text_classifier_best.pth", map_location=self.device)
+        # Load checkpoint into model
+        # Directory where THIS script is located
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(base_dir, "model", "sign_text_classifier_best.pth")
+        checkpoint = torch.load(model_path, map_location=self.device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
 
-        # TODO place model in eval mode
+        # Place model in eval mode
         self.model.to(self.device)
         self.model.eval()
 
         # TODO: define classess
-        self.classes = checkpoint["class_names"]
+
+        # classes: ['back', 'speed_30', 'speed_60', 'speed_90', 'speed_limit_30', 'speed_limit_40',
+        #           'speed_limit_60', 'stop']
+        # self.classes= ['back',30,60,90,30,40,60,'stop']
+        self.classes = [-1, 30, 60, 90, 30, 40, 60, -1]
+        # self.classes = checkpoint["class_names"]
 
         # TODO define transformations
         self.transform = transforms.Compose([
@@ -38,73 +46,72 @@ class SignClassifier:
             )
         ])
 
+    def _yolo_to_xyxy(self,box):
+        cx, cy, bw, bh = box
+
+        # compute half sizes
+        half_w = bw / 2.0
+        half_h = bh / 2.0
+
+        # compute xyxy (float)
+        x1_f = cx - half_w
+        y1_f = cy - half_h
+        x2_f = cx + half_w
+        y2_f = cy + half_h
+
+        # round and convert to int (use round to reduce off-by-one)
+        x1 = int(x1_f)
+        y1 = int(y1_f)
+        x2 = int(x2_f)
+        y2 = int(y2_f)
+
+        return x1, y1, x2, y2
+
     def cropped_traffic_signs(self, frame, boxes, class_ids):
-        # I should assume that the boxes is a list of yolo coordinates.
-        # Now I should extract the boxes of the frames and return a list of those new images.
         crops_img = []
 
-        #putting the  frame i a numpy array
+        # h, w = frame.shape[:2]
+        frame = np.array(frame)
+
         for box, class_id in zip(boxes, class_ids):
             if class_id == 4:
+                # Ensure all coordinates are ints
+                x1, y1, x2, y2 = self._yolo_to_xyxy(box)
 
-                x1, y1, x2, y2 = box
-
-        #cropping from the numpy array
-                crop = frame[y1:y2, x1:x2]
-
-                crops_img.append(crop)
+                # Valid crop check
+                if x2 > x1 and y2 > y1:
+                    crop = frame[y1:y2, x1:x2]
+                    crop_pil = Image.fromarray(crop)
+                    crops_img.append(crop_pil)
+                else:
+                    print("INVALID CROP")
 
         return crops_img
 
-
-
-
-
-    def label_to_speed(self, label):
-        nums = re.findall(r"\d+", label)
-        if not nums:
-            return None
-        return int(nums[0])
-
-    # TODO: this function should take image from carla as input and return a tensor
-    # you will need to apply your defined transformations here as well
-    def preprocess_frame(self,frame) -> torch.Tensor:
-        if isinstance(frame, np.ndarray):
-            frame = frame[:, :, ::-1]
-            frame = Image.fromarray(frame)
-        if not isinstance(frame, Image.Image):
-            frame = Image.fromarray(frame)
-        tensor = self.transform(frame).unsqueeze(0).to(self.device)
-        return tensor
     @torch.no_grad()
-    def read_sign(self, x):
+    def read_sign(self, image_pil):
+        x = self.transform(image_pil).unsqueeze(0).to(self.device)
 
-        # TODO: call the preprocess fucntion here
-        #x = self.preprocess_frame(frame)
-
-        # TODO: Pass the return tensor through the model
-        #with torch.no_grad():
         outputs = self.model(x)
         pred_index = outputs.argmax(dim=1).item()
 
-        # TODO: extract label based on index from classes
-        label = self.classes[pred_index]
-        speed_value = self.label_to_speed(label)
+        value = self.classes[pred_index]
 
-        return label, speed_value
+        return value, outputs[0,pred_index]
 
     def signal_classifier(self, frame, boxes, class_ids):
-        frame = self.preprocess_frame(frame)
+        frame=Image.fromarray(frame)
         images = self.cropped_traffic_signs(frame, boxes, class_ids)
 
-        labels=[]
+        most_conf=-1
+        speed=-1
         for image in images:
-            label, speed_value = self.read_sign(image)
-            labels.append(label)
+            label, conf = self.read_sign(image)
+            if conf > most_conf:
+                most_conf = conf
+                speed = label
 
-        if len(labels) == 0:
-            return -1
-        return labels[0]
+        return speed
 
 
 

@@ -1,7 +1,7 @@
 import queue
 import random
 import carla
-import constants
+import app.constants as constants
 import math
 import numpy as np
 
@@ -10,7 +10,7 @@ class World:
         # Parameters
         self.port = 2000
         self.timeout = 50.0
-        self.world_name = "Town05"
+        self.world_name = "Town02"
         self.delta = 0.05
 
         # holders for cleanup
