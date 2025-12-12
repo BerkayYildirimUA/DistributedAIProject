@@ -357,7 +357,8 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # Traffic light color
         if self.use_traffic_lights:
             traffic_light_dist_m = self.tl_distance_memory.read()[0]
-
+            if np.isinf(traffic_light_dist_m):
+                traffic_light_dist_m=self.min_dist
             if not self.isvalid(traffic_light_dist_m):
                 traffic_light_dist_m=self.previous_tl_distance
                 self.tl_counter+=1
