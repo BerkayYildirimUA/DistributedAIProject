@@ -103,7 +103,7 @@ def main_loop():
         plot_title="Ground-truth pedestrian count vs detected pedestrian count",
     )
 
-    stats.plot_all("run_002_metrics.png", suptitle="Run 002 metrics")
+    stats.plot_all("run_002_metrics.png", suptitle="Driving metrics")
     object_stats.plot_all("object_count_metrics.png", suptitle="Ground-truth vs Yolo objects")
 
     clear_metrics_file(constants.GT_LEAD_DISTANCE_FILE)
