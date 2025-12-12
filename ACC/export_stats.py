@@ -45,8 +45,8 @@ def main_loop():
         name="g-force",
         actual_file=constants.GT_G_FORCE_FILE,
         estimated_file=constants.G_FORCE_FILE,
-        actual_key="G-force",
-        estimated_key="G-force",
+        actual_key="force",
+        estimated_key="force",
         frame_key="frame_id",
         plot_title="Experienced vs comfortable G-force",
         display_name="G-force"
