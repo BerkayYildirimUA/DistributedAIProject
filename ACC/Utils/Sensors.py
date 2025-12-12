@@ -384,6 +384,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         if self.use_traffic_signs:
             ts = self.ts_memory.read()[0]
             if ts != -1:
+                print("SPEED SIGN USED")
                 self.speed_limit=ts
             speed_limit=self.speed_limit
         else:
@@ -424,7 +425,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             light_speed_ms=speed_light_ms,
             steer_rad=steer_rad
         )
-        if self.counter % 20 == 0:
+        if self.counter % 300 == 0:
             print("Vison based")
             self.log_vehicle_state(state)
         return state
