@@ -357,6 +357,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # Traffic light color
         if self.use_traffic_lights:
             traffic_light_dist_m = self.tl_distance_memory.read()
+            print(f"reading distance: {traffic_light_dist_m}")
             if not self.isvalid(traffic_light_dist_m):
                 traffic_light_dist_m=self.previous_tl_distance
                 self.tl_counter+=1
@@ -366,13 +367,14 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             else:
                 self.prev_tl_distance = traffic_light_dist_m
 
-            tl_color_index = self.tl_memory.read()
-            if tl_color_index == 1:
-                traffic_light_color = LightColors.green
-            elif tl_color_index == 2:
-                traffic_light_color = LightColors.red
-            else:
-                traffic_light_color = LightColors.orange
+            # tl_color_index = self.tl_memory.read()
+            # if tl_color_index == 1:
+            #     traffic_light_color = LightColors.green
+            # elif tl_color_index == 2:
+            #     traffic_light_color = LightColors.red
+            # else:
+            #     traffic_light_color = LightColors.orange
+            traffic_light_color=LightColors.green
         else:
             traffic_light_dist_m = self.min_dist
             traffic_light_color = LightColors.green
