@@ -44,6 +44,8 @@ LEAD_DISTANCE_FILE="lead_distance.gz"
 GT_SPEED_LIMIT_FILE="gt_speed_limit.gz"
 SPEED_FILE="speed.gz"
 G_FORCE_FILE="g_force.gz"
+GT_G_FORCE_FILE="gt_g_force.gz"
+
 GT_SAFE_FOLLOWING_DISTANCE_FILE="gt_safe_following_distance.gz"
 GT_TRAFFIC_SIGN_COUNT_FILE = "gt_traffic_signs_in_front_count.gz"
 ESTIMATED_TRAFFIC_SIGN_COUNT_FILE = "estimated_traffic_signs_in_front_count.gz"

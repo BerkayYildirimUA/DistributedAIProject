@@ -16,7 +16,7 @@ def main_loop():
         estimated_key="lead_distance",
         frame_key="frame_id",
         plot_title="Predicted distance vs actual distance to vehicle in front",
-        display_name="Lead distance (m)"
+        display_name="Distance (m)"
     )
 
     stats.add_metric_from_files(
@@ -38,19 +38,18 @@ def main_loop():
         estimated_key="speed",
         frame_key="frame_id",
         plot_title="Driving speed vehicle vs the speed limit",
-        display_name="Speed limit (m/s)"
+        display_name="Speed (m/s)"
 
     )
     stats.add_metric_from_files(
         name="g-force",
-        actual_file=constants.G_FORCE_FILE,
+        actual_file=constants.GT_G_FORCE_FILE,
         estimated_file=constants.G_FORCE_FILE,
-        actual_key="force",
-        estimated_key="force",
+        actual_key="G-force",
+        estimated_key="G-force",
         frame_key="frame_id",
-        plot_title="Experienced G-force vs conformable G-force",
+        plot_title="Experienced vs comfortable G-force",
         display_name="G-force"
-
     )
 
     object_stats.add_metric_from_files(
@@ -113,6 +112,7 @@ def main_loop():
     clear_metrics_file(constants.SPEED_FILE)
     clear_metrics_file(constants.GT_SPEED_LIMIT_FILE)
     clear_metrics_file(constants.G_FORCE_FILE)
+    clear_metrics_file(constants.GT_G_FORCE_FILE)
     clear_metrics_file(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE)
     clear_metrics_file(constants.ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE)
     clear_metrics_file(constants.ESTIMATED_TRAFFIC_LIGHT_COUNT_FILE)
