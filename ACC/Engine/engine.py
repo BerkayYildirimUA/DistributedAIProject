@@ -17,19 +17,25 @@ class SingletonLightState(object):
 
     def __new__(cls):
         if cls._instance is None:
-            # 1. Create the instance
             cls._instance = super(SingletonLightState, cls).__new__(cls)
 
-            # 2. Initialize your variable ONLY ONCE
             cls._instance.light_state = "OFF"
+            cls._instance.is_always_green = False
 
         return cls._instance
 
     def set_state(self, status):
-        self.light_state = status
+        if self.is_always_green:
+            self.light_state = carla.TrafficLightState.Green
+        else:
+            self.light_state = status
 
     def get_state(self):
         return self.light_state
+
+    def set_always_green(self, bool):
+        self.is_always_green = bool
+        self.set_state(carla.TrafficLightState.Green)
 
 class Engine():
 
@@ -680,8 +686,8 @@ class Engine():
 
                 if yellow_time == 0.0:
                     self.yellow_duration = random.randint(3, 5)
-                    if self.yellow_duration == 200:
-                        self.red_duration = 1
+                    if self.green_duration == 200:
+                        self.yellow_duration = 1
                 if red_time == 0.0:
                     self.red_duration = random.randint(4, 35)
                     if self.green_duration == 200:
@@ -901,17 +907,19 @@ class Engine():
                 destroyed_count += 1
         logging.info(f"Destroy method called for {destroyed_count} actor pairs.")
 
-        all_traffic_actors : carla.ActorList = self.duo_world.get_real_world().get_actors()
-
-
         if delete_all:
-            for actor in all_traffic_actors:
+            all_actors = self.duo_world.get_mirror_world().get_actors()
+            for actor in all_actors:
                 if actor.is_alive:
+                    if type(actor) == carla.Sensor:
+                        actor.stop()
                     actor.destroy()
 
-            all_traffic_actors = self.duo_world.get_mirror_world().get_actors()
-            for actor in all_traffic_actors:
+            all_actors = self.duo_world.get_real_world().get_actors()
+            for actor in all_actors:
                 if actor.is_alive:
+                    if type(actor) == carla.Sensor:
+                        actor.stop()
                     actor.destroy()
 
         time.sleep(1)
@@ -924,6 +932,12 @@ class Engine():
         if self.duo_world:
             self.duo_world.tick()
 
+        if self.duo_client:
+            try:
+                self.duo_client.real.set_timeout(0.1)
+                self.duo_client.mirror.set_timeout(0.1)
+            except:
+                pass
 
 
         # Clear

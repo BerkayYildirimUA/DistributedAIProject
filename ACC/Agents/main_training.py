@@ -70,7 +70,7 @@ def training_loop(args):
 
             (
             #loop_info(2 * 60 * 60, f"speed_lead_lights_r_{args.model_nr}"),
-                loop_info(4 * 60 * 60, f"Electra"),
+                loop_info(14 * 60 * 60, f"Taygete"),
                 Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
@@ -86,7 +86,7 @@ def training_loop(args):
         )
     ]
 
-    current_model_name = "251211_133645_TD3_Diphda_chunk_12600.msh "#args.load_model
+    current_model_name = "" #args.load_model
 
     chunk_duration_seconds = 40 * 60 * 60
 

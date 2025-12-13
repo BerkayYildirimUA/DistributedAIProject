@@ -9,7 +9,6 @@ import carla
 import gymnasium as gym
 import numpy as np
 import wandb
-from carla import Vector3D
 from gymnasium.core import RenderFrame
 
 from ACC.Engine.engine import Engine
@@ -242,7 +241,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         if self.engine is not None:
             try:
-                self.engine.cleanup()
+                self.engine.cleanup(True)
             except Exception as e:
                 logging.error(f"Error cleaning up engine in close: {e}")
             self.engine = None
@@ -290,8 +289,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         ############### CRASH ###############
         if use_crash:
-            if min_obstacle_dist < 3.0:
-                r_crash = -2.0 * (1.0 - min_obstacle_dist / 3.0) * 4
+            if min_obstacle_dist < 2.0:
+                r_crash = -2.0 * (1.0 - min_obstacle_dist / 3.0) * 2
                 if state.crash_intensity > 0.0:
                     r_crash = P_CRASH_BASE - min(state.crash_intensity / 50000, 1.0)
                     logging.info(f"Car Crashed! ({r_crash})")
@@ -308,11 +307,11 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             if g_force_ego is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
                 if min_obstacle_dist < 3.0:
                     if state.g_force_ego > 0:
-                        r_comfort = -1.0 * (state.g_force_ego / 3.0) ** 2
+                        r_comfort = -1.0 * (g_force_ego / 0.12) ** 2
                     else:
-                        r_comfort = -1.0 * (state.g_force_ego / 6.0) ** 2
+                        r_comfort = -1.0 * (g_force_ego / 0.25) ** 2
                 else:
-                    r_comfort = -1.0 * (state.g_force_ego / 3.0) ** 2
+                    r_comfort = -1.0 * (g_force_ego / 0.12) ** 2
                 r_comfort = max(r_comfort, -1.5)
 
         ############### TARGET SPEED CALCULATION ###############
@@ -324,33 +323,41 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 dist_to_stop = max(0, min_obstacle_dist - 2.0)
                 safe_approach_speed = math.sqrt(2 * 1.5 * dist_to_stop)
                 target_speed_ms = min(target_speed_ms, safe_approach_speed)
-                target_speed_ms = max(target_speed_ms, 0.5) # don't stop util you're at a good place to stop
-            elif min_obstacle_dist <= 4:
-                target_speed_ms = 0.0
+                target_speed_ms = max(target_speed_ms, 1.5) # don't stop util you're at a good place to stop
+
 
         # Adjust target for lead vehicle
         if use_dist and state.lead_distance_m is not None and state.lead_distance_m < 150:
             if state.lead_distance_m < state.safe_following_distance_m * 1.5:
                 lead_speed = state.speed_ms + state.relative_speed_ms
                 target_speed_ms = min(target_speed_ms, lead_speed)
-            if state.lead_distance_m < 4:
-                target_speed_ms = 0.5 * target_speed_ms
+                target_speed_ms = max(target_speed_ms, 1.5)
+
+        if min_obstacle_dist <= 4:
+            target_speed_ms = 0.0
+
+        target_speed_ms = max(0.0, target_speed_ms)
 
         ############### SPEED ###############
         if use_speed:
             diff_kmh = (state.speed_ms - target_speed_ms) * 3.6
 
+            diff_kmh = min(max(diff_kmh, -150), 150)
             if diff_kmh > 0:
-                r_speed = math.exp(-0.5 * (diff_kmh / 8.0) ** 2)
+                r_speed = 1.25 * math.exp(-0.5 * (diff_kmh / 5.0) ** 2) - 0.25 - 0.01 * diff_kmh
             else:
-                r_speed = math.exp(-0.5 * (diff_kmh / 15.0) ** 2)
+                r_speed = math.exp(-0.5 * (diff_kmh / 15.0) ** 2) + 0.01 * diff_kmh
 
         ############### SAFE DISTANCE ###############
         ratio = 0.0
-        if use_dist and state.lead_distance_m is not None and state.lead_distance_m < 150:
+        if use_dist:
             safe_dist = max(state.safe_following_distance_m, 5.0)
-            ratio = state.lead_distance_m / safe_dist
-            r_dist = math.tanh(ratio - 1.0)
+            ratio = min_obstacle_dist / safe_dist
+
+            if ratio > 3 and min_obstacle_dist > 6 and state.speed_ms < target_speed_ms:
+                r_dist = (1 + ratio / 100) * r_speed
+            else:
+                r_dist = math.tanh(ratio - 1.0)
 
         ############### TRAFFIC LIGHT ###############
         if use_light:
@@ -359,11 +366,16 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 # Violation: crossing the line while moving
                 if state.light_dist_m < 2.0 and state.speed_ms > (1 / 3.6):
                     logging.info("Red Light Violation!")
-                    r_light = P_LIGHT_VIOLATION - 0.175 * state.speed_ms
+                    r_light = P_LIGHT_VIOLATION - 0.2 * state.speed_ms
 
                 # Reward for stopping correctly
-                elif min_obstacle_dist < 10 and state.speed_ms < 0.1:
-                    r_light = 0.5 - max(state.speed_ms, 0) * 5
+                elif min_obstacle_dist < 10 and state.speed_ms <= (1 / 3.6):
+                    if min_obstacle_dist < 2.0:
+                        r_light = 0.3
+                    elif min_obstacle_dist <= 5.0:
+                        r_light = 0.6
+                    else:
+                        r_light = 0.5 - 0.05 * (min_obstacle_dist - 5.0)
 
             elif state.light_color == LightColors.green:
                 # Reward for maintaining speed on green
@@ -387,7 +399,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             "Reward/Distance": r_dist,
             "Reward/Lights": r_light,
             "State/distance/safety_margin": ratio,
-            "State/distance/dist_to_obstacle": min(state.light_dist_m, state.lead_distance_m),
             "State/safety/target_speed_kmh": target_speed_ms * 3.6,
             "State/safety/min_obstacle_dist": min_obstacle_dist,
 
@@ -475,7 +486,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 terminated = True
             state.steering_dir = steering_dir
 
-            if state.light_dist_m < 0.25 and state.speed_ms > (0.1 /3.6) and state.light_color == LightColors.red:
+            if state.light_dist_m < 0.01 and state.speed_ms > (0.1 /3.6) and state.light_color in [LightColors.red, LightColors.orange]:
                 logging.info("Red Light Violation!")
                 terminated = True
 
