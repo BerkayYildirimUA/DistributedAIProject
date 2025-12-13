@@ -25,17 +25,16 @@ class SingletonLightState(object):
         return cls._instance
 
     def set_state(self, status):
-        if self.is_always_green:
-            self.light_state = carla.TrafficLightState.Green
-        else:
+        if not self.is_always_green:
             self.light_state = status
 
     def get_state(self):
         return self.light_state
 
-    def set_always_green(self, bool):
-        self.is_always_green = bool
-        self.set_state(carla.TrafficLightState.Green)
+    def set_always_green(self, value):
+        self.is_always_green = value
+        if value:
+            self.light_state = carla.TrafficLightState.Green
 
 class Engine():
 

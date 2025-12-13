@@ -7,7 +7,6 @@ import cv2
 
 import carla
 from IPython.core.inputtransformer2 import leading_empty_lines
-from carla import Vector3D
 import math
 import logging
 import keyboard
@@ -88,9 +87,14 @@ class CarlaWorldStateSensor(StateSensor):
 
         box.location = actor_transform.transform(box.location)
 
-        r = 1 if actor.get_state() == carla.TrafficLightState.Red else 0
-        g = 1 if actor.get_state() == carla.TrafficLightState.Green else 0
-        y = 1 if actor.get_state() == carla.TrafficLightState.Yellow else 0
+        carla_state = actor.get_state()
+        training_state = SingletonLightState().get_state()
+        if training_state != "OFF":
+            carla_state = training_state
+
+        r = 1 if carla_state == carla.TrafficLightState.Red else 0
+        g = 1 if carla_state == carla.TrafficLightState.Green else 0
+        y = 1 if carla_state == carla.TrafficLightState.Yellow else 0
 
 
         # 2. Draw the box using the debug helper.
@@ -284,7 +288,7 @@ class CarlaWorldStateSensor(StateSensor):
 
         # Get ego velocity safely
         try:
-            ego_velocity_vec: Vector3D = self._ego.get_velocity()
+            ego_velocity_vec = self._ego.get_velocity()
             ego_velocity_ms = ego_velocity_vec.length()
         except RuntimeError:
             ego_velocity_ms = 0.0
@@ -370,7 +374,7 @@ class CarlaWorldStateSensor(StateSensor):
             relative_speed_ms=relative_speed_ms,
             light_speed_ms=speed_light_ms
         )
-        if self.counter % 600 == 0 or last_impact > 0.0:
+        if self.counter % 100 == 0 or last_impact > 0.0:
             self.log_vehicle_state(state)
         return state
 
@@ -378,10 +382,10 @@ class CarlaWorldStateSensor(StateSensor):
         self._g_force_ego_calculator.update_speed(ego_velocity_ms)
         self._relative_speed_lead_calculator.update_speed(result_dist_m)
         self._speed_light_calculator.update_speed(traffic_light_dist_m)
-        ego_g_force = self._g_force_ego_calculator.get_latest_g_force() or 0
+        ego_g_force = self._g_force_ego_calculator.get_latest_value() or 0
         ego_g_force = ego_g_force / 9.81
-        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_g_force() or 0
-        speed_light_ms = self._speed_light_calculator.get_latest_g_force() or 0
+        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_value() or 0
+        speed_light_ms = self._speed_light_calculator.get_latest_value() or 0
         return ego_g_force, relative_speed_ms, speed_light_ms
 
     def _get_default_crashed_state(self):
@@ -438,7 +442,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
     @override
     def get_state(self) -> VehicleState:
 
-        ego_velocity_vec: Vector3D = self._ego.get_velocity()
+        ego_velocity_vec = self._ego.get_velocity()
         ego_velocity_ms = ego_velocity_vec.length()
 
         safe_distance = self._safe_time_distance_seconds * ego_velocity_ms
@@ -465,9 +469,9 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self._relative_speed_lead_calculator.update_speed(distance[0])
         self._speed_light_calculator.update_speed(traffic_light_dist_m)
 
-        ego_g_force = self._g_force_ego_calculator.get_latest_g_force()
-        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_g_force()
-        speed_light_ms = self._speed_light_calculator.get_latest_g_force()
+        ego_g_force = self._g_force_ego_calculator.get_latest_value()
+        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_value()
+        speed_light_ms = self._speed_light_calculator.get_latest_value()
 
         if not self.isvalid(ego_g_force):
             ego_g_force = 0.0

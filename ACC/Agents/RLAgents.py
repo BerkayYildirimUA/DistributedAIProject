@@ -26,13 +26,13 @@ from ACC.Utils.abstractions import VehicleState
 
 class TD3Config:
     # Training
-    BATCH_SIZE = 256
-    LR_ACTOR = 1e-3
-    LR_CRITIC = 3e-4
-    TAU = 0.005
-    POLICY_DELAY = 2
-    NOISE_STD = 0.1
-    NOISE_CLIP = 0.2
+    BATCH_SIZE = 256  #256
+    LR_ACTOR = 3.5e-4 #1e-3
+    LR_CRITIC = 6.0e-3 #3e-4
+    TAU = 0.00126 #0.005
+    POLICY_DELAY = 2 #2
+    NOISE_STD = 0.21 #0.1
+    NOISE_CLIP = 0.39 #0.2
 
     # Replay Buffer
     INITIAL_REPLAY_SIZE = 1000
