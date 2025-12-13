@@ -50,7 +50,7 @@ class CarlaWorldStateSensor(StateSensor):
 
     def log_vehicle_state(self,state:VehicleState):
         logging.info(
-            f"speed: {state.speed_ms * 3.6:.2f}fkm/h, speed limit: {state.speed_limit_ms*3.6:.2f} km/h, distance to nearest: {state.lead_distance_m:.2f}m, safe dist: {state.safe_following_distance_m:.2f}m,traffic light color: {state.light_color}, traffic light distance: {state.light_dist_m:.2f}m, CRASH: {state.crash_intensity}, g-forces:{state.g_force_ego}, {state.relative_speed_ms}, {state.light_speed_ms}")
+            f"speed: {state.speed_ms * 3.6:.2f}km/h, speed limit: {state.speed_limit_ms*3.6:.2f} km/h, distance to nearest: {state.lead_distance_m:.2f}m, safe dist: {state.safe_following_distance_m:.2f}m,traffic light color: {state.light_color}, traffic light distance: {state.light_dist_m:.2f}m, CRASH: {state.crash_intensity}, g-forces:{state.g_force_ego}, {state.relative_speed_ms}, {state.light_speed_ms}")
 
     def cleanup(self):
 
@@ -370,8 +370,7 @@ class CarlaWorldStateSensor(StateSensor):
             relative_speed_ms=relative_speed_ms,
             light_speed_ms=speed_light_ms
         )
-        if self.counter % 300 == 0 or last_impact > 0.0:
-            print("Ground truth")
+        if self.counter % 600 == 0 or last_impact > 0.0:
             self.log_vehicle_state(state)
         return state
 
@@ -380,6 +379,7 @@ class CarlaWorldStateSensor(StateSensor):
         self._relative_speed_lead_calculator.update_speed(result_dist_m)
         self._speed_light_calculator.update_speed(traffic_light_dist_m)
         ego_g_force = self._g_force_ego_calculator.get_latest_g_force() or 0
+        ego_g_force = ego_g_force / 9.81
         relative_speed_ms = self._relative_speed_lead_calculator.get_latest_g_force() or 0
         speed_light_ms = self._speed_light_calculator.get_latest_g_force() or 0
         return ego_g_force, relative_speed_ms, speed_light_ms

@@ -59,7 +59,7 @@ class Differentiator:
             self.speed_history = self.speed_history[-portion_size:]
 
 
-    def get_g_forces(self) ->  Optional[List[float]]:
+    def get_values(self) ->  Optional[List[float]]:
         """
         Returns the list of all calculated G-force values.
         """
@@ -68,7 +68,7 @@ class Differentiator:
 
         return self.g_force_values
 
-    def get_latest_g_force(self) -> Optional[float]:
+    def get_latest_value(self) -> Optional[float]:
         """
         Returns the list of all calculated G-force values.
         """
