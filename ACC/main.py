@@ -47,7 +47,8 @@ def main_loop(args):
             raise RuntimeError("Engine setup failed. Exiting.")
 
         # sensor and agent Setup (Real World)
-        sensor_real = CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+        #sensor_real = CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
+        sensor_real =  CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
         decisionAgent = RLDecisionAgent(sensor_real, "251211_133645_TD3_Diphda_chunk_12600.msh")
 
         crash_detected = False
@@ -232,7 +233,8 @@ if __name__ == '__main__':
 
     try:
         # Start the script to run the vehicle pov in  the modern python env and run it in background
-        subprocess.Popen([f"{args.venv}","-m", "app.run_vehicle_pov.py"], stdout=subprocess.DEVNULL,
+        if False: #TODO DELETE BEFORE MERGE -----------------------------------------------------------------------------------------------------------------------------------------------
+            subprocess.Popen([f"{args.venv}","-m", "app.run_vehicle_pov.py"], stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         stdin=subprocess.DEVNULL,
         close_fds=True)

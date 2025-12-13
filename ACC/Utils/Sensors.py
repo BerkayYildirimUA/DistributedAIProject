@@ -16,11 +16,11 @@ import numpy as np
 from jedi.debug import speed
 
 from ACC.Engine.engine import SingletonLightState
-from ACC.Utils.GForce_Class import GForceCalculator
+from ACC.Utils.GForce_Class import Differentiator
 from ACC.Utils.abstractions import StateSensor, UI, VehicleState, LightColors
 import app.constants  as constants
 from app.memory.shared_memory import RGBCameraMemory, VehicleDistanceMemory, RadarMemory, CameraCalibrationMemory
-
+from typing_extensions import override
 
 
 class CarlaWorldStateSensor(StateSensor):
@@ -37,9 +37,9 @@ class CarlaWorldStateSensor(StateSensor):
         self.override_speed_limit = False
         self.speed_limit = 0
 
-        self._g_force_ego_calculator = GForceCalculator(self._world.get_settings().fixed_delta_seconds)
-        self._relative_speed_lead_calculator = GForceCalculator(self._world.get_settings().fixed_delta_seconds)
-        self._speed_light_calculator = GForceCalculator(self._world.get_settings().fixed_delta_seconds)
+        self._g_force_ego_calculator = Differentiator(self._world.get_settings().fixed_delta_seconds)
+        self._relative_speed_lead_calculator = Differentiator(self._world.get_settings().fixed_delta_seconds)
+        self._speed_light_calculator = Differentiator(self._world.get_settings().fixed_delta_seconds)
 
         self.min_dist = 250
 
@@ -95,7 +95,7 @@ class CarlaWorldStateSensor(StateSensor):
 
         # 2. Draw the box using the debug helper.
         # We use a Green color (0, 255, 0) and thickness to create the 'glow' effect.
-        self.__world.debug.draw_box(
+        self._world.debug.draw_box(
             box=box,
             rotation=actor_transform.rotation,  # Orient the box to match the actor
             thickness=0.1,  # Thicker lines for a "glow" effect
@@ -108,8 +108,8 @@ class CarlaWorldStateSensor(StateSensor):
 
         # Method 1: CARLA's built-in (works when close to junction)
         try:
-            if self.__ego.is_at_traffic_light():
-                light = self.__ego.get_traffic_light()
+            if self._ego.is_at_traffic_light():
+                light = self._ego.get_traffic_light()
                 if light and light.is_alive:
                     return light
         except Exception:
@@ -183,7 +183,7 @@ class CarlaWorldStateSensor(StateSensor):
                     continue
 
                 # Steering check
-                angle = self.__ego.get_wheel_steer_angle(carla.VehicleWheelLocation.FL_Wheel)
+                angle = self._ego.get_wheel_steer_angle(carla.VehicleWheelLocation.FL_Wheel)
 
                 if longitudinal < best_dist and abs(angle) < 3:
                     best_dist = longitudinal
@@ -339,7 +339,7 @@ class CarlaWorldStateSensor(StateSensor):
                     longitudinal_dist = to_light_x * ego_forward.x + to_light_y * ego_forward.y
 
                     try:
-                        ego_front_extent = self.__ego.bounding_box.extent.x
+                        ego_front_extent = self._ego.bounding_box.extent.x
                     except Exception:
                         ego_front_extent = 2.5
 
