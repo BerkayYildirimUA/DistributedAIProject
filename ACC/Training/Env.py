@@ -267,12 +267,12 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         use_dist = rewards_dict.get("reward_safe_distance", True)
         use_light = rewards_dict.get("reward_light", True)
 
-        W_SPEED = 1.8
+        W_SPEED = 2.5
         W_DIST = 1.2
-        W_COMFORT = 1.4
+        W_COMFORT = 0.8
         W_LIGHT = 1.6
 
-        P_LIGHT_VIOLATION = -10.0
+        P_LIGHT_VIOLATION = -15.0
         P_CRASH_BASE = -15.0
 
         r_crash = 0.0
@@ -280,6 +280,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         r_dist = 0.0
         r_comfort = 0.0
         r_light = 0.0
+
+        DANGER_ZONE_START = 4
+        DANGER_ZONE_END = DANGER_ZONE_START / 3
 
         ############### get distance to light or lead ###############
         if state.light_color in [LightColors.red, LightColors.orange]:
@@ -289,14 +292,16 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         ############### CRASH ###############
         if use_crash:
-            if min_obstacle_dist < 2.0:
-                r_crash = -2.0 * (1.0 - min_obstacle_dist / 3.0) * 2
+            if (min_obstacle_dist < DANGER_ZONE_START and state.speed_ms > 1) or (min_obstacle_dist < DANGER_ZONE_END):
+                r_crash = -2.0 * (1.0 - min_obstacle_dist / DANGER_ZONE_START) * 4
                 if state.crash_intensity > 0.0:
                     r_crash = P_CRASH_BASE - min(state.crash_intensity / 50000, 1.0)
                     logging.info(f"Car Crashed! ({r_crash})")
             elif state.crash_intensity > 0.0: # just to be safen, I don't wanna miss a crash
-                    r_crash = P_CRASH_BASE - min(state.crash_intensity / 50000, 1.0)
-                    logging.info(f"Car Crashed! ({r_crash})")
+                r_crash = P_CRASH_BASE - min(state.crash_intensity / 50000, 1.0)
+                logging.info(f"Car Crashed! ({r_crash})")
+            elif min_obstacle_dist < DANGER_ZONE_START and state.speed_ms <= 1:
+                r_crash = (1 - state.speed_ms) / 4
 
 
 
@@ -305,7 +310,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         g_force_ego = state.g_force_ego
         if use_geforce:
             if g_force_ego is not None: # https://www.sciencedirect.com/science/article/pii/S0003687022002046?via%3Dihub
-                if min_obstacle_dist < 3.0:
+                if min_obstacle_dist < DANGER_ZONE_START:
                     if state.g_force_ego > 0:
                         r_comfort = -1.0 * (g_force_ego / 0.12) ** 2
                     else:
@@ -319,11 +324,10 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         # Adjust target for red/orange lights
         if use_light and state.light_color in [LightColors.red, LightColors.orange]:
-            if 4 < min_obstacle_dist < 50:
+            if min_obstacle_dist < 50:
                 dist_to_stop = max(0, min_obstacle_dist - 2.0)
                 safe_approach_speed = math.sqrt(2 * 1.5 * dist_to_stop)
                 target_speed_ms = min(target_speed_ms, safe_approach_speed)
-                target_speed_ms = max(target_speed_ms, 1.5) # don't stop util you're at a good place to stop
 
 
         # Adjust target for lead vehicle
@@ -331,10 +335,11 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             if state.lead_distance_m < state.safe_following_distance_m * 1.5:
                 lead_speed = state.speed_ms + state.relative_speed_ms
                 target_speed_ms = min(target_speed_ms, lead_speed)
-                target_speed_ms = max(target_speed_ms, 1.5)
 
-        if min_obstacle_dist <= 4:
+        if min_obstacle_dist <= DANGER_ZONE_START:
             target_speed_ms = 0.0
+        else:
+            target_speed_ms = max(target_speed_ms, 1) # don't stop util you're at a good place to stop
 
         target_speed_ms = max(0.0, target_speed_ms)
 
@@ -344,9 +349,13 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
             diff_kmh = min(max(diff_kmh, -150), 150)
             if diff_kmh > 0:
-                r_speed = 1.25 * math.exp(-0.5 * (diff_kmh / 5.0) ** 2) - 0.25 - 0.01 * diff_kmh
+                r_speed = 1.75 * math.exp(-0.5 * (diff_kmh ** 2))- 0.25 - 0.01 * diff_kmh
             else:
-                r_speed = math.exp(-0.5 * (diff_kmh / 15.0) ** 2) + 0.01 * diff_kmh
+                r_speed = math.exp(-0.5 * (diff_kmh / 5.0) ** 2) + 0.01 * diff_kmh
+
+            if -2 < diff_kmh <= 0:
+                exact_speed_bonus = 1.5 * math.exp(-0.5*(diff_kmh ** 2))
+                r_speed = max(r_speed, exact_speed_bonus)
 
         ############### SAFE DISTANCE ###############
         ratio = 0.0
@@ -354,7 +363,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             safe_dist = max(state.safe_following_distance_m, 5.0)
             ratio = min_obstacle_dist / safe_dist
 
-            if ratio > 3 and min_obstacle_dist > 6 and state.speed_ms < target_speed_ms:
+            if ratio > 3 and min_obstacle_dist > 10 and state.speed_ms < target_speed_ms:
                 r_dist = (1 + ratio / 100) * r_speed
             else:
                 r_dist = math.tanh(ratio - 1.0)
@@ -364,18 +373,22 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
             if state.light_color in [LightColors.red, LightColors.orange]:
 
                 # Violation: crossing the line while moving
-                if state.light_dist_m < 2.0 and state.speed_ms > (1 / 3.6):
+                if state.light_dist_m < DANGER_ZONE_END and state.speed_ms > (1 / 3.6):
                     logging.info("Red Light Violation!")
                     r_light = P_LIGHT_VIOLATION - 0.2 * state.speed_ms
 
                 # Reward for stopping correctly
                 elif min_obstacle_dist < 10 and state.speed_ms <= (1 / 3.6):
+                    speed_factor = 1.0 - (state.speed_ms * 3.6)
+
                     if min_obstacle_dist < 2.0:
                         r_light = 0.3
                     elif min_obstacle_dist <= 5.0:
                         r_light = 0.6
                     else:
                         r_light = 0.5 - 0.05 * (min_obstacle_dist - 5.0)
+
+                    r_light = r_light * speed_factor
 
             elif state.light_color == LightColors.green:
                 # Reward for maintaining speed on green
