@@ -58,16 +58,9 @@ class POVVisualiser:
         # cv2.imshow verwacht BGR
         return cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
-    # def add_trajectory_overlay(self, frame):
-    #     for i, lane in enumerate([*self.left_lane, *self.right_lane]):
-    #         cv2.circle(frame, lane, 3, (0, 255, 0), -1)
-    #
-    #         # color = colors[i % len(colors)]
-    #         # cv2.polylines(frame, [np.array(lane, dtype=np.int32)], False, color, 4)
-    #     return frame
-    def add_trajectory_overlay(self, frame_bgr,color=(255,255,0),thickness=4):
+    def add_trajectory_overlay(self, frame_bgr,color=(255,255,0),thickness=2):
         cv2.polylines(frame_bgr, [self.left_lane], False, color, thickness, cv2.LINE_AA)
-        cv2.polylines(frame_bgr, [self.center_lane], False, color, thickness, 4)
+        cv2.polylines(frame_bgr, [self.center_lane], False, color, thickness, cv2.LINE_AA)
         cv2.polylines(frame_bgr, [self.right_lane], False, color, thickness, cv2.LINE_AA)
         return frame_bgr
 

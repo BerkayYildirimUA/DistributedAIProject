@@ -13,13 +13,12 @@ class ObjectDetector:
         print("CUDA:", torch.cuda.is_available())
         self.model = YOLO("app/resources/best6.pt")
         self.classes = constants.OBJECT_CLASS_NAMES
-        # TODO: create model with smaller input size
         self.input_size = 640
 
         # tracking
         self.use_tracking = use_tracking
         self.tracker_cfg = "bytetrack.yaml" # ultralytics built-in tracker
-        self.conf_default = 0.25
+        self.conf_default = 0.15
         self.nms_iou = 0.5
 
         # EMA smoothing per track-id
@@ -28,9 +27,8 @@ class ObjectDetector:
 
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.last_track_ids = torch.empty(0, dtype=torch.long)
-        # -------------------------
 
-    # --- small helper for smoothing ---
+    # small helper for smoothing
     def _ema_smooth(self, boxes_xyxy: torch.Tensor, ids: torch.Tensor) -> torch.Tensor:
         if boxes_xyxy.numel() == 0 or ids is None or ids.numel() == 0:
             return boxes_xyxy

@@ -38,11 +38,11 @@ object_distance_calculator=ObjectDistanceCalculator()
 tube_projector = MotionTubeProjector(
     img_w=640, img_h=480,
     fov_deg=90.0,  # CARLA RGB camera default
-    cam_height=1.5,  # jouw camera z=1.5
+    cam_height=1.5,  # our camera z=1.5 (above the ground)
     lane_width=3.6,
     wheelbase=2.8,
     meters_ahead=40.0,
-    center_offset_m=0.0  # evt. +0.2 of -0.2 afstellen
+    center_offset_m=0.0
 )
 # bird_eye_visualiser=BirdVisualiser(640,480)
 intersection_detector=IntersectionDetector()
@@ -97,11 +97,8 @@ try:
 
         # vehicle state
         speed_ms, steer_rad = state_memory.read()
-        # init tube_projector once we know frame size
-        # MOTION TUBES
+        # init tube_projector, motion tubes
         lanes = tube_projector.get_projected_lanes(float(speed_ms), float(steer_rad))
-        # VISION MODEL
-        # lanes = lane_detector.get_lanes(frame,int_degree=3)
 
         # Lanes
         # get also trajectory

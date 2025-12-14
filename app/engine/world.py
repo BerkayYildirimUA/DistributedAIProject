@@ -10,7 +10,7 @@ class World:
         # Parameters
         self.port = 2000
         self.timeout = 50.0
-        self.world_name = "Town02"
+        self.world_name = "Town05"
         self.delta = 0.05
 
         # holders for cleanup

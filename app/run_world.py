@@ -139,7 +139,7 @@ if __name__ == "__main__":
     cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
 
     vehicle_state_memory = VehicleStateMemory().get_write_access()
-    MAX_STEER_RAD = math.radians(60)  # ruwe schatting
+    MAX_STEER_RAD = math.radians(55)  # estimation
 
     objects_in_front_calculator = ObjectsInFrontCalculator(world.world, world.ego_vehicle, max_distance=20.0)
     actual_object_count_metrics_logger = MetricsLogger(constants.GT_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
@@ -163,11 +163,10 @@ if __name__ == "__main__":
                 speed_ms = float((vel.x ** 2 + vel.y ** 2 + vel.z ** 2) ** 0.5) # calculate the speed
 
                 ctrl = world.ego_vehicle.get_control()                          # get the control applied in the last tick
-                # ctrl.steer in [-1,1] => schaal naar rad
+                # ctrl.steer is in [-1,1] => we scale it to radians
                 steer_rad = -float(ctrl.steer) * MAX_STEER_RAD                  # calculating the steer angle
 
                 vehicle_state_memory.write(np.array([speed_ms, steer_rad], dtype=np.float32))
-                # --------------------------------------
 
                 # Fetch CARLA ground-truth of object detection and distance to vehicle in front
                 object_count = objects_in_front_calculator.count_objects_in_front()
@@ -190,7 +189,8 @@ if __name__ == "__main__":
                     ground_truth_distance=actual_vehicle_distance_in_front_m,
                 )
 
-                estimated_distance_vehicle_in_front_m = float(vehicle_distance_memory[0, 0])
+                # estimated_distance_vehicle_in_front_m = float(vehicle_distance_memory[0, 0])
+                estimated_distance_vehicle_in_front_m = float(vehicle_distance_memory.read()[0])
 
                 estimated_vehicle_distance_in_front_logger.log(
                     frame_id=frame_id,
