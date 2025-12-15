@@ -12,7 +12,6 @@ from app.data_processors.metrics_logger import MetricsLogger
 from app.engine.world import World
 from app.memory.shared_memory import RGBCameraMemory,FrameIdMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
 
-
 # Define transforms for handling camera data
 def camera_callback(image):
     array = np.frombuffer(image.raw_data, dtype=np.uint8)

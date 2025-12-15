@@ -11,8 +11,8 @@ This project consists of two main components: **Computer Vision (CV)** and **Rei
 ## Environments
 To run the project, two Python virtual environments must be set up:
 
-- **Python 3.8**: Used to run the CARLA simulator and RL agents.
-- **Python 3.11 or higher**: Used for the CV modules to take advantage of modern libraries.
+- **Python 3.8**: Used to run the CARLA simulator and RL agents. Dependencies should be installed using `requirements/requirements_carla.txt`.
+- **Python 3.11 or higher**: Used for the CV modules to take advantage of modern libraries.  Dependencies should be installed using `requirements/requirements_modern.txt`.
 
 Data is exchanged between the environments using shared memory. Specifically, `.dat` files are created for reading and writing data.  
 This data management is abstracted through dedicated Python classes.
