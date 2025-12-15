@@ -3,6 +3,7 @@ from app.data_processors.metrics_logger import clear_metrics_file
 from app.data_processors.statistics_calculator import StatisticsCalculator
 import app.constants as constants
 
+# This scripts creates visualisations of the collected data when running the agent
 def main_loop():
     # Create plots
     stats = StatisticsCalculator(reader_fn=iter_metrics)

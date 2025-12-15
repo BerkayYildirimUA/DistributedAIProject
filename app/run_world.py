@@ -8,9 +8,6 @@ import app.constants as constants
 
 from app.data_processors.objects_in_front_calculator import ObjectsInFrontCalculator
 from app.data_processors.metrics_logger import MetricsLogger
-from app.data_processors.metrics_logger import iter_metrics
-from app.data_processors.metrics_logger import clear_metrics_file
-from app.data_processors.statistics_calculator import StatisticsCalculator
 
 from app.engine.world import World
 from app.memory.shared_memory import RGBCameraMemory,FrameIdMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
@@ -23,17 +20,6 @@ def camera_callback(image):
     new_frame = array[:, :, :3]
     frame_send_to_inference = cv2.cvtColor(new_frame, cv2.COLOR_BGR2RGB)
     rgb_camera_memory.write(frame_send_to_inference)
-
-# Callback to calculate depth map in meters
-def depth_callback(image):
-    test = "a"
-    # array = np.frombuffer(image.raw_data, dtype=np.uint8).reshape((image.height, image.width, 4))
-    # b = array[:, :, 0].astype(np.float32)
-    # g = array[:, :, 1].astype(np.float32)
-    # r = array[:, :, 2].astype(np.float32)
-    # normalized_depth = (r + g * 256.0 + b * 256.0 * 256.0) / (256.0**3 - 1)
-    # depth_meters = normalized_depth * 1000.0
-    # depht_camera_memory.write(depth_meters)
 
 # Radar callback (manual_control.py logic from PythonAPI/examples)
 def radar_callback(radar_data):
@@ -104,14 +90,6 @@ def process_rgb_images():
         except queue.Empty:
             continue
 
-def process_depth_images():
-    while True:
-        try:
-            test = "a"
-            #depth_image = depth_camera_queue.get(timeout=1.0)
-            #depth_callback(depth_image)
-        except queue.Empty:
-            continue
     
 def process_radar_data():
     while True:
@@ -148,10 +126,8 @@ if __name__ == "__main__":
 
     # Start threads
     rgb_thread = threading.Thread(target=process_rgb_images, daemon=True)
-    depth_thread = threading.Thread(target=process_depth_images, daemon=True)
     radar_thread = threading.Thread(target=process_radar_data, daemon=True)
     rgb_thread.start()
-    depth_thread.start()
     radar_thread.start()
 
     try:

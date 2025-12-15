@@ -66,6 +66,9 @@ def main_loop(args):
             raise RuntimeError("Engine setup failed. Exiting.")
 
         # sensor and agent Setup (Real World)
+        # Two sensors are used:
+        # - one to collect the ground truth info from the carla simulator itself
+        # - one to pass the current state to the RL agent
         sensor_ground_truth =  CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
         sensor_real = CarlaVBWorldStateSensor(
             engine.ego.real,

@@ -6,9 +6,6 @@ class IntersectionDetector:
         pass
 
     def point_to_segment_distance(self,px, py, x1, y1, x2, y2):
-        """
-        Computes the distance between a point (px,py) and a line segment (x1,y1)-(x2,y2).
-        """
         # Handle zero-length segment
         seg_dx = x2 - x1
         seg_dy = y2 - y1
