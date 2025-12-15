@@ -43,9 +43,9 @@ python -m ACC.main --carla-path ../../carla/CarlaUE4.sh --map Town05
 ````
 To specify a different Python virtual environment for the CV modules:
 
-``
+````
 python -m ACC.main --carla-path {carla path} --map Town05 --venv {your path}
-``
+````
 
 ### Visualizations
 When running with RL agents, data is collected automatically.
