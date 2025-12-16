@@ -58,16 +58,9 @@ class POVVisualiser:
         # cv2.imshow verwacht BGR
         return cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
-    # def add_trajectory_overlay(self, frame):
-    #     for i, lane in enumerate([*self.left_lane, *self.right_lane]):
-    #         cv2.circle(frame, lane, 3, (0, 255, 0), -1)
-    #
-    #         # color = colors[i % len(colors)]
-    #         # cv2.polylines(frame, [np.array(lane, dtype=np.int32)], False, color, 4)
-    #     return frame
-    def add_trajectory_overlay(self, frame_bgr,color=(255,255,0),thickness=4):
+    def add_trajectory_overlay(self, frame_bgr,color=(255,255,0),thickness=2):
         cv2.polylines(frame_bgr, [self.left_lane], False, color, thickness, cv2.LINE_AA)
-        cv2.polylines(frame_bgr, [self.center_lane], False, color, thickness, 4)
+        cv2.polylines(frame_bgr, [self.center_lane], False, color, thickness, cv2.LINE_AA)
         cv2.polylines(frame_bgr, [self.right_lane], False, color, thickness, cv2.LINE_AA)
         return frame_bgr
 
@@ -78,7 +71,7 @@ class POVVisualiser:
             color_map = {"green": (0, 255, 0) ,"yellow": (0, 255, 255), "red": (0, 0, 255)}
             cv2.rectangle(frame, (x1, y1), (x2, y2), color_map[color], 2)
 
-            # place TL color ABOVE the class label (which is at y1-5)
+            # place TL color above the class label (which is at y1-5)
             label = f"{color} {conf:.2f}"
             (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
             y_top = max(0, y1 - 5 - th - 4)  # a bit higher than the class text

@@ -36,9 +36,10 @@ class World:
         self.spectator = self.world.get_spectator()
 
     def tick(self):
-        self.world.tick()
+        frame_id = self.world.tick()
         # Update spectator view
         self.update_spectator()
+        return frame_id
 
     def create_world(self):
         self.client = carla.Client('localhost', self.port)
@@ -130,18 +131,6 @@ class World:
         #self.rgb_camera.listen(lambda image: self.rgb_camera_queue.put_nowait(image))
         self.rgb_camera.listen(lambda data: (self.rgb_camera_queue.get_nowait(), self.rgb_camera_queue.put_nowait(data)) if self.rgb_camera_queue.full() else self.rgb_camera_queue.put_nowait(data))
 
-
-        # Depth camera setup
-        # TODO: change max depth value to a value found in real depth camera setups
-        # depth_bp = self.world.get_blueprint_library().find('sensor.camera.depth')
-        # depth_bp.set_attribute("image_size_x", str(constants.IMAGE_WIDTH))
-        # depth_bp.set_attribute("image_size_y", str(constants.IMAGE_HEIGHT))
-        # depth_bp.set_attribute("sensor_tick", str(constants.SENSOR_TICK))
-        # depth_bp.set_attribute("fov", str(constants.HOR_FOV_DEG))
-        # self.depth_camera = self.world.spawn_actor(depth_bp, camera_init_trans, attach_to=self.ego_vehicle)
-        # self.depth_camera_queue = queue.Queue(maxsize=constants.QUEUE_MAXSIZE)
-        # self.depth_camera.listen(lambda image: self.depth_camera_queue.put_nowait(image))
-
         # Radar setup
         blueprint_library = self.world.get_blueprint_library()
         radar_bp = blueprint_library.find('sensor.other.radar')
@@ -218,11 +207,7 @@ class World:
             self.rgb_camera.destroy()
         except Exception:
             pass
-        #try:
-        #    self.depth_camera.stop()
-        #    self.depth_camera.destroy()
-        #except Exception:
-        #    pass
+
 
         # stop/destroy pedestrian controllers first
         for c in self.walker_controllers:
@@ -243,8 +228,3 @@ class World:
             except Exception:
                 pass
 
-        # # finally ego vehicle
-        # try:
-        #     self.ego_vehicle.destroy()
-        # except Exception:
-        #     pass
