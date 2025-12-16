@@ -466,24 +466,30 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         distance= self.vehicle_distance_memory.read()
         # Keep track of previous distance and use it in case radar returns inf values
         # We buffer the previous value for 100 frames, after that we use the default
-        if not np.isinf(distance[0]):
+        if np.isinf(distance[0]):
+            lead_distance = self.prev_lead_distance
+        else:
             lead_distance = distance[0]
             self.prev_lead_distance = distance[0]
-            self.ld_counter = 0
+        if self.ld_counter % 10:
+            self.prev_lead_distance = max(self.prev_lead_distance - 5,10)
+        self.ld_counter+=1
+            # self.prev_lead_distance = distance[0]
+            # self.ld_counter = 0
 
-        else:
+        # else:
             # self.prev_lead_distance = distance[0]
             # lead_distance = distance[0]
             # Radar returned inf
-            self.ld_counter += 1
-
-            if self.ld_counter <= 10:
-                # Assume vehicle still there, slowly decrease distance
-                lead_distance = max(
-                    self.prev_lead_distance - 1,
-                    10
-                )
-                self.prev_lead_distance = lead_distance
+            # self.ld_counter += 1
+            #
+            # if self.ld_counter <= 10:
+            #     # Assume vehicle still there, slowly decrease distance
+            #     lead_distance = max(
+            #         self.prev_lead_distance - 1,
+            #         10
+            #     )
+            #     self.prev_lead_distance = lead_distance
 
         # Traffic light color
         if self.use_traffic_lights:
