@@ -43,7 +43,7 @@ maybe change action space center if need be, like 0 =! do nothing, perhabs.
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
                      map_name=args.map, number_of_npc=0
-                     # , lead_car_bp_name='vehicle.tesla.model3'
+                     , lead_car_bp_name='vehicle.tesla.model3'
                      )
     engine = Engine(args, scene)
 
@@ -77,7 +77,7 @@ def main_loop(args):
         sensor_real = CarlaVBWorldStateSensor(
             engine.ego.real,
             engine.duo_world.get_real_world(),
-            use_traffic_lights=True,
+            use_traffic_lights=False,
             use_traffic_signs=False
         )
 
