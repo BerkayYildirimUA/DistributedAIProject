@@ -51,7 +51,7 @@ def main_loop(args):
         sensor_real =  CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
         decisionAgent = RLDecisionAgent(sensor_real, "251216_114159_TD3_Shaula_chunk_25200.msh")
 
-        SingletonLightState().set_always_green(False)
+        SingletonLightState().set_always_green(False) # <--- to set ground truth data
 
         crash_detected = False
         frames_after_crash = 0
@@ -235,7 +235,6 @@ if __name__ == '__main__':
 
     try:
         # Start the script to run the vehicle pov in  the modern python env and run it in background
-
         subprocess.Popen([f"{args.venv}","-m", "app.run_vehicle_pov.py"], stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         stdin=subprocess.DEVNULL,
