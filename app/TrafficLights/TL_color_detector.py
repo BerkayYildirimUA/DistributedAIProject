@@ -208,14 +208,14 @@ class TL_color_detector:
         for i in class_ids:
             tl_colors.append(self.classes[int(i)])
 
-        # ---------- deciding GLOBAL COLOR ----------
+        # deciding global color
         # Sum class probabilities over all relevant TLs
         total = probs.sum(dim=0)   # tells us how much total prob mass each color has across all TLs
         total_sum = float(total.sum())      # total sum across all total mass probs
         if total_sum > 0.0:
             global_probs = total / total_sum  # normalized [C]
             best_idx = int(global_probs.argmax().item())
-            overall_color = self.classes[best_idx]  # e.g. "red"
+            overall_color = self.classes[best_idx]  #  "red", "green", "yellow"
         else:
             overall_color = None
 
