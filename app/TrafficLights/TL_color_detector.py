@@ -18,7 +18,6 @@ from torch import nn
 
 
 
-# ---------------- CUSTOM CNN ----------------
 
 class TinyTrafficLightNet(nn.Module):
     """
@@ -100,7 +99,7 @@ class TL_color_detector:
 
 
 
-#-----------------------Specify model
+#------------------------- Specify model
     # @staticmethod
     # def make_model(num_classes: int =3):
     #     m = torchvision.models.resnet18(weights=None)  # "IMAGENET1K_V1", !!!!!!!!!!! weights=None at runtime
