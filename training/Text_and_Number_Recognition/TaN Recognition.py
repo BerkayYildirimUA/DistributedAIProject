@@ -343,7 +343,7 @@ def get_speed_from_image(img, model, class_names):
 
     # If img is a NumPy array (e.g. from CARLA camera), convert to PIL
     if isinstance(img, np.ndarray):
-        # Assume BGR from OpenCV/CARLA → convert to RGB
+        # Assume BGR from OpenCV/CARLA - convert to RGB
         img = Image.fromarray(img[:, :, ::-1]).convert("RGB")
     else:
         # Ensure it's RGB
@@ -396,7 +396,7 @@ if __name__ == "__main__":
     print("Script started, beginning training...")
 
     # This should run ONCE to create the test folder from train
-    create_test_split_from_train(test_ratio=0.10, seed=42)
+    #create_test_split_from_train(test_ratio=0.10, seed=42) #Commenting this out so it doesn't run again
 
     train()
     print("Training finished.")
