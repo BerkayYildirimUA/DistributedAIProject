@@ -570,7 +570,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
             lead_distance_m=lead_distance,
-            safe_following_distance_m=safe_distance+10,
+            safe_following_distance_m=safe_distance,
             crash_intensity=0.0,
             light_color=traffic_light_color,
             light_dist_m=traffic_light_dist_m,
