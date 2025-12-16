@@ -471,8 +471,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             self.prev_lead_distance = distance[0]
             self.ld_counter = 0
 
-
-
         else:
             # self.prev_lead_distance = distance[0]
             # lead_distance = distance[0]
