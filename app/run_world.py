@@ -2,16 +2,15 @@ import queue
 import numpy as np
 import cv2
 import threading
-import subprocess
-import sys
-import argparse
 import carla
 import math
 import app.constants as constants
 
-from app.engine.world import World
-from app.memory.shared_memory import RGBCameraMemory,DepthCameraMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
+from app.data_processors.objects_in_front_calculator import ObjectsInFrontCalculator
+from app.data_processors.metrics_logger import MetricsLogger
 
+from app.engine.world import World
+from app.memory.shared_memory import RGBCameraMemory,FrameIdMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
 
 # Define transforms for handling camera data
 def camera_callback(image):
@@ -21,19 +20,11 @@ def camera_callback(image):
     frame_send_to_inference = cv2.cvtColor(new_frame, cv2.COLOR_BGR2RGB)
     rgb_camera_memory.write(frame_send_to_inference)
 
-# Callback to calculate depth map in meters
-def depth_callback(image):
-    test = "a"
-    # array = np.frombuffer(image.raw_data, dtype=np.uint8).reshape((image.height, image.width, 4))
-    # b = array[:, :, 0].astype(np.float32)
-    # g = array[:, :, 1].astype(np.float32)
-    # r = array[:, :, 2].astype(np.float32)
-    # normalized_depth = (r + g * 256.0 + b * 256.0 * 256.0) / (256.0**3 - 1)
-    # depth_meters = normalized_depth * 1000.0
-    # depht_camera_memory.write(depth_meters)
-
 # Radar callback (manual_control.py logic from PythonAPI/examples)
 def radar_callback(radar_data):
+    if world.rgb_camera is None:
+        return
+
     max_n = constants.RADAR_MAX_DETECTIONS
 
     # We will always write a (max_n, 5) array: [x, y, z, depth, velocity]
@@ -85,6 +76,7 @@ def radar_callback(radar_data):
     camera_calibration_memory.write(cam_mats)
 
 
+
 # ---------------------------
 # Threaded data processing
 # ---------------------------
@@ -97,14 +89,6 @@ def process_rgb_images():
         except queue.Empty:
             continue
 
-def process_depth_images():
-    while True:
-        try:
-            test = "a"
-            #depth_image = depth_camera_queue.get(timeout=1.0)
-            #depth_callback(depth_image)
-        except queue.Empty:
-            continue
     
 def process_radar_data():
     while True:
@@ -124,6 +108,7 @@ if __name__ == "__main__":
     vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
     radar_memory = RadarMemory().get_write_access()
     camera_calibration_memory = CameraCalibrationMemory().get_write_access()
+    frame_id_memory = FrameIdMemory().get_write_access()
     rgb_camera_queue, radar_queue = world.expose_queues()
 
     K = world.calculate_camera_intrinsic()
@@ -131,31 +116,63 @@ if __name__ == "__main__":
     cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
 
     vehicle_state_memory = VehicleStateMemory().get_write_access()
-    MAX_STEER_RAD = math.radians(60)  # ruwe schatting
+    MAX_STEER_RAD = math.radians(55)  # estimation
+
+    objects_in_front_calculator = ObjectsInFrontCalculator(world.world, world.ego_vehicle, max_distance=20.0)
+    actual_object_count_metrics_logger = MetricsLogger(constants.GT_OBJECTS_IN_FRONT_COUNT_FILE, compress=True)
+    actual_vehicle_distance_in_front_logger = MetricsLogger(constants.GT_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
+    estimated_vehicle_distance_in_front_logger = MetricsLogger(constants.ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE, compress=True)
 
     # Start threads
     rgb_thread = threading.Thread(target=process_rgb_images, daemon=True)
-    depth_thread = threading.Thread(target=process_depth_images, daemon=True)
     radar_thread = threading.Thread(target=process_radar_data, daemon=True)
     rgb_thread.start()
-    depth_thread.start()
     radar_thread.start()
 
     try:
         while True:
             try:
-                world.tick()
+                frame_id = world.tick()
                 # --- we get the state of the vehicle and put into shared memory ---
                 vel = world.ego_vehicle.get_velocity()                          # get the velocity from our car in CARLA
                 speed_ms = float((vel.x ** 2 + vel.y ** 2 + vel.z ** 2) ** 0.5) # calculate the speed
 
                 ctrl = world.ego_vehicle.get_control()                          # get the control applied in the last tick
-                # ctrl.steer in [-1,1] => schaal naar rad
+                # ctrl.steer is in [-1,1] => we scale it to radians
                 steer_rad = -float(ctrl.steer) * MAX_STEER_RAD                  # calculating the steer angle
 
                 vehicle_state_memory.write(np.array([speed_ms, steer_rad], dtype=np.float32))
-                # --------------------------------------
 
+                # Fetch CARLA ground-truth of object detection and distance to vehicle in front
+                object_count = objects_in_front_calculator.count_objects_in_front()
+                actual_object_count = object_count["total"]
+
+                actual_object_count_metrics_logger.log(
+                    frame_id=frame_id,
+                    ground_truth_objects=actual_object_count,
+                )
+
+                vehicle_in_front, actual_vehicle_distance_in_front_m = (
+                    objects_in_front_calculator.get_lead_actor_in_lane()
+                )
+
+                if actual_vehicle_distance_in_front_m is None:
+                    actual_vehicle_distance_in_front_m = float("inf")
+
+                actual_vehicle_distance_in_front_logger.log(
+                    frame_id=frame_id,
+                    ground_truth_distance=actual_vehicle_distance_in_front_m,
+                )
+
+                # estimated_distance_vehicle_in_front_m = float(vehicle_distance_memory[0, 0])
+                estimated_distance_vehicle_in_front_m = float(vehicle_distance_memory.read()[0])
+
+                estimated_vehicle_distance_in_front_logger.log(
+                    frame_id=frame_id,
+                    estimated_radar_distance=estimated_distance_vehicle_in_front_m,
+                )
+
+                frame_id_memory.write(frame_id)
             except RuntimeError as e:
                 print(f"Tick failed {e}")
 
@@ -166,8 +183,18 @@ if __name__ == "__main__":
         print("Closing simulation!")
     finally:
         world.cleanup()
+        print("World clean up complete")
 
-        print("Cleanup complete.")
+        try:
+            actual_object_count_metrics_logger.close()
+            actual_vehicle_distance_in_front_logger.close()
+            estimated_vehicle_distance_in_front_logger.close()
+            print("Loggers closed in old_env")
+        except Exception as e:
+            print(f"Error closing loggers: {e}")
+
+        print("Statistics clean up complete")
+
 
 
 

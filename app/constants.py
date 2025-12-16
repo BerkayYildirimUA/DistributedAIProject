@@ -29,4 +29,41 @@ RADAR_MAX_DETECTIONS = 50000
 # Queue constants
 QUEUE_MAXSIZE = 10
 
+# Object detection constants
+OBJECT_CLASS_NAMES = ["Vehicle", "Motor", "Bike","traffic light","traffic sign","pedestrian"]
+
+
+# Statistics
+# Filename constants
+GT_OBJECTS_IN_FRONT_COUNT_FILE = "gt_objects_in_front_count.gz"
+ESTIMATED_OBJECT_IN_FRONT_COUNT_FILE = "estimated_objects_in_front_count.gz"
+GT_VEHICLE_DISTANCE_IN_FRONT_FILE = "gt_vehicle_distance_in_front.gz"
+ESTIMATED_VEHICLE_DISTANCE_IN_FRONT_FILE = "estimated_vehicle_distance_in_front.gz"
+GT_LEAD_DISTANCE_FILE="gt_lead_distance.gz"
+LEAD_DISTANCE_FILE="lead_distance.gz"
+GT_SPEED_LIMIT_FILE="gt_speed_limit.gz"
+SPEED_FILE="speed.gz"
+G_FORCE_FILE="g_force.gz"
+GT_G_FORCE_FILE="gt_g_force.gz"
+
+GT_SAFE_FOLLOWING_DISTANCE_FILE="gt_safe_following_distance.gz"
+GT_TRAFFIC_SIGN_COUNT_FILE = "gt_traffic_signs_in_front_count.gz"
+ESTIMATED_TRAFFIC_SIGN_COUNT_FILE = "estimated_traffic_signs_in_front_count.gz"
+GT_TRAFFIC_LIGHT_COUNT_FILE = "gt_traffic_lights_in_front_count.gz"
+ESTIMATED_TRAFFIC_LIGHT_COUNT_FILE = "estimated_traffic_lights_in_front_count.gz"
+GT_VEHICLE_COUNT_FILE = "gt_vehicle_in_front_count.gz"
+ESTIMATED_VEHICLE_COUNT_FILE = "estimated_vehicle_in_front_count.gz"
+GT_PEDESTRIAN_COUNT_FILE = "gt_pedestrian_in_front_count.gz"
+ESTIMATED_PEDESTRIAN_COUNT_FILE = "estimated_pedestrian_in_front_count.gz"
+
+# Other
+MAX_OBJECT_DETECT_DISTANCE = 20.0
+MAX_LEAD_ACTOR_DISTANCE = 60.0
 MAX_STEER_RAD=math.radians(60)
+MAX_STEER_RAD=math.radians(60)
+
+TL_COLOR_TO_INDEX={
+    "red":1,
+    "green":2,
+    "yellow":3,
+}

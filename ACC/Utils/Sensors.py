@@ -18,7 +18,8 @@ from ACC.Engine.engine import SingletonLightState
 from ACC.Utils.GForce_Class import Differentiator
 from ACC.Utils.abstractions import StateSensor, UI, VehicleState, LightColors
 import app.constants  as constants
-from app.memory.shared_memory import RGBCameraMemory, VehicleDistanceMemory, RadarMemory, CameraCalibrationMemory
+from app.memory.shared_memory import RGBCameraMemory, VehicleDistanceMemory, RadarMemory, CameraCalibrationMemory, \
+    TrafficLightMemory, TrafficSignMemory, TrafficLightDistanceMemory
 from typing_extensions import override
 
 
@@ -407,11 +408,21 @@ class CarlaWorldStateSensor(StateSensor):
             return False
         else:
             return True
+
+# This sensor observes the state of the vehicle based on the models from computer vision
 class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
-    def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World):
+    def __init__(self, ego_vehicle: carla.Vehicle, world: carla.World, use_traffic_signs=False,use_traffic_lights=False):
         super().__init__(ego_vehicle, world)
+        self.use_traffic_signs = use_traffic_signs
+        self.use_traffic_lights = use_traffic_lights
 
+        self.frame_buffer=100
+        self.speed_limit=self._ego.get_speed_limit()
+        self.previous_tl_distance=250.0
+        self.prev_lead_distance=250.0
+        self.tl_counter=0.0
+        self.ld_counter=0.0
         # Create Sensors
         self.create_ego_sensors()
 
@@ -419,6 +430,9 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self.rgb_camera_memory = RGBCameraMemory().get_write_access()
         # depht_camera_memory = DepthCameraMemory().get_write_access()
         self.vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
+        self.tl_memory=TrafficLightMemory().get_read_access()
+        self.tl_distance_memory=TrafficLightDistanceMemory().get_read_access()
+        self.ts_memory=TrafficSignMemory().get_read_access()
         self.radar_memory = RadarMemory().get_write_access()
         self.camera_calibration_memory = CameraCalibrationMemory().get_write_access()
         # Create camera properties
@@ -428,7 +442,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         self.start_sensor_threads()
 
-        self.prev_lead_distance=250.0
 
     def cleanup(self):
         pass
@@ -442,27 +455,69 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
     @override
     def get_state(self) -> VehicleState:
 
+<<<<<<< HEAD
         ego_velocity_vec = self._ego.get_velocity()
+=======
+        # Read speed of the car via carla
+        ego_velocity_vec: Vector3D = self._ego.get_velocity()
+>>>>>>> main
         ego_velocity_ms = ego_velocity_vec.length()
 
+        # Sage following distance
         safe_distance = self._safe_time_distance_seconds * ego_velocity_ms
 
-        self.speed_limit = self._ego.get_speed_limit()
-
+        # Read distance from radar out of shared memory
         distance= self.vehicle_distance_memory.read()
         # Keep track of previous distance and use it in case radar returns inf values
+        # We buffer the previous value for 100 frames, after that we use the default
         if np.isinf(distance[0]):
             lead_distance=self.prev_lead_distance
+            self.ld_counter+=1
+            if self.ld_counter >= self.frame_buffer:
+                self.prev_lead_distance=self.min_dist
+                self.counter=0.0
         else:
             self.prev_lead_distance = distance[0]
             lead_distance = distance[0]
 
-        # TODO: replace with computer vision based logic
-        traffic_light_dist_m = self.min_dist
-        traffic_light_color = LightColors.green
+        # Traffic light color
+        if self.use_traffic_lights:
+            traffic_light_dist_m = self.tl_distance_memory.read()[0]
+            if np.isinf(traffic_light_dist_m):
+                traffic_light_dist_m=self.min_dist
+            # The distance of traffic lights is buffered as well
+            if not self.isvalid(traffic_light_dist_m):
+                traffic_light_dist_m=self.previous_tl_distance
+                self.tl_counter+=1
+                if self.tl_counter >= self.frame_buffer:
+                    self.prev_tl_distance=self.min_dist
+                    self.tl_counter=0.0
+            else:
+                self.prev_tl_distance = traffic_light_dist_m
 
-        # TODO: get speed limit from computer vision
-        speed_limit=self.speed_limit
+            # Read color of traffic lights from shared memory and convert to correct type
+            tl_color_index = self.tl_memory.read()
+            if tl_color_index == 1:
+                traffic_light_color = LightColors.green
+            elif tl_color_index == 2:
+                traffic_light_color = LightColors.red
+            else:
+                traffic_light_color = LightColors.orange
+
+        else:
+            traffic_light_dist_m = self.min_dist
+            traffic_light_color = LightColors.green
+
+        # Speed limit
+        if self.use_traffic_signs:
+            # Read speed limit from shared memory
+            ts = self.ts_memory.read()[0]
+            if ts != -1:
+                print(f"SPEED SIGN USED: {ts}")
+                self.speed_limit=ts
+            speed_limit=self.speed_limit
+        else:
+            speed_limit = self._ego.get_speed_limit()
 
         # G-force
         self._g_force_ego_calculator.update_speed(ego_velocity_ms)
@@ -523,17 +578,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # self.rgb_camera.listen(lambda image: self.rgb_camera_queue.put_nowait(image))
         self.rgb_camera.listen(lambda data: (self.rgb_camera_queue.get_nowait(), self.rgb_camera_queue.put_nowait(
             data)) if self.rgb_camera_queue.full() else self.rgb_camera_queue.put_nowait(data))
-
-        # Depth camera setup
-        # TODO: change max depth value to a value found in real depth camera setups
-        # depth_bp = self.world.get_blueprint_library().find('sensor.camera.depth')
-        # depth_bp.set_attribute("image_size_x", str(constants.IMAGE_WIDTH))
-        # depth_bp.set_attribute("image_size_y", str(constants.IMAGE_HEIGHT))
-        # depth_bp.set_attribute("sensor_tick", str(constants.SENSOR_TICK))
-        # depth_bp.set_attribute("fov", str(constants.HOR_FOV_DEG))
-        # self.depth_camera = self.world.spawn_actor(depth_bp, camera_init_trans, attach_to=self.ego_vehicle)
-        # self.depth_camera_queue = queue.Queue(maxsize=constants.QUEUE_MAXSIZE)
-        # self.depth_camera.listen(lambda image: self.depth_camera_queue.put_nowait(image))
 
         # Radar setup
         blueprint_library = self._world.get_blueprint_library()

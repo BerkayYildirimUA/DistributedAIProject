@@ -5,27 +5,27 @@ from typing import Optional
 class DuoWorld:
 
     def __init__(self, real_world: carla.World, mirror_world: carla.World):
-        self.__real_world = real_world
-        self.__mirror_world = mirror_world
+        self.real_world = real_world
+        self.mirror_world = mirror_world
 
     def set_mirror_world_settings(self, settings: carla.WorldSettings):
-        self.__mirror_world.apply_settings(settings)
+        self.mirror_world.apply_settings(settings)
 
     def set_real_world_settings(self, settings: carla.WorldSettings):
-        self.__real_world.apply_settings(settings)
+        self.real_world.apply_settings(settings)
 
     def set_both_worlds_settings(self, settings: carla.WorldSettings):
         self.set_mirror_world_settings(settings)
         self.set_real_world_settings(settings)
 
     def get_real_world(self) -> carla.World:
-        return self.__real_world
+        return self.real_world
 
     def get_mirror_world(self) -> carla.World:
-        return self.__mirror_world
+        return self.mirror_world
 
     def tick(self):
-        return self.__mirror_world.tick(), self.__real_world.tick()
+        return self.mirror_world.tick(), self.real_world.tick()
 
 class DuoActor:
 
