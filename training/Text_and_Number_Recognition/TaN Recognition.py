@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 from PIL import Image
-import re
+import random
+import shutil
 
 
 #Directory of the dataset
@@ -23,6 +24,35 @@ LR = 1e-4
 #To use gpu if available, if not use cpu
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+#Function to create a test set by moving a % of train images
+def create_test_split_from_train(test_ratio=0.10, seed=42):
+    train_dir = DATA_DIR / "train"
+    test_dir  = DATA_DIR / "test"
+    test_dir.mkdir(exist_ok=True) #This creates test folder since it does not exist
+
+    random.seed(seed)
+
+    def is_image_file(p: Path) -> bool: #This is a helper function to check if a file is an image
+        return p.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp", ".webp"} #This is the allowed image extensions to be used
+
+    for class_dir in train_dir.iterdir(): #Skips anything that is not a directory
+        if not class_dir.is_dir():
+            continue
+
+        (test_dir / class_dir.name).mkdir(parents=True, exist_ok=True) #Creates matching class foolder inside test
+
+        images = [p for p in class_dir.iterdir() if p.is_file() and is_image_file(p)]
+        if len(images) == 0:
+            continue
+
+        k = max(1, int(len(images) * test_ratio))
+        chosen = random.sample(images, k)
+
+        for src in chosen:
+            dst = test_dir / class_dir.name / src.name
+            shutil.move(str(src), str(dst))
+
+    print(f"Created test split at: {test_dir}") #Prints where all tests split is created
 
 #To create dataloaders for training and validation
 def get_dataloaders():
@@ -56,15 +86,18 @@ def get_dataloaders():
     # Loads images labeled by folder name
     train_ds = datasets.ImageFolder(DATA_DIR / "train", transform=train_tfms)
     val_ds = datasets.ImageFolder(DATA_DIR / "val", transform=val_tfms)
+    test_ds = datasets.ImageFolder(DATA_DIR / "test", transform=val_tfms)
 
     # Wrap datasets in DataLoader for batching and GPU transfer
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE,
                               shuffle=True, num_workers=4)
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE,
                             shuffle=False, num_workers=4)
+    test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE,
+                             shuffle=False, num_workers=4)
 
     # Returns data + list of class labels (e.g., ["20", "30", "STOP"])
-    return train_loader, val_loader, train_ds.classes
+    return train_loader, val_loader, test_loader, train_ds.classes
 
 
 # FUNCTION: Create a ResNet model for classification
@@ -97,7 +130,7 @@ def train():
     """
 
     # Load data and class names
-    train_loader, val_loader, class_names = get_dataloaders()
+    train_loader, val_loader, test_loader, class_names = get_dataloaders()
     num_classes = len(class_names)
 
     print("Detected classes:", class_names)
@@ -234,6 +267,21 @@ def train():
     print("   training_loss_curve.png")
     print("   accuracy_curves.png")
 
+    model.eval()
+    test_correct = 0
+    test_total = 0
+
+    with torch.no_grad():
+        for imgs, labels in test_loader:
+            imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
+            outputs = model(imgs)
+            preds = outputs.argmax(dim=1)
+            test_correct += (preds == labels).sum().item()
+            test_total += imgs.size(0)
+
+    test_acc = test_correct / test_total
+    print(f"Final TEST Accuracy: {test_acc:.3f}")
+
 #This will give from image to label to speed value
 inference_tfms = transforms.Compose([
     transforms.Resize((128, 128)),
@@ -346,5 +394,9 @@ def get_speed_from_image(img, model, class_names):
 #Run Training
 if __name__ == "__main__":
     print("Script started, beginning training...")
+
+    # This should run ONCE to create the test folder from train
+    create_test_split_from_train(test_ratio=0.10, seed=42)
+
     train()
     print("Training finished.")
