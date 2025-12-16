@@ -18,7 +18,6 @@ from torch import nn
 
 
 
-# ---------------- CUSTOM CNN ----------------
 
 class TinyTrafficLightNet(nn.Module):
     """
@@ -100,7 +99,7 @@ class TL_color_detector:
 
 
 
-#-----------------------Specify model
+#------------------------- Specify model
     # @staticmethod
     # def make_model(num_classes: int =3):
     #     m = torchvision.models.resnet18(weights=None)  # "IMAGENET1K_V1", !!!!!!!!!!! weights=None at runtime
@@ -155,7 +154,6 @@ class TL_color_detector:
         - frame_bgr: np.ndarray HxWx3 (OpenCV BGR), full frame in OpenCV BGR format
         - boxes_xyxy: torch.Tensor Nx4 (x1,y1,x2,y2) in pixel coordinates x1 = left border, x2 = right border, y1 = top border, y2 = bottom border. If None or empty, then it
             returns empty tensors
-        - conf_threshold: float or None
         - pad_ratio: float, padding ratio around each box before cropping
         """
 
@@ -204,45 +202,24 @@ class TL_color_detector:
         scores = conf.to(torch.float32)
         out_boxes = torch.tensor(out_boxes, dtype=torch.float32)
 
-        # # Confidence filter (kept for parity with ObjectDetector)
-        # if conf_threshold is not None:
-        #     keep = scores >= float(conf_threshold)
-        #     out_boxes = out_boxes[keep]
-        #     class_ids = class_ids[keep]
-        #     scores = scores[keep]
-        #     probs = probs[keep]
-
         # ---- per-TL color labels ----
         tl_colors = []
         for i in class_ids:
             tl_colors.append(self.classes[int(i)])
 
-        # ---------- deciding GLOBAL COLOR ----------
+        # deciding global color
         # Sum class probabilities over all relevant TLs
         total = probs.sum(dim=0)   # tells us how much total prob mass each color has across all TLs
         total_sum = float(total.sum())      # total sum across all total mass probs
         if total_sum > 0.0:
             global_probs = total / total_sum  # normalized [C]
             best_idx = int(global_probs.argmax().item())
-            overall_color = self.classes[best_idx]  # e.g. "red"
+            overall_color = self.classes[best_idx]  #  "red", "green", "yellow"
         else:
             overall_color = None
 
         return out_boxes,tl_colors, scores, overall_color
 
-        # # Optional confidence filter
-        # if conf_threshold is not None:
-        #     keep = scores_t >= float(conf_threshold)
-        #     out_boxes = out_boxes[keep]
-        #     scores_t = scores_t[keep]
-        #     tl_colors = [c for c, k in zip(tl_colors, keep.tolist()) if k]
-        #
-        #     if out_boxes.numel() == 0:
-        #         return (torch.empty((0, 4), dtype=torch.float32),
-        #                 [],  # no colors
-        #                 torch.empty((0,), dtype=torch.float32))
-        #
-        # return out_boxes, tl_colors, scores_t
 
 
 
