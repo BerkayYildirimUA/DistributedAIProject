@@ -328,23 +328,19 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         target_speed_ms = state.speed_limit_ms
 
         # Adjust target for red/orange lights
-        """
+
         if use_light and state.light_color in [LightColors.red, LightColors.orange]:
-            if min_obstacle_dist < 50:
-                dist_to_stop = max(0, min_obstacle_dist - 3.0)
+            if min_obstacle_dist < 20:
+                dist_to_stop = max(0, min_obstacle_dist - DANGER_ZONE_START)
                 safe_approach_speed = math.sqrt(2 * 1.5 * dist_to_stop)
-                target_speed_ms = min(target_speed_ms, safe_approach_speed)"""
+                target_speed_ms = min(target_speed_ms, safe_approach_speed)
 
 
         # Adjust target for lead vehicle
-        if use_dist and min_obstacle_dist < 150:
-            if min_obstacle_dist < state.safe_following_distance_m * 1.5:
-                if state.light_color in [LightColors.red, LightColors.orange] and state.light_dist_m < state.lead_distance_m:
-                    adjust_speed = state.light_speed_ms
-                else:
-                    adjust_speed = state.speed_ms + state.relative_speed_ms
-
-                target_speed_ms = min(target_speed_ms, adjust_speed)
+        if use_dist and state.lead_distance_m is not None and state.lead_distance_m < 150:
+            if state.lead_distance_m < state.safe_following_distance_m * 1.5:
+                lead_speed = state.speed_ms + state.relative_speed_ms
+                target_speed_ms = min(target_speed_ms, lead_speed)
 
         if min_obstacle_dist <= DANGER_ZONE_START:
             target_speed_ms = 0.0

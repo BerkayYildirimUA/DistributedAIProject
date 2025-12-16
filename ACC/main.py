@@ -235,8 +235,8 @@ if __name__ == '__main__':
 
     try:
         # Start the script to run the vehicle pov in  the modern python env and run it in background
-        if False: #TODO DELETE BEFORE MERGE -----------------------------------------------------------------------------------------------------------------------------------------------
-            subprocess.Popen([f"{args.venv}","-m", "app.run_vehicle_pov.py"], stdout=subprocess.DEVNULL,
+
+        subprocess.Popen([f"{args.venv}","-m", "app.run_vehicle_pov.py"], stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         stdin=subprocess.DEVNULL,
         close_fds=True)
