@@ -75,8 +75,8 @@ def main_loop(args):
         sensor_real = CarlaVBWorldStateSensor(
             engine.ego.real,
             engine.duo_world.get_real_world(),
-            use_traffic_lights=True,
-            use_traffic_signs=True
+            use_traffic_lights=False,
+            use_traffic_signs=False
         )
 
         decisionAgent = RLDecisionAgent(sensor_real, "251216_114159_TD3_Shaula_chunk_25200.msh")
