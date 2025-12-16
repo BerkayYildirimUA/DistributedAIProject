@@ -468,6 +468,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # Keep track of previous distance and use it in case radar returns inf values
         # We buffer the previous value for 100 frames, after that we use the default
         if np.isinf(distance[0]):
+            print(self.prev_lead_distance)
             if self.prev_lead_distance <= 50:
                 lead_distance=0.0
             else:
