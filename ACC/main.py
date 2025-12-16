@@ -79,7 +79,7 @@ def main_loop(args):
             use_traffic_signs=False
         )
 
-        decisionAgent = RLDecisionAgent(sensor_real, "251216_114159_TD3_Shaula_chunk_25200.msh")
+        decisionAgent = RLDecisionAgent(sensor_real, "251214_193711_TD3_Merope_chunk_12600.msh")
         SingletonLightState().set_always_green(False) # <--- to set ground truth data
 
         #Initialize Pygame HUD Display
