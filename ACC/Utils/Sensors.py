@@ -473,9 +473,9 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             if self.prev_lead_distance <= 5.0:
                 self.prev_lead_distance=0.0
                 print("SMALLER")
-            # else:
-            #     self.prev_lead_distance=self.min_dist
-                # self.ld_counter=0.0
+            else:
+                self.prev_lead_distance=self.min_dist
+                self.ld_counter=0.0
         else:
             self.prev_lead_distance = distance[0]
             lead_distance = distance[0]
