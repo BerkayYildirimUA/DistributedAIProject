@@ -78,7 +78,7 @@ def main_loop(args):
             engine.ego.real,
             engine.duo_world.get_real_world(),
             use_traffic_lights=False,
-            use_traffic_signs=False
+            use_traffic_signs=True
         )
 
         decisionAgent = RLDecisionAgent(sensor_real, "251214_193711_TD3_Merope_chunk_12600.msh")
