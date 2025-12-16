@@ -477,11 +477,11 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             self.prev_lead_distance = distance[0]
 
         if self.ld_counter % 100 == 0:
-            self.prev_lead_distance = max(self.prev_lead_distance - 1,0)
+            self.prev_lead_distance = max(self.prev_lead_distance - 2,0)
 
         if self.counter_since_last_valid_radar==500:
             self.counter_since_last_valid_radar=0
-            self.prev_lead_distance=250.0
+            self.prev_lead_distance=500.0
 
         # print(lead_distance)
         self.ld_counter+=1
