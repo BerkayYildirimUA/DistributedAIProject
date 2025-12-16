@@ -420,7 +420,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self.frame_buffer=100
         self.speed_limit=self._ego.get_speed_limit()
         self.previous_tl_distance=250.0
-        self.prev_lead_distance=250.0
+        self.prev_lead_distance=0.0
         self.tl_counter=0.0
         self.ld_counter=0.0
         # Create Sensors
@@ -471,8 +471,9 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         else:
             lead_distance = distance[0]
             self.prev_lead_distance = distance[0]
+
         if self.ld_counter % 10:
-            self.prev_lead_distance = max(self.prev_lead_distance - 5,10)
+            self.prev_lead_distance = max(self.prev_lead_distance - 1,0)
         self.ld_counter+=1
             # self.prev_lead_distance = distance[0]
             # self.ld_counter = 0
@@ -555,8 +556,8 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         state= VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
-            lead_distance_m=max(lead_distance-5,0),
-            safe_following_distance_m=safe_distance,
+            lead_distance_m=lead_distance,
+            safe_following_distance_m=safe_distance+10,
             crash_intensity=0.0,
             light_color=traffic_light_color,
             light_dist_m=traffic_light_dist_m,
