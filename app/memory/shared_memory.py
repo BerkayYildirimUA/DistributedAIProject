@@ -86,6 +86,12 @@ class LaneTubeMemory(SharedMemory):
         dtype = np.float32
         super().__init__(filename, shape, dtype)
 
+class FrameIdMemory(SharedMemory):
+    def __init__(self):
+        filename = "FRAME_ID_MEMORY.dat"
+        shape = (1,)
+        dtype= np.int32
+        super().__init__(filename, shape, dtype)
 class TrafficSignMemory(SharedMemory):
     def __init__(self):
         filename = "TRAFFIC_SIGN_MEMORY.dat"
