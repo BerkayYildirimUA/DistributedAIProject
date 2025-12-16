@@ -300,8 +300,8 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self.use_traffic_lights = use_traffic_lights
 
         self.frame_buffer=100
-        self.speed_limit=60
-        self.previous_tl_distance=math.inf
+        self.speed_limit=self._ego.get_speed_limit()
+        self.previous_tl_distance=250.0
         self.prev_lead_distance=250.0
         self.tl_counter=0.0
         self.ld_counter=0.0
@@ -356,7 +356,9 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         # Traffic light color
         if self.use_traffic_lights:
-            traffic_light_dist_m = self.tl_distance_memory.read()
+            traffic_light_dist_m = self.tl_distance_memory.read()[0]
+            if np.isinf(traffic_light_dist_m):
+                traffic_light_dist_m=self.min_dist
             if not self.isvalid(traffic_light_dist_m):
                 traffic_light_dist_m=self.previous_tl_distance
                 self.tl_counter+=1
@@ -373,14 +375,16 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
                 traffic_light_color = LightColors.red
             else:
                 traffic_light_color = LightColors.orange
+
         else:
             traffic_light_dist_m = self.min_dist
             traffic_light_color = LightColors.green
 
         # Speed limit
         if self.use_traffic_signs:
-            ts = self.ts_memory.read()
+            ts = self.ts_memory.read()[0]
             if ts != -1:
+                print(f"SPEED SIGN USED: {ts}")
                 self.speed_limit=ts
             speed_limit=self.speed_limit
         else:
@@ -421,7 +425,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             light_speed_ms=speed_light_ms,
             steer_rad=steer_rad
         )
-        if self.counter % 20 == 0:
+        if self.counter % 300 == 0:
             print("Vison based")
             self.log_vehicle_state(state)
         return state
