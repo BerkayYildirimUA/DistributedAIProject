@@ -20,6 +20,8 @@ from mushroom_rl.policy import DeterministicPolicy
 import os
 import numpy as np
 from mushroom_rl.core import Agent
+
+from ACC.Utils.Logger import LossLogger
 from ACC.Utils.abstractions import AbstractDecisionAgent, StateSensor
 from ACC.Utils.abstractions import ActionsEnum
 from ACC.Utils.abstractions import VehicleState
@@ -39,7 +41,7 @@ class TD3Config:
     MAX_REPLAY_SIZE = 100_000
 
     # Timing / steps logic
-    LOOPS_PER_SECOND = int(554400 / 4800) #something on my PC specifically
+    LOOPS_PER_SECOND = int(110) #something on my PC specifically
 
 class TD3ActorNetwork(nn.Module):
     def __init__(self, input_shape, output_shape, **kwargs):
@@ -80,7 +82,7 @@ class TD3CriticNetwork(nn.Module):
         return self.net(x).squeeze(1)
 
 
-class ACC_TD3Agent(AbstractDecisionAgent):
+class ACC_TD3Agent():
 
     def __init__(self, args, load_model_name=None, scene=None):
         self.args = args
@@ -189,6 +191,8 @@ class ACC_TD3Agent(AbstractDecisionAgent):
         elif load_model_path is not None:
             logging.warning(f"Model path {load_model_path} not found! Starting from scratch.")
 
+        self.loss_logger = LossLogger(self.agent)
+
 
     def reset_buffer(self):
         if hasattr(self.agent, '_replay_memory'):
@@ -196,7 +200,7 @@ class ACC_TD3Agent(AbstractDecisionAgent):
             self.agent._replay_memory.reset()
 
     def _setup_core(self):
-        self.core = Core(self.agent, self.env, callbacks_fit=[self.dataset_callback])
+        self.core = Core(self.agent, self.env, callbacks_fit=[self.dataset_callback, self.loss_logger])
 
     def train(self, duration_seconds=None):
         if duration_seconds is None:
@@ -242,9 +246,6 @@ class ACC_TD3Agent(AbstractDecisionAgent):
         self.agent.save(save_path, full_save=True)
 
         return save_path
-
-    def make_decision(self, temp) -> carla.VehicleControl:
-        pass
 
     def close(self):
         if self.env:

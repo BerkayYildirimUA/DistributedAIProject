@@ -70,7 +70,7 @@ def training_loop(args):
 
             (
             #loop_info(2 * 60 * 60, f"speed_lead_lights_r_{args.model_nr}"),
-                loop_info(4 * 60 * 60, f"Asterope"),
+                loop_info(6 * 60 * 60, f"Shaula"),
                 Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,

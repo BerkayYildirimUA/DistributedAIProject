@@ -10,7 +10,7 @@ from ACC.Engine.scenario import Scenario
 from ACC.Engine.start_words import CarlaServerManager
 from ACC.Utils.Sensors import CarlaVBWorldStateSensor, CarlaWorldStateSensor
 from ACC.Agents.SimpleAgent import SimpleAccAgent
-from ACC.Engine.engine import Engine
+from ACC.Engine.engine import Engine, SingletonLightState
 from app.memory.shared_memory import VehicleStateMemory
 
 from ACC.Agents.RLAgents import RLDecisionAgent
@@ -37,7 +37,7 @@ maybe change action space center if need be, like 0 =! do nothing, perhabs.
 
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=0, lead_car_bp_name='vehicle.tesla.model3')
+                     map_name=args.map, number_of_npc=0 , lead_car_bp_name='vehicle.tesla.model3')
     engine = Engine(args, scene)
 
     try:
@@ -49,7 +49,9 @@ def main_loop(args):
         # sensor and agent Setup (Real World)
         #sensor_real = CarlaVBWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
         sensor_real =  CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
-        decisionAgent = RLDecisionAgent(sensor_real, "251214_193711_TD3_Merope_chunk_12600.msh")
+        decisionAgent = RLDecisionAgent(sensor_real, "251216_114159_TD3_Shaula_chunk_25200.msh")
+
+        SingletonLightState().set_always_green(False)
 
         crash_detected = False
         frames_after_crash = 0
