@@ -6,72 +6,57 @@ import sys, os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import app.constants as constants
 # https://medium.com/@zain.18j2000/how-to-use-your-yolov11-model-with-onnx-runtime-69f4ea243c01
+# this class is the 'front-end' of the computer vision module, it takes one RGB frame coming from CARLA and
+# returns bounding boxes, class IDs and confidence scores for all detected objects. And because tracking is enabled,
+# it tries to keep the same ID across frames instead of being treated as a brand new object every frame.
 
 class ObjectDetector:
     def __init__(self, use_tracking = True):
         # Initialize model
-        print("CUDA:", torch.cuda.is_available())
-        self.model = YOLO("app/resources/best6.pt")
-        self.classes = constants.OBJECT_CLASS_NAMES
+        print("CUDA:", torch.cuda.is_available())   # check if GPU used
+        self.model = YOLO("app/resources/best6.pt") # load the trained model
+        self.classes = constants.OBJECT_CLASS_NAMES # storing the class names from constants
         self.input_size = 640
 
         # tracking
         self.use_tracking = use_tracking
-        self.tracker_cfg = "bytetrack.yaml" # ultralytics built-in tracker
-        self.conf_default = 0.15
-        self.nms_iou = 0.5
-
-        # EMA smoothing per track-id
-        self.ema_beta = 0.70  # 0 = no smoothing; closer to 1 = more smoothing (slower to react)
-        self.track_history = {}  # id -> np.array([x1,y1,x2,y2])
+        self.tracker_cfg = "bytetrack.yaml"         # ultralytics built-in tracker
+        self.conf_default = 0.15                    # confidence threshold
 
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.last_track_ids = torch.empty(0, dtype=torch.long)
-
-    # small helper for smoothing
-    def _ema_smooth(self, boxes_xyxy: torch.Tensor, ids: torch.Tensor) -> torch.Tensor:
-        if boxes_xyxy.numel() == 0 or ids is None or ids.numel() == 0:
-            return boxes_xyxy
-        out = []
-        for i in range(boxes_xyxy.shape[0]):
-            box = boxes_xyxy[i].cpu().numpy()
-            tid = int(ids[i].item())
-            if tid in self.track_history:
-                prev = self.track_history[tid]
-                box = self.ema_beta * prev + (1.0 - self.ema_beta) * box
-            self.track_history[tid] = box
-            out.append(box)
-        return torch.tensor(np.stack(out), dtype=boxes_xyxy.dtype)
+        self.last_track_ids = torch.empty(0, dtype=torch.long) # This is where you store the track IDs from the last processed frame.
+                                                               # If there are no detections, it stays empty.
 
     # Convert frame to correct input format for yolo
     def preprocess_frame(self,frame):
         frame_w, frame_h = frame.shape[1], frame.shape[0]
         return frame, frame_w, frame_h
 
-    def get_objects(self, frame, conf_threshold=0.1):
+    # this main method is called every frame
+    def get_objects(self, frame, conf_threshold=0.15):
         # use class default if None was passed
         conf = self.conf_default if conf_threshold is None else conf_threshold
 
-        # Detect (with tracking if enabled)
+        # Detect if tracking enabled
         if self.use_tracking:
-            results = self.model.track(
+            results = self.model.track(     # this runs YOLO detection on the frame and then runs ByteTrack to associate detections with previous frame detections and assign IDs
                 source=frame,
                 device=self.device,
-                conf=conf,
-                iou=0.5,
-                persist=True,  # keep identities over frames
-                tracker=self.tracker_cfg,
-                verbose=False,
+                conf=conf,                  # this filters out low-confidence detections
+                iou=0.3,
+                persist=True,               # this tells Ultralytics to keep the tracker state across frames so ID's stay consistent over time
+                tracker=self.tracker_cfg,   # bytetrack chosen here
+                verbose=False,              # don't print all those ouputs/logs (timings, tracker info, preprocess/inference speeds...)
             )
         else:
-            results = self.model.predict(
+            results = self.model.predict(   # if tracking is disabled, we just use pure detection: boxes + classes + confidences and no IDs
                 source=frame,
                 device=self.device,
                 conf=conf,
                 verbose=False,
             )
 
-        if len(results) == 0 or len(results[0].boxes) == 0:
+        if len(results) == 0 or len(results[0].boxes) == 0:         # if nothing found then return empty tensors
             self.last_track_ids = torch.empty(0, dtype=torch.long)
             # No detections
             return torch.empty((0, 4)), torch.empty((0,), dtype=torch.long), torch.empty((0,))
@@ -81,22 +66,9 @@ class ObjectDetector:
         scores = results[0].boxes.conf.cpu()  # shape: (N,)
         class_ids = results[0].boxes.cls.cpu().long()  # shape: (N,)
 
-        # tracker IDs (if available)
+        # Track IDs (only exist in track mode)
         ids = results[0].boxes.id
-        ids = ids.cpu().long() if ids is not None else None
-
-        # Apply Non-Maximum Suppression (NMS) to remove overlapping boxes
-        keep_indices = torchvision.ops.nms(boxes_xyxy, scores, iou_threshold=self.nms_iou)
-        boxes_xyxy = boxes_xyxy[keep_indices]
-        scores = scores[keep_indices]
-        class_ids = class_ids[keep_indices]
-
-        # Optional EMA smoothing if we have track IDs
-        if ids is not None:
-            ids = ids[keep_indices]
-            boxes_xyxy = self._ema_smooth(boxes_xyxy, ids)
-            self.last_track_ids = ids
-        else:
-            self.last_track_ids = torch.empty(0, dtype=torch.long)
+        ids = ids.cpu().long() if ids is not None else torch.empty((0,), dtype=torch.long)
+        self.last_track_ids = ids
 
         return boxes_xyxy, class_ids, scores

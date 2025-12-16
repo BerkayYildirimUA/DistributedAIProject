@@ -14,11 +14,19 @@ if __name__=='__main__':
     model = YOLO("runs/detect/train_all_640_m/weights/best.pt")
 
     # Evaluate on test set
-    model.val(
+    metrics = model.val(
         data="data.yaml",
         task="test",  # run on test set instead of val
-        imgsz=640,
-        save=True , # saves predictions to runs/val,
+        imgsz=832,
+        save=True , # saves predictions
     )
+    # logging summary
+    print({
+        "map50-95": metrics.box.map,  # mAP@[.5:.95]
+        "map50": metrics.box.map50,  # mAP@0.50
+        "map75": metrics.box.map75,  # mAP@0.75
+        "precision": metrics.box.p,
+        "recall": metrics.box.r,
+    })
 
 

@@ -66,7 +66,7 @@ class World:
             self.world.try_spawn_actor(random.choice(self.get_vehicle_bps()), random.choice(spawn_points))
 
     # -------------------------
-    # NEW: pedestrians (walkers)
+    # pedestrians (walkers)
     # -------------------------
     def spawn_pedestrians(self, num_walkers=40):
         bp_lib = self.world.get_blueprint_library()
@@ -75,13 +75,13 @@ class World:
 
         spawned = 0
         while spawned < num_walkers:
-            # kies een random nav-mesh locatie
+            # choosing random location
             loc = self.world.get_random_location_from_navigation()
             if not loc:
                 continue
             w_bp = random.choice(walker_bps)
 
-            # maak ze niet onsterfelijk zodat ze reageren op verkeer
+            # they react to traffic so we should make them not invincible
             if w_bp.has_attribute('is_invincible'):
                 w_bp.set_attribute('is_invincible', 'false')
 
@@ -89,16 +89,16 @@ class World:
                 walker = self.world.spawn_actor(w_bp, carla.Transform(loc))
                 controller = self.world.spawn_actor(controller_bp, carla.Transform(), attach_to=walker)
 
-                # start eenvoudige AI: loop naar random bestemming met normale loopsnelheid
+                # easy AI: walks toward random destination with a walking speed (hard coded here to 1.4 m/s)
                 controller.start()
                 controller.go_to_location(self.world.get_random_location_from_navigation())
-                controller.set_max_speed(1.4)  # ~1.4 m/s = normale wandeltempo
+                controller.set_max_speed(1.4)  # ~1.4 m/s
 
                 self.walkers.append(walker)
                 self.walker_controllers.append(controller)
                 spawned += 1
             except RuntimeError:
-                # probeer gewoon een andere locatie
+                # try another location
                 continue
 
     def create_and_spawn_ego_vehicle(self):

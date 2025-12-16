@@ -24,17 +24,6 @@ def camera_callback(image):
     frame_send_to_inference = cv2.cvtColor(new_frame, cv2.COLOR_BGR2RGB)
     rgb_camera_memory.write(frame_send_to_inference)
 
-# Callback to calculate depth map in meters
-def depth_callback(image):
-    test = "a"
-    # array = np.frombuffer(image.raw_data, dtype=np.uint8).reshape((image.height, image.width, 4))
-    # b = array[:, :, 0].astype(np.float32)
-    # g = array[:, :, 1].astype(np.float32)
-    # r = array[:, :, 2].astype(np.float32)
-    # normalized_depth = (r + g * 256.0 + b * 256.0 * 256.0) / (256.0**3 - 1)
-    # depth_meters = normalized_depth * 1000.0
-    # depht_camera_memory.write(depth_meters)
-
 # Radar callback (manual_control.py logic from PythonAPI/examples)
 def radar_callback(radar_data):
     if world.rgb_camera is None:
@@ -103,15 +92,6 @@ def process_rgb_images():
             camera_callback(image_carla)
         except queue.Empty:
             continue
-
-def process_depth_images():
-    while True:
-        try:
-            test = "a"
-            #depth_image = depth_camera_queue.get(timeout=1.0)
-            #depth_callback(depth_image)
-        except queue.Empty:
-            continue
     
 def process_radar_data():
     while True:
@@ -121,13 +101,10 @@ def process_radar_data():
         except queue.Empty:
             continue
 
-
-
 if __name__ == "__main__":
     # Create carla world and memory buffers
     world = World()
     rgb_camera_memory = RGBCameraMemory().get_write_access()
-    #depht_camera_memory = DepthCameraMemory().get_write_access()
     vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
     radar_memory = RadarMemory().get_write_access()
     camera_calibration_memory = CameraCalibrationMemory().get_write_access()
@@ -148,10 +125,8 @@ if __name__ == "__main__":
 
     # Start threads
     rgb_thread = threading.Thread(target=process_rgb_images, daemon=True)
-    depth_thread = threading.Thread(target=process_depth_images, daemon=True)
     radar_thread = threading.Thread(target=process_radar_data, daemon=True)
     rgb_thread.start()
-    depth_thread.start()
     radar_thread.start()
 
     try:
@@ -166,7 +141,7 @@ if __name__ == "__main__":
                 # ctrl.steer is in [-1,1] => we scale it to radians
                 steer_rad = -float(ctrl.steer) * MAX_STEER_RAD                  # calculating the steer angle
 
-                vehicle_state_memory.write(np.array([speed_ms, steer_rad], dtype=np.float32))
+                vehicle_state_memory.write(np.array([speed_ms, steer_rad], dtype=np.float32)) # I save it for motion tubes later to draw the lines
 
                 # Fetch CARLA ground-truth of object detection and distance to vehicle in front
                 object_count = objects_in_front_calculator.count_objects_in_front()
