@@ -420,7 +420,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self.frame_buffer=100
         self.speed_limit=self._ego.get_speed_limit()
         self.previous_tl_distance=250.0
-        self.prev_lead_distance=0.0
+        self.prev_lead_distance=250.0
         self.tl_counter=0.0
         self.ld_counter=0.0
         # Create Sensors
@@ -471,13 +471,13 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             print(self.prev_lead_distance)
 
             lead_distance=self.prev_lead_distance
-            self.ld_counter+=1
-            if self.ld_counter >= self.frame_buffer:
-                if self.prev_lead_distance <= 50.0:
-                    self.prev_lead_distance=0.0
-                else:
-                    self.prev_lead_distance=self.min_dist
-                self.ld_counter=0.0
+            # self.ld_counter+=1
+            # if self.ld_counter >= self.frame_buffer:
+                # if self.prev_lead_distance <= 50.0:
+                #     self.prev_lead_distance=0.0
+                # else:
+                #     self.prev_lead_distance=self.min_dist
+                # self.ld_counter=0.0
         else:
             self.prev_lead_distance = distance[0]
             lead_distance = distance[0]
