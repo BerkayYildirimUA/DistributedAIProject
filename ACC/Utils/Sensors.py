@@ -442,6 +442,8 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         self.start_sensor_threads()
 
+        self.counter_since_last_valid_radar=0
+
 
     def cleanup(self):
         pass
@@ -468,12 +470,17 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # We buffer the previous value for 100 frames, after that we use the default
         if np.isinf(distance[0]):
             lead_distance = self.prev_lead_distance
+            self.counter_since_last_valid_radar+=1
         else:
+            self.counter_since_last_valid_radar=0
             lead_distance = distance[0]
             self.prev_lead_distance = distance[0]
 
         if self.ld_counter % 100 == 0:
             self.prev_lead_distance = max(self.prev_lead_distance - 1,0)
+        if self.counter_since_last_valid_radar==100:
+            self.counter_since_last_valid_radar=0
+            self.prev_tl_distance=250.0
         print(lead_distance)
         self.ld_counter+=1
             # self.prev_lead_distance = distance[0]
