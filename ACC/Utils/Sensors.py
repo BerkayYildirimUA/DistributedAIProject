@@ -464,6 +464,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
 
         # Read distance from radar out of shared memory
         distance= self.vehicle_distance_memory.read()
+        print("DEBUG",distance)
         # Keep track of previous distance and use it in case radar returns inf values
         # We buffer the previous value for 100 frames, after that we use the default
         if np.isinf(distance[0]):
