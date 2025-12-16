@@ -80,7 +80,7 @@ def main_loop(args):
         )
 
         decisionAgent = RLDecisionAgent(sensor_real, "251214_193711_TD3_Merope_chunk_12600.msh")
-        SingletonLightState().set_always_green(False) # <--- to set ground truth data
+        SingletonLightState().set_always_green(True) # <--- to set ground truth data
 
         #Initialize Pygame HUD Display
         pygame.init() #initialize pygame modules
