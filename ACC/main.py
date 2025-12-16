@@ -72,13 +72,12 @@ def main_loop(args):
         # - one to collect the ground truth info from the carla simulator itself
         # - one to pass the current state to the RL agent
         sensor_ground_truth =  CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
-        sensor_real=CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
-        # sensor_real = CarlaVBWorldStateSensor(
-        #     engine.ego.real,
-        #     engine.duo_world.get_real_world(),
-        #     use_traffic_lights=False,
-        #     use_traffic_signs=False
-        # )
+        sensor_real = CarlaVBWorldStateSensor(
+            engine.ego.real,
+            engine.duo_world.get_real_world(),
+            use_traffic_lights=False,
+            use_traffic_signs=False
+        )
 
         decisionAgent = RLDecisionAgent(sensor_real, "251214_193711_TD3_Merope_chunk_12600.msh")
         SingletonLightState().set_always_green(True) # <--- to set ground truth data
