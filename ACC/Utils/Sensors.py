@@ -468,7 +468,10 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # Keep track of previous distance and use it in case radar returns inf values
         # We buffer the previous value for 100 frames, after that we use the default
         if np.isinf(distance[0]):
-            lead_distance=self.prev_lead_distance
+            if self.prev_lead_distance <= 50:
+                lead_distance=0.0
+            else:
+                lead_distance=self.prev_lead_distance
             self.ld_counter+=1
             if self.ld_counter >= self.frame_buffer:
                 self.prev_lead_distance=self.min_dist
@@ -541,7 +544,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         state= VehicleState(
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
-            lead_distance_m=lead_distance-10,
+            lead_distance_m=lead_distance,
             safe_following_distance_m=safe_distance,
             crash_intensity=0.0,
             light_color=traffic_light_color,
