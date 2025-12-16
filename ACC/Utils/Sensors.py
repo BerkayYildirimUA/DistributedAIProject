@@ -473,11 +473,11 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             self.counter_since_last_valid_radar+=1
         else:
             self.counter_since_last_valid_radar=0
-            lead_distance = distance[0]-2
-            self.prev_lead_distance = distance[0]-2
+            lead_distance = distance[0]-3
+            self.prev_lead_distance = distance[0]-3
 
         # if self.ld_counter % 10 == 0:
-        self.prev_lead_distance = max(self.prev_lead_distance - 0.2,0)
+        self.prev_lead_distance = max(self.prev_lead_distance - 0.25,0)
 
         if self.counter_since_last_valid_radar>=50 and ego_velocity_ms > 2:
             self.counter_since_last_valid_radar=0
@@ -567,7 +567,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             speed_ms=ego_velocity_ms,
             speed_limit_ms=speed_limit/3.6,
             lead_distance_m=lead_distance,
-            safe_following_distance_m=safe_distance,
+            safe_following_distance_m=safe_distance+10,
             crash_intensity=0.0,
             light_color=traffic_light_color,
             light_dist_m=traffic_light_dist_m,
