@@ -9,7 +9,6 @@ import carla
 from IPython.core.inputtransformer2 import leading_empty_lines
 import math
 import logging
-import keyboard
 import numpy as np
 
 from jedi.debug import speed
