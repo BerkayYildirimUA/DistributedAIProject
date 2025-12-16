@@ -484,7 +484,6 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
             self.prev_lead_distance=250.0
 
         print(lead_distance)
-        print(f"real: {super().get_state().lead_distance_m}")
         self.ld_counter+=1
             # self.prev_lead_distance = distance[0]
             # self.ld_counter = 0

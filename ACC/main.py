@@ -72,11 +72,11 @@ def main_loop(args):
         # - one to collect the ground truth info from the carla simulator itself
         # - one to pass the current state to the RL agent
         sensor_ground_truth =  CarlaWorldStateSensor(engine.ego.real, engine.duo_world.get_real_world())
-        sensor_real = CarlaVBWorldStateSensor(
+        sensor_real = CarlaWorldStateSensor(
             engine.ego.real,
             engine.duo_world.get_real_world(),
-            use_traffic_lights=False,
-            use_traffic_signs=False
+            # use_traffic_lights=False,
+            # use_traffic_signs=False
         )
 
         decisionAgent = RLDecisionAgent(sensor_real, "251214_193711_TD3_Merope_chunk_12600.msh")
@@ -268,7 +268,7 @@ def main_loop(args):
                 frame_id=frame_id,
                 ground_truth_pedestrians=int(GT_pedestrian_count),
             )
-            
+            print(f"{real_ego_state.lead_distance_m} vs {ground_truth_state.lead_distance_m}")
              # Render all components
             display.fill((0, 0, 0))  # Clear the screen (assuming black background)
 
