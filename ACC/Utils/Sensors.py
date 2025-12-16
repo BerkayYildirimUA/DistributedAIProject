@@ -541,14 +541,17 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         else:
             speed_limit = self._ego.get_speed_limit()
 
-        # G-force
-        self._g_force_ego_calculator.update_speed(ego_velocity_ms)
-        self._relative_speed_lead_calculator.update_speed(distance[0])
-        self._speed_light_calculator.update_speed(traffic_light_dist_m)
 
-        ego_g_force = self._g_force_ego_calculator.get_latest_value()
-        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_value()
-        speed_light_ms = self._speed_light_calculator.get_latest_value()
+        # Update calculators
+        ego_g_force, relative_speed_ms, speed_light_ms = self.get_differentials(ego_velocity_ms, lead_distance,
+                                                                                traffic_light_dist_m)
+        # self._g_force_ego_calculator.update_speed(ego_velocity_ms)
+        # self._relative_speed_lead_calculator.update_speed(distance[0])
+        # self._speed_light_calculator.update_speed(traffic_light_dist_m)
+        #
+        # ego_g_force = self._g_force_ego_calculator.get_latest_value()
+        # relative_speed_ms = self._relative_speed_lead_calculator.get_latest_value()
+        # speed_light_ms = self._speed_light_calculator.get_latest_value()
 
         if not self.isvalid(ego_g_force):
             ego_g_force = 0.0
