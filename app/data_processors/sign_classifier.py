@@ -20,7 +20,7 @@ class SignClassifier:
         # Load checkpoint into model
         # Directory where THIS script is located
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(base_dir, "model", "sign_text_classifier_best.pth")
+        model_path = os.path.join(base_dir, "model", "sign_text_classifier_best2.pth")
         checkpoint = torch.load(model_path, map_location=self.device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
 
