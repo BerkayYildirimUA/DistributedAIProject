@@ -70,7 +70,7 @@ class MotionTubeProjector:
         kappa = np.tan(steer) / self.wb  # curvature formulas, see also separate documentation
         if abs(kappa) < 1e-6:
             x = s
-            y = 0
+            y = np.zeros_like(s)
         else:
             x = np.sin(kappa * s) / kappa
             y = (1.0 - np.cos(kappa * s)) / kappa
