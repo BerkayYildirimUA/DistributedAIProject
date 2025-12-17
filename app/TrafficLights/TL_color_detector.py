@@ -258,7 +258,7 @@ class TL_color_detector:
         scores = conf.to(torch.float32)
         out_boxes = torch.tensor(out_boxes, dtype=torch.float32)
 
-        # ---- per-TL color labels ----
+        # per TL color labels
         tl_colors = []
         for i in class_ids:
             tl_colors.append(self.classes[int(i)])
