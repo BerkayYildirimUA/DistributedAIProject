@@ -406,7 +406,7 @@ class Engine():
             # --- LEAD ---
             lead_is_not_skipped = True
             if self.args.do_train:
-                lead_is_not_skipped = random.random() > 0.50
+                lead_is_not_skipped = random.random() > 0.5
                 if lead_is_not_skipped:
                     logging.info(f"Skipped Lead!")
 
@@ -846,8 +846,8 @@ class Engine():
 
             lead_is_not_skipped = True
             if self.args.do_train:
-                lead_is_not_skipped = random.random() > 0.50
-                if lead_is_not_skipped:
+                lead_is_not_skipped = random.random() > 0.5
+                if not lead_is_not_skipped:
                     logging.info(f"Skipped Lead!")
 
 

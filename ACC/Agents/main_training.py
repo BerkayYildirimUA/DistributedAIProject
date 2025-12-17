@@ -70,7 +70,7 @@ def training_loop(args):
 
             (
             #loop_info(2 * 60 * 60, f"speed_lead_lights_r_{args.model_nr}"),
-                loop_info(2 * 60 * 60, f"Shaula"),
+                loop_info(10 * 60, f"Shaula"),
                 Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
@@ -86,7 +86,7 @@ def training_loop(args):
         )
     ]
 
-    current_model_name = "251217_032957_TD3_Shaula_chunk_14400.msh"
+    current_model_name = "251217_112616_TD3_Shaula_chunk_900.msh"
 
     chunk_duration_seconds = 400 * 60 * 60 #doesn't work anymore (something about the traffic lights just makes it crash), deleting would be to much work. Just make it bigger than training time.
 

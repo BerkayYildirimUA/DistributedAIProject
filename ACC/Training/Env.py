@@ -257,7 +257,6 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         #self.engine.ego.real
         #self.__g_force_calculator.update_speed(state.speed)
         #g_force = self.__g_force_calculator.get_latest_g_force()
-        # TODO change light stop dist to 25m
 
         rewards_dict = self.eng_scene.rewards
         #print(rewards_dict)
@@ -272,7 +271,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         W_COMFORT = 0.8
         W_LIGHT = 1.3
 
-        P_CRASH_BASE = -20.0
+        P_CRASH_BASE = -50.0
 
         r_crash = 0.0
         r_speed = 0.0
@@ -291,14 +290,14 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         ############### CRASH ###############
         if use_crash:
-            is_red_violation = state.light_dist_m < 0.01 and (state.light_color in [LightColors.red])
+            is_red_violation = state.light_dist_m < 2.5 and (state.light_color in [LightColors.red])
             if (min_obstacle_dist < DANGER_ZONE_START and state.speed_ms > 1) or (min_obstacle_dist < DANGER_ZONE_END) or is_red_violation:
 
                 penetration = max(0, (DANGER_ZONE_START - min_obstacle_dist)) / DANGER_ZONE_START
 
                 r_crash = -2.0 * penetration * 4
                 if state.crash_intensity > 0.0 or is_red_violation:
-                    intensity_penalty = min(state.crash_intensity / 50000, 1.0) if state.crash_intensity > 0 else 1.0
+                    intensity_penalty = min(state.crash_intensity / 50000, 1.0) if state.crash_intensity > 0 else state.speed_ms/10
                     r_crash = P_CRASH_BASE - intensity_penalty
                     if is_red_violation:
                         logging.info(f"Red Light! ({r_crash})")
@@ -388,7 +387,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         total_reward = r_speed + r_dist + r_comfort + r_light + r_crash
 
-        total_reward = max(min(total_reward, 20.0), -30.0)
+        total_reward = max(min(total_reward, 25.0), -150.0)
 
         components = {
             "Reward/Total": total_reward,
@@ -487,7 +486,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 terminated = True
             state.steering_dir = steering_dir
 
-            if state.light_color in [LightColors.red] and state.light_dist_m < 2.5 and state.speed_ms > 0.5:
+            if state.light_color in [LightColors.red] and state.light_dist_m < 2.5:
                 logging.info(f"Red Light Violation! Dist: {state.light_dist_m:.2f}")
                 terminated = True
 
