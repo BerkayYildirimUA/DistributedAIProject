@@ -347,8 +347,8 @@ class DoubleRLDecisionAgent(AbstractDecisionAgent):
         action1 = array_to_action(raw_action_1)
         action2 = array_to_action(raw_action_2)
 
-        throttle = min(action1[ActionsEnum.throttle], action1[ActionsEnum.throttle])
-        brake = max(action1[ActionsEnum.brake], action1[ActionsEnum.brake])
+        throttle = min(action1[ActionsEnum.throttle], action2[ActionsEnum.throttle])
+        brake = max(action1[ActionsEnum.brake], action2[ActionsEnum.brake])
 
         final_control = carla.VehicleControl(
             throttle=throttle,
