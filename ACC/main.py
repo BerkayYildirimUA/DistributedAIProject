@@ -80,6 +80,7 @@ def main_loop(args):
             use_traffic_lights=True,
             use_traffic_signs=True
         )
+        sensor_real=sensor_ground_truth
 
         # decisionAgent = RLDecisionAgent(sensor_real, "251217_032957_TD3_Shaula_chunk_14400.msh")
         decisionAgent = DoubleRLDecisionAgent(
