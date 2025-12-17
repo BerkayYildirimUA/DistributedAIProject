@@ -71,7 +71,7 @@ class POVVisualiser:
             color_map = {"green": (0, 255, 0) ,"yellow": (0, 255, 255), "red": (0, 0, 255)}
             cv2.rectangle(frame, (x1, y1), (x2, y2), color_map[color], 2)
 
-            # place TL color above the class label (which is at y1-5)
+            # places TL color above the class label (which is at y1-5)
             label = f"{color} {conf:.2f}"
             (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
             y_top = max(0, y1 - 5 - th - 4)  # a bit higher than the class text
@@ -133,4 +133,5 @@ class POVVisualiser:
         cv2.waitKey(1)
 
     def cleanup(self):
+
         cv2.destroyAllWindows()
