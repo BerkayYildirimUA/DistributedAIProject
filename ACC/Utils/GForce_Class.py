@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 
-class GForceCalculator:
+class Differentiator:
     """
     This class calculates the G-force of a vehicle over time while it accelerates in CARLA.
     """
@@ -52,17 +52,14 @@ class GForceCalculator:
                 # Calculate acceleration
                 acceleration = delta_v / delta_t
 
-                # Calculate G-force
-                g_force = acceleration / 9.81
-
                 # Store the G-force value
-                self.g_force_values.append(g_force)
+                self.g_force_values.append(acceleration)
 
             # Keep only the last few speeds to keep processing efficiently
             self.speed_history = self.speed_history[-portion_size:]
 
 
-    def get_g_forces(self) ->  Optional[List[float]]:
+    def get_values(self) ->  Optional[List[float]]:
         """
         Returns the list of all calculated G-force values.
         """
@@ -71,7 +68,7 @@ class GForceCalculator:
 
         return self.g_force_values
 
-    def get_latest_g_force(self) -> Optional[float]:
+    def get_latest_value(self) -> Optional[float]:
         """
         Returns the list of all calculated G-force values.
         """
@@ -83,7 +80,7 @@ class GForceCalculator:
 
 if __name__ == '__main__':
     # Example of how this class could be used
-    calculator = GForceCalculator(1)
+    calculator = Differentiator(1)
 
     # Simulating speed readings over time
     speeds = [0, 5, 10, 15, 20, 31, 30, 35, 40, 45]  # in m/s

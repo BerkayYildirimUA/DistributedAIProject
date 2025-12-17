@@ -54,3 +54,7 @@ This data can be visualized to evaluate agent performance using the following co
 python -m ACC.export_metrics
 ````
 This will generate images containing plots of the collected metrics, which will be saved in the root directory.
+## Documentation
+Additional documentation can be found in directory ``documentation``.
+## Demo video
+A demonstation video of the project can be found here:  [demo video](https://youtu.be/aEYZUimxtJ4).

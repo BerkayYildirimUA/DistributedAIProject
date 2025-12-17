@@ -3,20 +3,24 @@ import random
 import threading
 import time
 import weakref
+import cv2
 
 import carla
-import cv2
-from carla import Vector3D
+from IPython.core.inputtransformer2 import leading_empty_lines
 import math
 import logging
 import numpy as np
-from typing_extensions import override
 
-from ACC.Utils.GForce_Class import GForceCalculator
+from jedi.debug import speed
+
+from ACC.Engine.engine import SingletonLightState
+from ACC.Utils.GForce_Class import Differentiator
 from ACC.Utils.abstractions import StateSensor, UI, VehicleState, LightColors
 import app.constants  as constants
 from app.memory.shared_memory import RGBCameraMemory, VehicleDistanceMemory, RadarMemory, CameraCalibrationMemory, \
     TrafficLightMemory, TrafficSignMemory, TrafficLightDistanceMemory
+from typing_extensions import override
+
 
 
 class CarlaWorldStateSensor(StateSensor):
@@ -33,9 +37,9 @@ class CarlaWorldStateSensor(StateSensor):
         self.override_speed_limit = False
         self.speed_limit = 0
 
-        self._g_force_ego_calculator = GForceCalculator(self._world.get_settings().fixed_delta_seconds)
-        self._relative_speed_lead_calculator = GForceCalculator(self._world.get_settings().fixed_delta_seconds)
-        self._speed_light_calculator = GForceCalculator(self._world.get_settings().fixed_delta_seconds)
+        self._g_force_ego_calculator = Differentiator(self._world.get_settings().fixed_delta_seconds)
+        self._relative_speed_lead_calculator = Differentiator(self._world.get_settings().fixed_delta_seconds)
+        self._speed_light_calculator = Differentiator(self._world.get_settings().fixed_delta_seconds)
 
         self.min_dist = 250
 
@@ -46,7 +50,7 @@ class CarlaWorldStateSensor(StateSensor):
 
     def log_vehicle_state(self,state:VehicleState):
         logging.info(
-            f"speed: {state.speed_ms * 3.6:.2f}fkm/h, speed limit: {state.speed_limit_ms*3.6:.2f} km/h, distance to nearest: {state.lead_distance_m:.2f}m, safe dist: {state.safe_following_distance_m:.2f}m,traffic light color: {state.light_color}, traffic light distance: {state.light_dist_m:.2f}m, CRASH: {state.crash_intensity}, g-forces:{state.g_force_ego}, {state.relative_speed_ms}, {state.light_speed_ms}")
+            f"speed: {state.speed_ms * 3.6:.2f}km/h, speed limit: {state.speed_limit_ms*3.6:.2f} km/h, distance to nearest: {state.lead_distance_m:.2f}m, safe dist: {state.safe_following_distance_m:.2f}m,traffic light color: {state.light_color}, traffic light distance: {state.light_dist_m:.2f}m, CRASH: {state.crash_intensity}, g-forces:{state.g_force_ego}, {state.relative_speed_ms}, {state.light_speed_ms}")
 
     def cleanup(self):
 
@@ -64,71 +68,176 @@ class CarlaWorldStateSensor(StateSensor):
 
     def _get_light_color_enum(self, carla_state):
         """Maps CARLA TrafficLightState to LightColors Enum"""
+
+        temp = SingletonLightState().get_state()
+        if temp != "OFF":
+            carla_state = temp
+
         if carla_state == carla.TrafficLightState.Red:
             return LightColors.red
         elif carla_state == carla.TrafficLightState.Yellow:
             return LightColors.orange
-        else:
+        elif carla_state == carla.TrafficLightState.Green:
             return LightColors.green
+        return None
+
+    def _light_up_actor_box(self, actor : carla.TrafficLight):
+
+        box = actor.bounding_box
+        actor_transform = actor.get_transform()
+
+        box.location = actor_transform.transform(box.location)
+
+        carla_state = actor.get_state()
+        training_state = SingletonLightState().get_state()
+        if training_state != "OFF":
+            carla_state = training_state
+
+        r = 1 if carla_state == carla.TrafficLightState.Red else 0
+        g = 1 if carla_state == carla.TrafficLightState.Green else 0
+        y = 1 if carla_state == carla.TrafficLightState.Yellow else 0
 
 
-    def _get_trafficlight(self, ego_waypoint):
-        landmarks = ego_waypoint.get_landmarks_of_type(600.0, "1000001", stop_at_junction=False)
+        # 2. Draw the box using the debug helper.
+        # We use a Green color (0, 255, 0) and thickness to create the 'glow' effect.
+        self._world.debug.draw_box(
+            box=box,
+            rotation=actor_transform.rotation,  # Orient the box to match the actor
+            thickness=0.1,  # Thicker lines for a "glow" effect
+            color=carla.Color(r, g,  y),  # Christmas Green
+            life_time=0.1  # Short lifetime for continuous updates
+        )
 
-        target_light_actor = None
+    def _get_trafficlight_simple(self, ego_loc, ego_forward):
+        """Find traffic light using CARLA's built-in methods + spatial search"""
 
+        # Method 1: CARLA's built-in (works when close to junction)
+        try:
+            if self._ego.is_at_traffic_light():
+                light = self._ego.get_traffic_light()
+                if light and light.is_alive:
+                    return light
+        except Exception:
+            pass
 
-        if landmarks:
-            target_landmark = landmarks[0]
-            landmark_loc = target_landmark.transform.location
+        # Method 2: Spatial search for lights ahead of us
+        current_frame = self._world.get_snapshot().frame if self._world else 0
+        if (self._cached_traffic_lights is None or
+                current_frame - self._traffic_light_cache_frame > 5):
+            try:
+                self._cached_traffic_lights = list(self._world.get_actors().filter('traffic.traffic_light'))
+                self._traffic_light_cache_frame = current_frame
+            except Exception:
+                self._cached_traffic_lights = []
 
-            current_frame = self._world.get_snapshot().frame if self._world else 0
-            if (self._cached_traffic_lights is None or
-                    current_frame - self._traffic_light_cache_frame > 5):
-                try:
-                    self._cached_traffic_lights = list(self._world.get_actors().filter('traffic.traffic_light'))
-                    self._traffic_light_cache_frame = current_frame
-                except Exception:
-                    self._cached_traffic_lights = []
+        best_light = None
+        best_dist = self.min_dist
 
-
-            closest_dist = float('inf')
-
-            for tl_actor in self._cached_traffic_lights:
-                try:
-                    if not tl_actor.is_alive:
-                        continue
-
-                    dist = tl_actor.get_location().distance(landmark_loc)
-
-                    if dist < 2.0:
-                        target_light_actor = tl_actor
-                        break
-
-                    if dist < closest_dist:
-                        closest_dist = dist
-                except RuntimeError:
-                    # Actor was destroyed between check and access
+        for tl_actor in self._cached_traffic_lights:
+            try:
+                if not tl_actor.is_alive:
                     continue
 
-        return target_light_actor
+                # Get BB and transform center to world space
+                bb = tl_actor.bounding_box
+                actor_transform = tl_actor.get_transform()
+                bb_center = actor_transform.transform(bb.location)
 
-    def _safe_get_vehicle_data(self, vehicle, ego_loc):
-        """Safely get vehicle distance (BUMPER-TO-BUMPER) and transform"""
+                # Vector from ego to BB center
+                to_light_x = bb_center.x - ego_loc.x
+                to_light_y = bb_center.y - ego_loc.y
+
+                # Longitudinal distance
+                longitudinal = to_light_x * ego_forward.x + to_light_y * ego_forward.y
+
+                if longitudinal < 0 or longitudinal > self.min_dist:
+                    continue
+
+                # BB's x-axis direction in world space
+                total_yaw = math.radians(actor_transform.rotation.yaw + bb.rotation.yaw)
+                bb_x_dir_x = math.cos(total_yaw)
+                bb_x_dir_y = math.sin(total_yaw)
+
+                # Number of segments = extent.x (3.0 → 3 segments)
+                extent_x = bb.extent.x
+                num_segments = max(1, int(extent_x))
+
+                # Check each segment
+                in_lane = False
+                for i in range(num_segments):
+                    # Spread points from -extent_x to +extent_x
+                    if num_segments == 1:
+                        offset = 0.0
+                    else:
+                        offset = -extent_x + (2.0 * extent_x) * i / (num_segments - 1)
+
+                    # World position of this segment
+                    segment_x = bb_center.x + bb_x_dir_x * offset
+                    segment_y = bb_center.y + bb_x_dir_y * offset
+
+                    # Lateral offset from ego's path
+                    to_seg_x = segment_x - ego_loc.x
+                    to_seg_y = segment_y - ego_loc.y
+                    lateral = abs(-ego_forward.y * to_seg_x + ego_forward.x * to_seg_y)
+
+                    if lateral < 3.0:
+                        in_lane = True
+                        break
+
+                if not in_lane:
+                    continue
+
+                # Steering check
+                angle = self._ego.get_wheel_steer_angle(carla.VehicleWheelLocation.FL_Wheel)
+
+                if longitudinal < best_dist and abs(angle) < 3:
+                    best_dist = longitudinal
+                    best_light = tl_actor
+
+            except RuntimeError:
+                continue
+
+        return best_light
+
+    def _safe_get_vehicle_data(self, vehicle, ego_loc, ego_forward):
+        """Safely get vehicle distance (BUMPER-TO-BUMPER) and check if in front"""
         try:
             if not vehicle.is_alive:
                 return None
 
             other_loc = vehicle.get_location()
 
-            # Center-to-center distance
-            center_dist = math.sqrt(
-                (other_loc.x - ego_loc.x) ** 2 +
-                (other_loc.y - ego_loc.y) ** 2 +
-                (other_loc.z - ego_loc.z) ** 2
-            )
+            # Vector from ego to other vehicle
+            to_other_x = other_loc.x - ego_loc.x
+            to_other_y = other_loc.y - ego_loc.y
+            to_other_z = other_loc.z - ego_loc.z
 
-            # ADJUST FOR BOUNDING BOXES (bumper-to-bumper)
+            center_dist = math.sqrt(to_other_x ** 2 + to_other_y ** 2 + to_other_z ** 2)
+
+            if center_dist < 0.01:
+                return None
+
+            # Normalize direction to other vehicle
+            to_other_norm_x = to_other_x / center_dist
+            to_other_norm_y = to_other_y / center_dist
+
+            # Check if other vehicle is IN FRONT of ego (not just facing same way)
+            forward_dot = ego_forward.x * to_other_norm_x + ego_forward.y * to_other_norm_y
+
+            if forward_dot < 0.8:  # ~45° cone
+                return None
+
+            # is it in our lane?
+            ego_right_x = -ego_forward.y
+            ego_right_y = ego_forward.x
+            lateral_offset = abs(ego_right_x * to_other_x + ego_right_y * to_other_y)
+
+            if lateral_offset > 2.5:  # More than ~1 lane width away
+                return None
+
+
+
+            # Bumper-to-bumper distance
             try:
                 ego_extent = self._ego.bounding_box.extent.x
                 other_extent = vehicle.bounding_box.extent.x
@@ -136,14 +245,18 @@ class CarlaWorldStateSensor(StateSensor):
             except Exception:
                 bumper_dist = max(0.0, center_dist - 6)
 
-            transform = vehicle.get_transform()
-            return (bumper_dist, vehicle, transform)
+            return (bumper_dist, vehicle)
 
         except RuntimeError:
             return None
 
     def get_state(self) -> VehicleState:
         # Early exit if ego is invalid
+
+        #if self._cached_traffic_lights is not None:
+         #   for l in self._cached_traffic_lights:
+          #      self._light_up_actor_box(l)
+
         if not self._ego:
             return self._get_default_crashed_state()
 
@@ -170,13 +283,13 @@ class CarlaWorldStateSensor(StateSensor):
         vehicle_data = []
         for v in all_vehicles:
             if v.id != self._ego.id:
-                data = self._safe_get_vehicle_data(v, ego_loc)
+                data = self._safe_get_vehicle_data(v, ego_loc, ego_forward)
                 if data:
                     vehicle_data.append(data)
 
         # Get ego velocity safely
         try:
-            ego_velocity_vec: Vector3D = self._ego.get_velocity()
+            ego_velocity_vec = self._ego.get_velocity()
             ego_velocity_ms = ego_velocity_vec.length()
         except RuntimeError:
             ego_velocity_ms = 0.0
@@ -193,13 +306,10 @@ class CarlaWorldStateSensor(StateSensor):
 
         # Find nearest vehicle in front
         smallest_dist = self.min_dist
-        for dist, vehicle, v_transform in sorted(vehicle_data, key=lambda x: x[0]):
-            try:
-                dot = v_transform.get_forward_vector().dot(ego_forward)
-                if smallest_dist > dist and dot > 0.8:
-                    smallest_dist = dist
-            except RuntimeError:
-                continue
+        for dist, vehicle in sorted(vehicle_data, key=lambda x: x[0]):
+            if dist < smallest_dist:
+                smallest_dist = dist
+                break
 
         result_dist_m = smallest_dist
 
@@ -221,20 +331,26 @@ class CarlaWorldStateSensor(StateSensor):
         traffic_light_color = LightColors.green
 
         try:
-            ego_waypoint = self._map.get_waypoint(ego_loc, project_to_road=True, lane_type=carla.LaneType.Driving)
-            target_light_actor = self._get_trafficlight(ego_waypoint)
+            target_light_actor = self._get_trafficlight_simple(ego_loc, ego_forward)
 
             if target_light_actor:
                 try:
+                    self._light_up_actor_box(target_light_actor)
+
                     light_loc : carla.Location = target_light_actor.get_location()
-                    road_vec = ego_waypoint.transform.get_forward_vector()
 
-                    car_to_light_vec = light_loc - ego_loc
-                    longitudinal_dist = (car_to_light_vec.x * road_vec.x) + (car_to_light_vec.y * road_vec.y)
+                    to_light_x = light_loc.x - ego_loc.x
+                    to_light_y = light_loc.y - ego_loc.y
+                    longitudinal_dist = to_light_x * ego_forward.x + to_light_y * ego_forward.y
 
-                    if longitudinal_dist > 0:
-                        traffic_light_dist_m = min(longitudinal_dist, traffic_light_dist_m)
-                        traffic_light_color = self._get_light_color_enum(target_light_actor.get_state())
+                    try:
+                        ego_front_extent = self._ego.bounding_box.extent.x
+                    except Exception:
+                        ego_front_extent = 2.5
+
+                    traffic_light_dist_m = max(0.0, longitudinal_dist - ego_front_extent)
+                    traffic_light_color = self._get_light_color_enum(target_light_actor.get_state())
+
 
                 except RuntimeError:
                     pass
@@ -259,8 +375,7 @@ class CarlaWorldStateSensor(StateSensor):
             relative_speed_ms=relative_speed_ms,
             light_speed_ms=speed_light_ms
         )
-        if self.counter % 300 == 0 or last_impact > 0.0:
-            print("Ground truth")
+        if self.counter % 100 == 0 or last_impact > 0.0:
             self.log_vehicle_state(state)
         return state
 
@@ -268,9 +383,10 @@ class CarlaWorldStateSensor(StateSensor):
         self._g_force_ego_calculator.update_speed(ego_velocity_ms)
         self._relative_speed_lead_calculator.update_speed(result_dist_m)
         self._speed_light_calculator.update_speed(traffic_light_dist_m)
-        ego_g_force = self._g_force_ego_calculator.get_latest_g_force() or 0
-        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_g_force() or 0
-        speed_light_ms = self._speed_light_calculator.get_latest_g_force() or 0
+        ego_g_force = self._g_force_ego_calculator.get_latest_value() or 0
+        ego_g_force = ego_g_force / 9.81
+        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_value() or 0
+        speed_light_ms = self._speed_light_calculator.get_latest_value() or 0
         return ego_g_force, relative_speed_ms, speed_light_ms
 
     def _get_default_crashed_state(self):
@@ -306,7 +422,7 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self.previous_tl_distance=250.0
         self.prev_lead_distance=250.0
         self.tl_counter=0.0
-        self.ld_counter=0.0
+        self.first_time=True
         # Create Sensors
         self.create_ego_sensors()
 
@@ -325,6 +441,8 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         self.cam_mats[0, :3, :3] = K  # intrinsic (3x3 in top-left corner)
 
         self.start_sensor_threads()
+
+        self.counter_since_last_valid_radar=0
 
 
     def cleanup(self):
@@ -351,14 +469,20 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         # Keep track of previous distance and use it in case radar returns inf values
         # We buffer the previous value for 100 frames, after that we use the default
         if np.isinf(distance[0]):
-            lead_distance=self.prev_lead_distance
-            self.ld_counter+=1
-            if self.ld_counter >= self.frame_buffer:
-                self.prev_lead_distance=self.min_dist
-                self.counter=0.0
+            lead_distance = self.prev_lead_distance
+            self.counter_since_last_valid_radar+=1
         else:
-            self.prev_lead_distance = distance[0]
-            lead_distance = distance[0]
+            self.counter_since_last_valid_radar=0
+            lead_distance = distance[0]-3
+            self.prev_lead_distance = distance[0]-3
+
+        self.prev_lead_distance = max(self.prev_lead_distance - 0.25,0)
+
+        if self.counter_since_last_valid_radar>=50 and (ego_velocity_ms > 2 or self.first_time) :
+            self.counter_since_last_valid_radar=0
+            self.prev_lead_distance=500.0
+            self.first_time=False
+
 
         # Traffic light color
         if self.use_traffic_lights:
@@ -399,14 +523,17 @@ class CarlaVBWorldStateSensor(CarlaWorldStateSensor):
         else:
             speed_limit = self._ego.get_speed_limit()
 
-        # G-force
-        self._g_force_ego_calculator.update_speed(ego_velocity_ms)
-        self._relative_speed_lead_calculator.update_speed(distance[0])
-        self._speed_light_calculator.update_speed(traffic_light_dist_m)
 
-        ego_g_force = self._g_force_ego_calculator.get_latest_g_force()
-        relative_speed_ms = self._relative_speed_lead_calculator.get_latest_g_force()
-        speed_light_ms = self._speed_light_calculator.get_latest_g_force()
+        # Update calculators
+        ego_g_force, relative_speed_ms, speed_light_ms = self.get_differentials(ego_velocity_ms, lead_distance,
+                                                                                traffic_light_dist_m)
+        # self._g_force_ego_calculator.update_speed(ego_velocity_ms)
+        # self._relative_speed_lead_calculator.update_speed(distance[0])
+        # self._speed_light_calculator.update_speed(traffic_light_dist_m)
+        #
+        # ego_g_force = self._g_force_ego_calculator.get_latest_value()
+        # relative_speed_ms = self._relative_speed_lead_calculator.get_latest_value()
+        # speed_light_ms = self._speed_light_calculator.get_latest_value()
 
         if not self.isvalid(ego_g_force):
             ego_g_force = 0.0

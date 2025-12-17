@@ -19,6 +19,7 @@ from torch import nn
 
 
 
+
 class TinyTrafficLightNet(nn.Module):
     """
     CNN for 3x64x32 inputs.
@@ -99,7 +100,7 @@ class TL_color_detector:
 
 
 
-#-----------------------Specify model
+#------------------------- Specify model
     # @staticmethod
     # def make_model(num_classes: int =3):
     #     m = torchvision.models.resnet18(weights=None)  # "IMAGENET1K_V1", !!!!!!!!!!! weights=None at runtime
@@ -140,6 +141,61 @@ class TL_color_detector:
             # If no weights, leave randomly initialized; still functional API.
             pass
 
+    def classify_crop_hsv(self, crop_bgr: np.ndarray):
+        """
+        Heuristic HSV-based color classification for a single crop.
+        Returns (label:str | None, score:float)
+        """
+        # BGR -> HSV  (OpenCV: H in [0,179], S,V in [0,255])
+        hsv = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2HSV)
+
+        lower_red1 = np.array([0, 80, 80], dtype=np.uint8)
+        upper_red1 = np.array([10, 255, 255], dtype=np.uint8)
+        lower_red2 = np.array([160, 80, 80], dtype=np.uint8)
+        upper_red2 = np.array([179, 255, 255], dtype=np.uint8)
+
+        # Yellow: around H=30 in OpenCV
+        lower_yellow = np.array([15, 60, 60], dtype=np.uint8)
+        upper_yellow = np.array([35, 255, 255], dtype=np.uint8)
+
+        # Green: around H=60 in OpenCV, with some slack
+        lower_green = np.array([35, 40, 40], dtype=np.uint8)
+        upper_green = np.array([90, 255, 255], dtype=np.uint8)
+
+        # Masks
+        mask_red1 = cv2.inRange(hsv, lower_red1, upper_red1)
+        mask_red2 = cv2.inRange(hsv, lower_red2, upper_red2)
+        mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+        mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
+        mask_green = cv2.inRange(hsv, lower_green, upper_green)
+
+        red_count    = cv2.countNonZero(mask_red)
+        yellow_count = cv2.countNonZero(mask_yellow)
+        green_count  = cv2.countNonZero(mask_green)
+
+        print(
+            "H range:", hsv[..., 0].min(), hsv[..., 0].max(),
+            "S range:", hsv[..., 1].min(), hsv[..., 1].max(),
+            "V range:", hsv[..., 2].min(), hsv[..., 2].max(),
+        )
+
+        print("counts R/Y/G:", red_count, yellow_count, green_count)
+
+        counts = np.array([green_count, yellow_count, red_count], dtype=np.int32)
+        labels = ["green", "yellow", "red"]
+
+        best_idx = int(np.argmax(counts))
+        best_count = counts[best_idx]
+        total_colored = counts.sum()
+
+        # Ignore tiny noise
+        MIN_PIXELS = 5
+        if best_count < MIN_PIXELS or total_colored == 0:
+            return None, 0.0
+
+        #  confidence: share of dominant color among all colored pixels
+        score = float(best_count) / float(total_colored)
+        return labels[best_idx], score
 
 
     @torch.no_grad()
@@ -154,7 +210,6 @@ class TL_color_detector:
         - frame_bgr: np.ndarray HxWx3 (OpenCV BGR), full frame in OpenCV BGR format
         - boxes_xyxy: torch.Tensor Nx4 (x1,y1,x2,y2) in pixel coordinates x1 = left border, x2 = right border, y1 = top border, y2 = bottom border. If None or empty, then it
             returns empty tensors
-        - conf_threshold: float or None
         - pad_ratio: float, padding ratio around each box before cropping
         """
 
@@ -203,45 +258,24 @@ class TL_color_detector:
         scores = conf.to(torch.float32)
         out_boxes = torch.tensor(out_boxes, dtype=torch.float32)
 
-        # # Confidence filter (kept for parity with ObjectDetector)
-        # if conf_threshold is not None:
-        #     keep = scores >= float(conf_threshold)
-        #     out_boxes = out_boxes[keep]
-        #     class_ids = class_ids[keep]
-        #     scores = scores[keep]
-        #     probs = probs[keep]
-
         # ---- per-TL color labels ----
         tl_colors = []
         for i in class_ids:
             tl_colors.append(self.classes[int(i)])
 
-        # ---------- deciding GLOBAL COLOR ----------
-        # Sum class probabilities over all relevant TLs
+        # deciding global color
+        # Sum of class probabilities over all relevant TLs
         total = probs.sum(dim=0)   # tells us how much total prob mass each color has across all TLs
         total_sum = float(total.sum())      # total sum across all total mass probs
         if total_sum > 0.0:
             global_probs = total / total_sum  # normalized [C]
             best_idx = int(global_probs.argmax().item())
-            overall_color = self.classes[best_idx]  # e.g. "red"
+            overall_color = self.classes[best_idx]  #  "red", "green", "yellow"
         else:
             overall_color = None
 
         return out_boxes,tl_colors, scores, overall_color
 
-        # # Optional confidence filter
-        # if conf_threshold is not None:
-        #     keep = scores_t >= float(conf_threshold)
-        #     out_boxes = out_boxes[keep]
-        #     scores_t = scores_t[keep]
-        #     tl_colors = [c for c, k in zip(tl_colors, keep.tolist()) if k]
-        #
-        #     if out_boxes.numel() == 0:
-        #         return (torch.empty((0, 4), dtype=torch.float32),
-        #                 [],  # no colors
-        #                 torch.empty((0,), dtype=torch.float32))
-        #
-        # return out_boxes, tl_colors, scores_t
 
 
 
