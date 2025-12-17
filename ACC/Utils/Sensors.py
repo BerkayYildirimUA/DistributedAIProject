@@ -6,12 +6,9 @@ import weakref
 import cv2
 
 import carla
-from IPython.core.inputtransformer2 import leading_empty_lines
 import math
 import logging
 import numpy as np
-
-from jedi.debug import speed
 
 from ACC.Engine.engine import SingletonLightState
 from ACC.Utils.GForce_Class import Differentiator
