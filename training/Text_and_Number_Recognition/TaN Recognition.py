@@ -66,7 +66,7 @@ def get_dataloaders():
 
 # Transformations for TRAINING data
     train_tfms = transforms.Compose([
-        transforms.Resize((128, 128)),         # Resize images
+        transforms.Resize((32, 32)),         # Resize images
         transforms.RandomRotation(10),         # Random rotate for variability
         transforms.ColorJitter(0.2, 0.2),      # Random brightness/contrast
         transforms.RandomHorizontalFlip(),     # Random flip
@@ -77,7 +77,7 @@ def get_dataloaders():
 
     # Transformations for VALIDATION data (NO randomness here)
     val_tfms = transforms.Compose([
-        transforms.Resize((128, 128)),
+        transforms.Resize((32, 32)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225]),
@@ -108,7 +108,7 @@ def build_model(num_classes):
     to match the number of traffic-sign classes.
     """
 
-    # Load a pretrained model (learned from millions of images)
+    # Load the training model
     model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
 
     # Replace final classification layer with a new one
@@ -396,7 +396,7 @@ if __name__ == "__main__":
     print("Script started, beginning training...")
 
     # This should run ONCE to create the test folder from train
-    #create_test_split_from_train(test_ratio=0.10, seed=42) #Commenting this out so it doesn't run again
+    create_test_split_from_train(test_ratio=0.10, seed=42) #Commenting this out so it doesn't run again
 
     train()
     print("Training finished.")
