@@ -297,3 +297,67 @@ class RLDecisionAgent(AbstractDecisionAgent):
         )
 
         return final_control
+
+
+
+class DoubleRLDecisionAgent(AbstractDecisionAgent):
+    """
+    Wrapper that connects a CARLA StateSensor to a pre-trained MushroomRL Agent.
+    """
+
+    def __init__(self, sensor: StateSensor, model_name1: str, model_name2: str):
+        self.sensor = sensor
+
+        # agent 1
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path1 = os.path.join(script_dir, "models", model_name1)
+
+
+        if not os.path.exists(model_path1):
+            raise FileNotFoundError(f"Model not found at: {model_path1}")
+
+        logging.info(f"Loading RL Agent from {model_path1}...")
+
+        self.agent1 = Agent.load(model_path1)
+
+        # agent 2
+        model_path2 = os.path.join(script_dir, "models", model_name2)
+
+        if not os.path.exists(model_path2):
+            raise FileNotFoundError(f"Model not found at: {model_path2}")
+
+        logging.info(f"Loading RL Agent from {model_path2}...")
+
+        self.agent2 = Agent.load(model_path2)
+
+        # Set to eval mode
+        #self.agent.policy
+        logging.info("RL Agent loaded and set to Eval mode.")
+
+    def make_decision(self, tm_control: carla.VehicleControl) -> carla.VehicleControl:
+
+        data = self.sensor.get_state()
+        data.steering_dir = tm_control.steer
+
+        observation = vehicle_state_to_array(data)
+
+        raw_action_1 = self.agent1.policy.draw_action(observation)
+        raw_action_2 = self.agent2.policy.draw_action(observation)
+
+        action1 = array_to_action(raw_action_1)
+        action2 = array_to_action(raw_action_2)
+
+        throttle = min(action1[ActionsEnum.throttle], action1[ActionsEnum.throttle])
+        brake = max(action1[ActionsEnum.brake], action1[ActionsEnum.brake])
+
+        final_control = carla.VehicleControl(
+            throttle=throttle,
+            brake=brake,
+            steer=tm_control.steer,  # Keep TM steering
+            hand_brake=tm_control.hand_brake,
+            reverse=tm_control.reverse,
+            manual_gear_shift=tm_control.manual_gear_shift,
+            gear=tm_control.gear
+        )
+
+        return final_control
