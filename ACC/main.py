@@ -84,8 +84,9 @@ def main_loop(args):
         # decisionAgent = RLDecisionAgent(sensor_real, "251217_032957_TD3_Shaula_chunk_14400.msh")
         decisionAgent = DoubleRLDecisionAgent(
             sensor_real,
-            "251217_032957_TD3_Shaula_chunk_14400.msh",
-            "251214_193711_TD3_Merope_chunk_12600.msh")
+
+            "251214_193711_TD3_Merope_chunk_12600.msh",
+        "251217_032957_TD3_Shaula_chunk_14400.msh")
 
         SingletonLightState().set_always_green(False) # <--- to set ground truth data
 
