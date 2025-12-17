@@ -88,7 +88,6 @@ def process_rgb_images():
             camera_callback(image_carla)
         except queue.Empty:
             continue
-
     
 def process_radar_data():
     while True:
@@ -98,13 +97,10 @@ def process_radar_data():
         except queue.Empty:
             continue
 
-
-
 if __name__ == "__main__":
     # Create carla world and memory buffers
     world = World()
     rgb_camera_memory = RGBCameraMemory().get_write_access()
-    #depht_camera_memory = DepthCameraMemory().get_write_access()
     vehicle_distance_memory = VehicleDistanceMemory().get_read_access()
     radar_memory = RadarMemory().get_write_access()
     camera_calibration_memory = CameraCalibrationMemory().get_write_access()
@@ -141,7 +137,7 @@ if __name__ == "__main__":
                 # ctrl.steer is in [-1,1] => we scale it to radians
                 steer_rad = -float(ctrl.steer) * MAX_STEER_RAD                  # calculating the steer angle
 
-                vehicle_state_memory.write(np.array([speed_ms, steer_rad], dtype=np.float32))
+                vehicle_state_memory.write(np.array([speed_ms, steer_rad], dtype=np.float32)) # I save it for motion tubes later to draw the lines
 
                 # Fetch CARLA ground-truth of object detection and distance to vehicle in front
                 object_count = objects_in_front_calculator.count_objects_in_front()
