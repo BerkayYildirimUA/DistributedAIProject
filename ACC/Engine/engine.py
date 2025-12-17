@@ -21,6 +21,7 @@ class SingletonLightState(object):
 
             cls._instance.light_state = "OFF"
             cls._instance.is_always_green = False
+            cls._instance.is_inverse = False
 
         return cls._instance
 
@@ -28,7 +29,15 @@ class SingletonLightState(object):
         if not self.is_always_green:
             self.light_state = status
 
+    def set_inverse_state(self, value):
+        logging.info(f"Lights Inverse Mode: {value}!")
+        self.is_inverse = value
+
+    def get_inverse_state(self):
+        return self.is_inverse
+
     def get_state(self):
+
         return self.light_state
 
     def set_always_green(self, value):
@@ -78,6 +87,7 @@ class Engine():
 
         self.scenario = scenario
 
+        # Traffic light workaround for training
         self.traffic_light_timer = 0.0
         self.traffic_light_state = carla.TrafficLightState.Green
         self.green_duration = 30.0
@@ -396,7 +406,9 @@ class Engine():
             # --- LEAD ---
             lead_is_not_skipped = True
             if self.args.do_train:
-                lead_is_not_skipped = random.random() > 0.25 # TODO PLEASE BREAKPOINT
+                lead_is_not_skipped = random.random() > 0.50
+                if lead_is_not_skipped:
+                    logging.info(f"Skipped Lead!")
 
 
             if self.scenario.lead_car_bp_name != "" and lead_is_not_skipped:
@@ -510,7 +522,7 @@ class Engine():
         2. Standard Maps: Copies the state from the Mirror World (Master) to the Real World (Slave).
         """
 
-        # --- LOGIC 1: CUSTOM MAPS (Manual Control) ---
+        # --- LOGIC 1: CUSTOM MAPS ---
         if self.map_name.startswith("CUSTOM_"):
             self.traffic_light_timer += self.delta_seconds
 
@@ -796,8 +808,7 @@ class Engine():
             self.reset_traffic_lights()
 
 
-            # 4. Re-run actor spawning (reuse existing spawn logic)
-            # Get spawn points
+            # --- actor spawning ---
             world_real = self.duo_world.get_real_world()
             self.spawn_points = world_real.get_map().get_spawn_points()
 
@@ -835,7 +846,10 @@ class Engine():
 
             lead_is_not_skipped = True
             if self.args.do_train:
-                lead_is_not_skipped = random.random() > 0.25
+                lead_is_not_skipped = random.random() > 0.50
+                if lead_is_not_skipped:
+                    logging.info(f"Skipped Lead!")
+
 
             if self.scenario and self.scenario.lead_car_bp_name and lead_is_not_skipped:
                 if available_spawn_points:
@@ -853,7 +867,7 @@ class Engine():
 
                     logging.info(f"Spawned LEAD pair: Real ID {self.lead.real.id}, Mirror ID {self.lead.mirror.id}")
 
-            # 5. Configure mirror actors with TM
+            # Configure mirror actors with TM
             if self.ego:
                 self.ego.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
                 self.ego.set_mirror_physics(True)
@@ -863,7 +877,7 @@ class Engine():
                 self.lead.set_mirror_autopilot(True, self.mirror_traffic_manager_port)
                 self.lead.set_mirror_physics(True)
 
-            # 6. Final tick
+            # Final safety tick
             self.duo_world.tick()
 
             logging.info("Soft reset complete.")

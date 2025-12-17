@@ -81,8 +81,8 @@ def main_loop(args):
             use_traffic_signs=False
         )
 
-        decisionAgent = RLDecisionAgent(sensor_real, "251214_193711_TD3_Merope_chunk_12600.msh")
-        SingletonLightState().set_always_green(True) # <--- to set ground truth data
+        decisionAgent = RLDecisionAgent(sensor_real, "251217_032957_TD3_Shaula_chunk_14400.msh")
+        SingletonLightState().set_always_green(False) # <--- to set ground truth data
 
         #Initialize Pygame HUD Display
         pygame.init() #initialize pygame modules
@@ -372,6 +372,7 @@ if __name__ == '__main__':
 
     try:
         # Start the script to run the vehicle pov in  the modern python env and run it in background
+        # if False: #TODO DELETE BEFORE MERGE -----------------------------------------------------------------------------------------------------------------------------------------------
         subprocess.Popen([f"{args.venv}","-m", "app.run_vehicle_pov.py"], stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         stdin=subprocess.DEVNULL,
