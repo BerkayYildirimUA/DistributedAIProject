@@ -27,14 +27,32 @@ VAL_DIR   = Path("data/val")
 # ---------------- DATA preprocessing ----------------
 train_tf = transforms.Compose([
     transforms.Resize((IMG_H, IMG_W)),
- #   transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
-  #  transforms.RandomHorizontalFlip(),
+    #transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
+    #transforms.RandomHorizontalFlip(),
+    #transforms.GaussianBlur(kernel_size=3, sigma=(0.3)),        # for town 5, sigma =  0.3 is ideal (usually same blur)
+    #transforms.RandomAutocontrast(p=0.3),
+    # transforms.RandomAffine(
+    #     degrees=5,
+    #     translate=(0.05, 0.05),
+    #     scale=(0.9, 1.1)
+    # ),
+
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225]),
 ])
 val_tf = transforms.Compose([
     transforms.Resize((IMG_H, IMG_W)),
+    #transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
+    #transforms.RandomHorizontalFlip(),
+    #transforms.GaussianBlur(kernel_size=3, sigma=(0.3)),
+    #transforms.RandomAutocontrast(p=0.3),
+    # transforms.RandomAffine(
+    #     degrees=5,
+    #     translate=(0.05, 0.05),
+    #     scale=(0.9, 1.1)
+    # ),
+
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225]),
