@@ -17,7 +17,7 @@ from app.data_processors.metrics_logger import MetricsLogger
 from ACC.Engine.engine import Engine, SingletonLightState
 
 from app.memory.shared_memory import VehicleStateMemory
-from ACC.Agents.RLAgents import RLDecisionAgent
+from ACC.Agents.RLAgents import RLDecisionAgent, DoubleRLDecisionAgent
 import app.constants  as constants
 """
 RL FEEDBACK 
@@ -77,11 +77,16 @@ def main_loop(args):
         sensor_real = CarlaVBWorldStateSensor(
             engine.ego.real,
             engine.duo_world.get_real_world(),
-            use_traffic_lights=False,
-            use_traffic_signs=False
+            use_traffic_lights=True,
+            use_traffic_signs=True
         )
 
-        decisionAgent = RLDecisionAgent(sensor_real, "251217_032957_TD3_Shaula_chunk_14400.msh")
+        # decisionAgent = RLDecisionAgent(sensor_real, "251217_032957_TD3_Shaula_chunk_14400.msh")
+        decisionAgent = DoubleRLDecisionAgent(
+            sensor_real,
+            "251217_032957_TD3_Shaula_chunk_14400.msh",
+            "251214_193711_TD3_Merope_chunk_12600.msh")
+
         SingletonLightState().set_always_green(False) # <--- to set ground truth data
 
         #Initialize Pygame HUD Display
