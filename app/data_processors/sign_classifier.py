@@ -37,7 +37,7 @@ class SignClassifier:
         # self.classes = checkpoint["class_names"]
 
         self.transform = transforms.Compose([
-            transforms.Resize((128, 128)),
+            transforms.Resize((32, 32)),
             transforms.ToTensor(),
             transforms.Normalize(
                 mean=[0.485, 0.456, 0.406],
