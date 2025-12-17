@@ -194,8 +194,7 @@ try:
 
         traffic_sign = sign_classifier.signal_classifier(frame, boxes, class_ids)
         traffic_sign_memory.write(traffic_sign)
-        # if not (traffic_signs == -1):
-        #     print(traffic_signs)
+
 
         # Visualise
         visualiser = POVVisualiser(
@@ -216,10 +215,6 @@ try:
         )
 
         visualiser.show()
-
-        # if len(lanes) > 0:
-        #     bird_eye_visualiser.show(boxes,class_ids,lanes)
-
 
         # TODO: if distance contains nan values, this does not work. We are comparing object counts while relying on distances
         #       that are not the same (radar vs ground truth), therefore containing two layers of errors. Difference in python

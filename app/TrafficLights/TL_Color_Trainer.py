@@ -27,14 +27,32 @@ VAL_DIR   = Path("data/val")
 # ---------------- DATA preprocessing ----------------
 train_tf = transforms.Compose([
     transforms.Resize((IMG_H, IMG_W)),
- #   transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
-  #  transforms.RandomHorizontalFlip(),
+    #transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
+    #transforms.RandomHorizontalFlip(),
+    #transforms.GaussianBlur(kernel_size=3, sigma=(0.3)),        # for town 5, sigma =  0.3 is ideal (usually same blur)
+    #transforms.RandomAutocontrast(p=0.3),
+    # transforms.RandomAffine(
+    #     degrees=5,
+    #     translate=(0.05, 0.05),
+    #     scale=(0.9, 1.1)
+    # ),
+
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225]),
 ])
 val_tf = transforms.Compose([
     transforms.Resize((IMG_H, IMG_W)),
+    #transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
+    #transforms.RandomHorizontalFlip(),
+    #transforms.GaussianBlur(kernel_size=3, sigma=(0.3)),
+    #transforms.RandomAutocontrast(p=0.3),
+    # transforms.RandomAffine(
+    #     degrees=5,
+    #     translate=(0.05, 0.05),
+    #     scale=(0.9, 1.1)
+    # ),
+
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225]),
@@ -48,21 +66,22 @@ val_ds   = datasets.ImageFolder(str(VAL_DIR),   transform=val_tf)
 test_ds = datasets.ImageFolder(str(TEST_DIR), transform=test_tf)
 
 
-# ----- compute class weights from training set -----
-# import torch
+#------------------------------------------------------------------
+
+# # Compute class weights from training set
 #
-# class_to_idx = train_ds.class_to_idx          # e.g. {'green':0,'red':1,'yellow':2}
+# class_to_idx = train_ds.class_to_idx          #  {'green':0,'red':1,'yellow':2}
 # targets = torch.tensor(train_ds.targets)      # ImageFolder provides .targets
 # num_classes = 3
 # counts = torch.bincount(targets, minlength=num_classes).float()
 #
-# # Inverse frequency as a baseline
-# inv_freq = 1.0 / torch.clamp(counts, min=1)
-# cls_weights = inv_freq / inv_freq.mean()      # normalize around 1.0
+# # Inverse frequency as a baseline by turning counts into weights
+# inv_freq = 1.0 / torch.clamp(counts, min=1)        # prevent div by 0 with min=1, the higher the count the smaller the weight will be
+# cls_weights = inv_freq / inv_freq.mean()          # normalize around 1.0
 #
-# # Optional: explicitly boost yellow a bit more
+# # Optionally yellow can be boosted a bit more
 # yellow_idx = class_to_idx["yellow"]
-# cls_weights[yellow_idx] *= 1.05                # tune 1.2–2.0 as needed
+# cls_weights[yellow_idx] *= 1.05               
 #
 # print("class_to_idx:", class_to_idx)
 # print("counts:", counts.tolist())
@@ -71,31 +90,22 @@ test_ds = datasets.ImageFolder(str(TEST_DIR), transform=test_tf)
 #----------------------------------------------------------------
 
 
-# For Windows: keep num_workers=0 or otherwise wrapping in if __name__ == "__main__"
+# keep num_workers=0 for Windows, otherwise wrapping in if __name__ == "__main__"
 pin = (DEVICE == "cuda")
 train_loader = DataLoader(train_ds, batch_size=BATCH_TRAIN, shuffle=True,
                           num_workers=0, pin_memory=pin)
 val_loader   = DataLoader(val_ds,   batch_size=BATCH_VAL, shuffle=False,
                           num_workers=0, pin_memory=pin)
-test_loader = DataLoader(
-    test_ds,
-    batch_size=BATCH_VAL,
-    shuffle=False,
-    num_workers=0,
-    pin_memory=(DEVICE == "cuda"),
-)
+test_loader = DataLoader(test_ds, batch_size=BATCH_VAL, shuffle=False, 
+                          num_workers=0, pin_memory=(DEVICE == "cuda"),)
 
-# Save class mapping/metadata for inference
+# Save class metadata for inference
 META_OUT.parent.mkdir(parents=True, exist_ok=True)
-# with open(META_OUT, "w") as f:
-#     json.dump({"class_to_idx": train_ds.class_to_idx,
-#                "img_h": IMG_H,
-#                "img_w": IMG_W}, f, indent=2)
 
 model_meta = {
-    "type": "custom_cnn",
+    "type": "2D_cnn",
     "input_shape": [3, IMG_H, IMG_W],
-    "description": "3 conv blocks + 2 fully-connected layers",
+    "description": "2 conv blocks + 1 fully-connected layers",
 }
 
 meta = {
@@ -110,7 +120,7 @@ with open(META_OUT, "w") as f:
 
 
 
-# ---------------- MODEL ----------------
+# ---------------- MODEL 1----------------
 # try:
 #     weights = models.ResNet18_Weights.IMAGENET1K_V1
 #     model = models.resnet18(weights=weights)
@@ -128,7 +138,7 @@ with open(META_OUT, "w") as f:
 # scaler = torch.cuda.amp.GradScaler(enabled=(DEVICE == "cuda"))
 
 
-# ---------------- MODEL ----------------
+# ---------------- MODEL 2------------
 # from torchvision.models import shufflenet_v2_x0_5
 #
 # model = shufflenet_v2_x0_5(weights=None)
@@ -319,9 +329,9 @@ for epoch in range(1, EPOCHS + 1):
 
     train_loss = running_loss / max(1, total)
     train_acc = correct / max(1, total)
-    train_losses.append(train_loss)     # <--- store train loss
+    train_losses.append(train_loss)     #  store train loss
 
-    # -------- VALIDATE --------
+    #  Validation
     model.eval()
     v_running_loss = 0.0
     v_correct = v_total = 0
@@ -349,7 +359,7 @@ for epoch in range(1, EPOCHS + 1):
 
 print("Done.")
 
-# -------- PLOT LOSSES --------
+# -------- losses plotting --------
 epochs_range = range(1, EPOCHS + 1)
 
 plt.figure()
@@ -423,13 +433,13 @@ print(f"\n=== Test set performance ===")
 print(f"Test accuracy: {test_acc:.3f} ({correct}/{total})")
 
 
-# ---- Inference speed stats ----
+# Inference speed stats 
 if total_images > 0 and total_infer_time > 0:
     ms_per_image = (total_infer_time / total_images) * 1000.0
     print(f"\n=== Inference speed ===")
     print(f"Average time per image:            {ms_per_image:.3f} ms/image")
 
-#----- Per class metrics:
+# Per class metrics:
 all_preds = np.concatenate(all_preds)
 all_targets = np.concatenate(all_targets)
 

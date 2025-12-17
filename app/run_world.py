@@ -8,13 +8,9 @@ import app.constants as constants
 
 from app.data_processors.objects_in_front_calculator import ObjectsInFrontCalculator
 from app.data_processors.metrics_logger import MetricsLogger
-from app.data_processors.metrics_logger import iter_metrics
-from app.data_processors.metrics_logger import clear_metrics_file
-from app.data_processors.statistics_calculator import StatisticsCalculator
 
 from app.engine.world import World
 from app.memory.shared_memory import RGBCameraMemory,FrameIdMemory,VehicleDistanceMemory, VehicleStateMemory, RadarMemory, CameraCalibrationMemory
-
 
 # Define transforms for handling camera data
 def camera_callback(image):
