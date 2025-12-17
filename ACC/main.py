@@ -14,6 +14,8 @@ from ACC.hud_display import HUD
 from app.data_processors.objects_in_front_calculator import ObjectsInFrontCalculator
 from app.memory.shared_memory import VehicleStateMemory, FrameIdMemory
 from app.data_processors.metrics_logger import MetricsLogger
+from ACC.Engine.engine import Engine, SingletonLightState
+
 from app.memory.shared_memory import VehicleStateMemory
 from ACC.Agents.RLAgents import RLDecisionAgent
 import app.constants  as constants
@@ -40,7 +42,9 @@ maybe change action space center if need be, like 0 =! do nothing, perhabs.
 
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=0, lead_car_bp_name='vehicle.tesla.model3')
+                     map_name=args.map, number_of_npc=20
+                     , lead_car_bp_name='vehicle.tesla.model3'
+                     )
     engine = Engine(args, scene)
 
     # Logging
@@ -77,7 +81,9 @@ def main_loop(args):
             use_traffic_signs=True
         )
 
-        decisionAgent = RLDecisionAgent(sensor_real, "251210_001928_TD3_Aldebaran_chunk_7200.msh")
+        decisionAgent = RLDecisionAgent(sensor_real, "251214_193711_TD3_Merope_chunk_12600.msh")
+        SingletonLightState().set_always_green(True) # <--- to set ground truth data
+
         #Initialize Pygame HUD Display
         pygame.init() #initialize pygame modules
 
@@ -264,7 +270,7 @@ def main_loop(args):
                 frame_id=frame_id,
                 ground_truth_pedestrians=int(GT_pedestrian_count),
             )
-            
+            print(f"{real_ego_state.lead_distance_m} vs {ground_truth_state.lead_distance_m}")
              # Render all components
             display.fill((0, 0, 0))  # Clear the screen (assuming black background)
 

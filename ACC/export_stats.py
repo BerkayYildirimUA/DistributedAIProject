@@ -124,6 +124,8 @@ def main_loop():
     clear_metrics_file(constants.GT_VEHICLE_COUNT_FILE)
     clear_metrics_file(constants.ESTIMATED_PEDESTRIAN_COUNT_FILE)
     clear_metrics_file(constants.GT_PEDESTRIAN_COUNT_FILE)
+    clear_metrics_file(constants.GT_OBJECTS_IN_FRONT_COUNT_FILE)
+
 
     print("GETTING STATS")
 

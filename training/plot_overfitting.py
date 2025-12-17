@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 
-RUN_DIR = Path("runs/detect/trainm_all_640_s")  # pas aan naar jouw run
+RUN_DIR = Path("runs/detect/trainm_all_640_s")  # change to your run
 csv = RUN_DIR / "results.csv"
 df = pd.read_csv(csv)
 

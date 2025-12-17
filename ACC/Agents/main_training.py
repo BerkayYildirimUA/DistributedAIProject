@@ -70,7 +70,7 @@ def training_loop(args):
 
             (
             #loop_info(2 * 60 * 60, f"speed_lead_lights_r_{args.model_nr}"),
-                loop_info(2 * 60 * 60, f"Aldebaran"),
+                loop_info(6 * 60 * 60, f"Shaula"),
                 Scenario(
                 'vehicle.tesla.model3',
                 delta_seconds=args.delta_seconds,
@@ -86,9 +86,9 @@ def training_loop(args):
         )
     ]
 
-    current_model_name = "251210_001928_TD3_Aldebaran_chunk_7200.msh "#args.load_model
+    current_model_name = "251214_193711_TD3_Merope_chunk_12600.msh" #args.load_model
 
-    chunk_duration_seconds = 2 * 60 * 60
+    chunk_duration_seconds = 400 * 60 * 60 #doesn't work anymore (something about the traffic lights just makes it crash), deleting would be to much work. Just make it bigger than training time.
 
 
     for info, scene in scenarios_list:
@@ -127,7 +127,7 @@ def training_loop(args):
                 else:
                     agent = ACC_TD3Agent(args, scene=scene)
 
-                if elapsed_duration == -1: #TODO: I MADE IT -1 SO IT NEVER TRIGGERS
+                if elapsed_duration == 0: #TODO: MAKE SURE ITS WHAT YOU WANT IT TO BE, -1 OR 1
                     agent.reset_buffer()
 
                 agent.train(duration_seconds=current_chunk_duration)

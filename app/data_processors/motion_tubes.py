@@ -1,129 +1,125 @@
 import numpy as np
-import cv2
 
 class MotionTubeProjector:
     """
-    Projects a lane tube through 3D points (ground z=0) with a camera.
+    Draws "motion tubes" (left/center/right lane boundaries) by:
+    - creating a simple path in the vehicle frame (x = how many m forward, y how many m left)
+    - shifting it by lane width
+    - projecting to image pixels with a pinhole camera model
+
     Assumptions:
-    - Camera is centered in the car, height cam_height above the road surface.
-    - Road surface will be flat (mostly).
-    - OpenCV camera frame: Z = forward, X = right, Y = down (towards the bottom of the image).
-    - We generate the path in the vehicle frame and map it to the camera frame.
+    - Flat ground
+    - Camera is cam_height meters above the ground
+    - Camera frame: X right, Y down, Z forward
+    - No lens distortion
     """
 
-    def __init__(self,
-                 img_w: int,                            # resolution of the camera (w x h)
-                 img_h: int,
-                 fov_deg: float = 90.0,
-                 cam_height: float = 1.5,               # height of cam above the ground
-                 lane_width: float = 3.6,
-                 wheelbase: float = 2.8,
-                 max_steer_rad: float = np.deg2rad(55),
-                 meters_ahead: float = 40.0,            # maximum horizon I want to draw
-                 ema_beta: float = 0.85,                # parameter for smoothing the steering angle
-                 center_offset_m: float = 0.0):
-        self.img_w, self.img_h = img_w, img_h
-        self.cam_h = float(cam_height)
-        self.lane_w = float(lane_width)
-        self.wb = float(wheelbase)
-        self.max_steer = float(max_steer_rad)
-        self.meters_ahead = float(meters_ahead)
-        self.center_offset = float(center_offset_m)
+    def __init__(
+        self,
+        img_w:      int,                            # resolution of RGB cam
+        img_h:      int,
+        fov_deg:    float = 90.0,                   # horizontal field of view of cam in degrees
+        cam_height: float = 1.5,                    # cam height above ground
+        lane_width: float = 3.6,
+        wheelbase:  float = 2.8,                    # we use tesla model 3 so wheelbase 2.8 m
+        max_steer_rad:  float = np.deg2rad(55),
+        meters_ahead:   float = 40.0,               # max I want to draw
+        ema_beta:   float = 0.85,                   # smoothing factor for steering, the bigger, the slower the steering reacts (more smoothing)
+        center_offset_m: float = 0.0,               # offset if the tube is not nice in the middle, you can tune this
+    ):
+        self.w = int(img_w)                         # cast again to int just to be sure for pixel indices later on
+        self.h = int(img_h)
 
-        # intrinsics from FOV (fx=fy for square pixels)
-        f = 0.5 * img_w / np.tan(np.deg2rad(fov_deg) / 2.0)
-        self.K = np.array([[f, 0, img_w / 2.0],
-                           [0, f, img_h / 2.0],
-                           [0, 0, 1.0]], dtype=np.float32)
-        self.dist = np.zeros(5, dtype=np.float32)  # no distortion
+        self.cam_h          = float(cam_height)
+        self.lane_w         = float(lane_width)
+        self.wb             = float(wheelbase)
+        self.max_steer      = float(max_steer_rad)
+        self.meters_ahead   = float(meters_ahead)
+        self.center_offset  = float(center_offset_m)
 
-        # smoothing of steer angle
-        self.ema_beta = float(ema_beta)
-        self._steer_filt = 0.0
+        # Simple intrinsics from HFOV (fy derived from aspect ratio)
+        hfov = np.deg2rad(float(fov_deg))
+        self.fx = self.w / (2.0 * np.tan(hfov / 2.0))                   # classic pinhole camera relation
+        vfov = 2.0 * np.arctan((self.h / self.w) * np.tan(hfov / 2.0))
+        self.fy = self.h / (2.0 * np.tan(vfov / 2.0))
+
+        self.cx = self.w / 2.0      # middle of cam in pixel coordinates
+        self.cy = self.h / 2.0
+
+        # steering smoothing (EMA)
+        self.beta = float(ema_beta)
+        self._steer_filt = 0.0      # internal state, keep here previously filtered steering so that smoothing over frames works
 
     def _smooth_steer(self, steer_rad: float) -> float:
-        s = float(np.clip(steer_rad, -self.max_steer, self.max_steer))
-        self._steer_filt = self.ema_beta * self._steer_filt + (1.0 - self.ema_beta) * s
+        steer = float(np.clip(steer_rad, -self.max_steer, self.max_steer))
+        self._steer_filt = self.beta * self._steer_filt + (1.0 - self.beta) * steer # EMA formula (see internet)
+        # if beta close to 1, very smooth but "lag". Close to 0 then reacts faster but jitter
         return self._steer_filt
 
-    def _centerline_xy(self, speed_ms: float, steer_rad: float) -> np.ndarray:
+    def _make_centerline(self, speed_ms: float, steer_rad: float) -> np.ndarray:
         """
-        Generate a 2D path in vehicle coordinates:
-        x = forward (m), y = left+ (m). Length scaling with speed.
+        Goal: create a row of points (x,y) in meters in vehicle frame
+        Returns Nx2 array: [x_forward, y_left]
         """
-        steer = self._smooth_steer(steer_rad)
-        # we can draw horizon longer when speed is higher
-        horizon_m = float(np.clip(speed_ms * 2.0, 30.0, self.meters_ahead))
-        s = np.linspace(0.0, horizon_m, int(horizon_m * 4) + 2)  # ~4 samples/m
+        steer = self._smooth_steer(steer_rad) # because of this my tube doesn't 'flikker' per frame
 
-        kappa = np.tan(steer) / max(self.wb, 1e-6)
+        # horizon: longer when faster
+        horizon = float(np.clip(speed_ms * 2.0, 30.0, self.meters_ahead)) # I force to draw at least 30 m, if faster then longer but at most meters_ahead
+        s = np.linspace(0.0, horizon, int(horizon * 4))  # ~4 samples per meter
+
+        kappa = np.tan(steer) / self.wb  # curvature formulas, see also separate documentation
         if abs(kappa) < 1e-6:
             x = s
-            y = np.zeros_like(s)
+            y = 0
         else:
             x = np.sin(kappa * s) / kappa
             y = (1.0 - np.cos(kappa * s)) / kappa
 
-        # lateral offset of the ego-lane center (fine tuning if necessary, standard offset on 0)
         y = y + self.center_offset
-        return np.stack([x, y], axis=1)  # [N,2], x fwd, y left
+        return np.stack([x, y], axis=1)
 
-    def _veh_to_cam_points(self, xy: np.ndarray, side_offset: float) -> np.ndarray:
+    def _project_lane(self, center_xy: np.ndarray, side_offset: float) -> np.ndarray:
         """
-        Put (x fwd, y left) -> camera frame (X right, Y down, Z fwd) on ground.
-        side_offset = +half lane (left) or -half lane (right)
+        Converts centerline -> lane boundary -> image pixels.
+        Returns Nx2 float pixels (u,v).
         """
-        x = xy[:, 0]
-        y_left = xy[:, 1] + side_offset               # to left positive
-        X_right = -y_left                             # in cam: right is positive
-        Y_down  = np.full_like(x, self.cam_h)         # ground is cam_height under camera
-        Z_fwd   = x                                   # forward
-        pts = np.stack([X_right, Y_down, Z_fwd], axis=1).astype(np.float32)
-        # remove points behind the camera or those that are very close
-        return pts[Z_fwd > 0.5]
+        x = center_xy[:, 0]                       # forward
+        y = center_xy[:, 1] + side_offset         # left (+)
 
-    # the function _project is used to project to pixels
-    def _project(self, pts_cam: np.ndarray) -> np.ndarray:
-        if pts_cam.shape[0] == 0:
+        # Vehicle frame -> camera frame (X right, Y down, Z forward)
+        X = -y                                    # right is positive
+        Y = np.full_like(x, self.cam_h)           # ground is cam_h below camera
+        Z = x
+
+        # ignore points too close/behind camera
+        m = Z > 0.5
+        X, Y, Z = X[m], Y[m], Z[m]
+        if Z.size == 0:
             return np.empty((0, 2), dtype=np.float32)
-        rvec = np.zeros(3, dtype=np.float32)
-        tvec = np.zeros(3, dtype=np.float32)
-        img_pts, _ = cv2.projectPoints(pts_cam, rvec, tvec, self.K, self.dist)
-        uv = img_pts.reshape(-1, 2)
-        # in-bounds filter
-        m = (uv[:, 0] >= 0) & (uv[:, 0] < self.img_w) & (uv[:, 1] >= 0) & (uv[:, 1] < self.img_h)
-        return uv[m]
 
-    @staticmethod
-    def _to_poly(uv: np.ndarray) -> np.ndarray:
-        return np.round(uv).astype(np.int32).reshape((-1, 1, 2))
+        # pinhole projection
+        u = self.fx * (X / Z) + self.cx
+        v = self.fy * (Y / Z) + self.cy
 
-    def get_projected_lanes(self,speed_ms: float, steer_rad: float):
-        center_xy = self._centerline_xy(speed_ms, steer_rad)
+        # keep points that land inside the image
+        inside = (u >= 0) & (u < self.w) & (v >= 0) & (v < self.h)
+        uv = np.stack([u[inside], v[inside]], axis=1).astype(np.float32)
+        return uv
+
+    def get_projected_lanes(self, speed_ms: float, steer_rad: float):
+        """
+        Main function that we call every frame.
+        Returns (left, center, right) in OpenCV polyline format:
+        (N, 1, 2) with int pixels.
+        """
+        center_xy = self._make_centerline(speed_ms, steer_rad)
         half = 0.5 * self.lane_w
 
-        left_pts_cam  = self._veh_to_cam_points(center_xy, +half)
-        right_pts_cam = self._veh_to_cam_points(center_xy, -half)
-        center_pts_cam = self._veh_to_cam_points(center_xy, 0)
+        left_uv   = self._project_lane(center_xy, +half)
+        center_uv = self._project_lane(center_xy, 0.0)
+        right_uv  = self._project_lane(center_xy, -half)
 
-        left_uv  = self._project(left_pts_cam)
-        right_uv = self._project(right_pts_cam)
-        center_uv = self._project(center_pts_cam)
-        return self._to_poly(left_uv),self._to_poly(center_uv) ,self._to_poly(right_uv)
+        def to_poly(uv: np.ndarray) -> np.ndarray:
+            return np.round(uv).astype(np.int32).reshape((-1, 1, 2))
 
-    def compute_tube_points_img(self, speed_ms: float, steer_rad: float):
-        """
-        Geeft (left_uv, right_uv) terug als float32 Nx2 in beeldpixels (u,v).
-        Sluit aan op project_and_draw (zelfde logica, maar zonder tekenen).
-        """
-        center_xy = self._centerline_xy(speed_ms, steer_rad)
-        half = 0.5 * self.lane_w
-
-        left_pts_cam = self._veh_to_cam_points(center_xy, +half)
-        right_pts_cam = self._veh_to_cam_points(center_xy, -half)
-
-        left_uv = self._project(left_pts_cam)
-        right_uv = self._project(right_pts_cam)
-        return left_uv.astype(np.float32), right_uv.astype(np.float32)
-
-
+        return to_poly(left_uv), to_poly(center_uv), to_poly(right_uv)
