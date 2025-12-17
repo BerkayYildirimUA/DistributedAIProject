@@ -11,7 +11,7 @@ import numpy as np
 import wandb
 from gymnasium.core import RenderFrame
 
-from ACC.Engine.engine import Engine
+from ACC.Engine.engine import Engine, SingletonLightState
 from ACC.Utils.abstractions import ActionsEnum, LightColors
 from ACC.Utils.abstractions import VehicleState
 from ACC.Utils.Sensors import CarlaWorldStateSensor
@@ -148,6 +148,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         )
 
         self.lead_speed_limit = 0
+        self.light_check_done = False
 
     @property
     def info(self):
@@ -269,10 +270,9 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         W_SPEED = 2.5
         W_DIST = 1.2
         W_COMFORT = 0.8
-        W_LIGHT = 1.6
+        W_LIGHT = 1.3
 
-        P_LIGHT_VIOLATION = -15.0
-        P_CRASH_BASE = -15.0
+        P_CRASH_BASE = -20.0
 
         r_crash = 0.0
         r_speed = 0.0
@@ -281,7 +281,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         r_light = 0.0
 
         DANGER_ZONE_START = 6
-        DANGER_ZONE_END = 2
+        DANGER_ZONE_END = 2.5
 
         ############### get distance to light or lead ###############
         if state.light_color in [LightColors.red, LightColors.orange]:
@@ -305,7 +305,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                     else:
                         logging.info(f"Car Crashed! ({r_crash})")
 
-            elif min_obstacle_dist < DANGER_ZONE_START and state.speed_ms <= 1:
+            elif min_obstacle_dist < DANGER_ZONE_START and state.speed_ms <= 2:
                 r_crash = -0.5 * state.speed_ms
 
 
@@ -332,7 +332,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         if use_light and state.light_color in [LightColors.red, LightColors.orange]:
             if min_obstacle_dist < 20:
                 dist_to_stop = max(0, min_obstacle_dist - DANGER_ZONE_START)
-                safe_approach_speed = math.sqrt(2 * 1.5 * dist_to_stop)
+                safe_approach_speed = math.sqrt(2 * 0.56 * dist_to_stop)
                 target_speed_ms = min(target_speed_ms, safe_approach_speed)
 
 
@@ -345,7 +345,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         if min_obstacle_dist <= DANGER_ZONE_START:
             target_speed_ms = 0.0
         else:
-            target_speed_ms = max(target_speed_ms, 1) # don't stop util you're at a good place to stop
+            target_speed_ms = max(target_speed_ms, 2) # don't stop util you're at a good place to stop
 
         target_speed_ms = max(0.0, target_speed_ms)
 
@@ -361,7 +361,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 r_speed = math.exp(-0.5 * (diff_kmh / 5.0) ** 2) + 0.01 * diff_kmh
 
             if abs(diff_kmh) < 2.0:
-                exact_speed_bonus = 3 * math.exp(-0.5*(diff_kmh ** 2))
+                exact_speed_bonus = 10 * math.exp(-0.5*(diff_kmh ** 2))
                 r_speed = max(r_speed, exact_speed_bonus)
 
         ############### SAFE DISTANCE ###############
@@ -378,8 +378,8 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
         ############### TRAFFIC LIGHT ###############
         if use_light:
             if state.light_color == LightColors.green:
-                if state.speed_ms >= target_speed_ms * 0.7:
-                    r_light = 0.02
+                if state.speed_ms >= target_speed_ms * 0.7 and ratio > 1 :
+                    r_light = 0.01
 
         r_speed = W_SPEED * r_speed
         r_dist = W_DIST * r_dist
@@ -388,7 +388,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
         total_reward = r_speed + r_dist + r_comfort + r_light + r_crash
 
-        total_reward = max(min(total_reward, 10.0), -25.0)
+        total_reward = max(min(total_reward, 20.0), -30.0)
 
         components = {
             "Reward/Total": total_reward,
@@ -487,7 +487,7 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                 terminated = True
             state.steering_dir = steering_dir
 
-            if state.light_color in [LightColors.red] and state.light_dist_m < 2 and state.speed_ms > 0.5:
+            if state.light_color in [LightColors.red] and state.light_dist_m < 2.5 and state.speed_ms > 0.5:
                 logging.info(f"Red Light Violation! Dist: {state.light_dist_m:.2f}")
                 terminated = True
 
@@ -521,22 +521,32 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
                         self.engine.lead.real.set_location(new_location)
                         self.engine.lead.mirror.set_location(new_location)
 
+                    if lead_transform.location.x > 500 and not self.light_check_done:
+                        self.light_check_done = True
+                        if random.random() < 0.25:
+                            self.lead_speed_limit = 0.0
+                            logging.info(f"Speed Limit Lead {self.lead_speed_limit}!")
+
+                        self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
+
                     if dist_to_lead > 300:
                         target_catchup_speed = max(0.0, state.speed_ms * 3.6 * random.uniform(0.5, 0.8))
 
-                        if random.random() < 0.10:
+                        if random.random() < 0.25:
                             target_catchup_speed = 0.0
 
                         # Only update if meaningful change to avoid spamming TM
                         if abs(self.lead_speed_limit - target_catchup_speed) > 1.0:
                             self.lead_speed_limit = target_catchup_speed
                             self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
+                            logging.info(f"Speed Limit Lead {self.lead_speed_limit}!")
 
                 if transform.location.x > 1000:
                     new_location = carla.Location(x=10, y=transform.location.y, z=transform.location.z)
                     self.engine.ego.real.set_location(new_location)
                     self.engine.ego.mirror.set_location(new_location)
                     if self.engine.lead is not None:
+                        self.light_check_done = False
                         lead_transform = self.engine.lead.real.get_transform()
                         distances_to_ego = lead_transform.location.x - transform.location.x
                         lead_location = carla.Location(x=distances_to_ego + new_location.x, y=lead_transform.location.y, z=lead_transform.location.z)
@@ -545,13 +555,23 @@ class CarlaEnv(gym.Env[VehicleState, Dict[ActionsEnum, float]]):
 
                         speed_limit_kh = int(state.speed_limit_ms * 3.6)
 
-                        if random.random() < 0.80:
+                        if random.random() < 0.75:
                             self.lead_speed_limit = random.randint(speed_limit_kh, speed_limit_kh + 30)
+                            logging.info(f"Speed Limit Lead {self.lead_speed_limit}!")
                         else:
                             self.lead_speed_limit = random.randint(0, speed_limit_kh)
+                            logging.info(f"Speed Limit Lead {self.lead_speed_limit}!")
 
-                        if random.random() < 0.1:
+                        if random.random() < 0.25:
+                            logging.info(f"Speed Limit Lead Zero!")
                             self.lead_speed_limit = 0.0
+
+                        if random.random() < 0.50:
+                            logging.info(f"Lights Inverse!")
+                            SingletonLightState().set_inverse_state(True)
+                        else:
+                            SingletonLightState().set_inverse_state(False)
+
 
                         self.engine.tm_mirror.set_desired_speed(self.engine.lead.mirror, self.lead_speed_limit)
 

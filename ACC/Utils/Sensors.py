@@ -70,7 +70,15 @@ class CarlaWorldStateSensor(StateSensor):
 
         temp = SingletonLightState().get_state()
         if temp != "OFF":
+            if SingletonLightState().get_inverse_state():
+                if temp == carla.TrafficLightState.Green:
+                    temp = carla.TrafficLightState.Red
+                elif temp == carla.TrafficLightState.Red:
+                    temp = carla.TrafficLightState.Green
+
             carla_state = temp
+
+
 
         if carla_state == carla.TrafficLightState.Red:
             return LightColors.red
@@ -98,19 +106,18 @@ class CarlaWorldStateSensor(StateSensor):
 
 
         # 2. Draw the box using the debug helper.
-        # We use a Green color (0, 255, 0) and thickness to create the 'glow' effect.
         self._world.debug.draw_box(
             box=box,
-            rotation=actor_transform.rotation,  # Orient the box to match the actor
-            thickness=0.1,  # Thicker lines for a "glow" effect
-            color=carla.Color(r, g,  y),  # Christmas Green
-            life_time=0.1  # Short lifetime for continuous updates
+            rotation=actor_transform.rotation,
+            thickness=0.1,
+            color=carla.Color(r, g,  y),
+            life_time=0.1
         )
 
     def _get_trafficlight_simple(self, ego_loc, ego_forward):
         """Find traffic light using CARLA's built-in methods + spatial search"""
 
-        # Method 1: CARLA's built-in (works when close to junction)
+        # Method 1: CARLA's built-in (works when really really close to junction)
         try:
             if self._ego.is_at_traffic_light():
                 light = self._ego.get_traffic_light()

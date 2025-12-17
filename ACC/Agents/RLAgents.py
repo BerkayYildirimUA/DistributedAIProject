@@ -38,7 +38,7 @@ class TD3Config:
 
     # Replay Buffer
     INITIAL_REPLAY_SIZE = 1000
-    MAX_REPLAY_SIZE = 100_000
+    MAX_REPLAY_SIZE = 1_000_000
 
     # Timing / steps logic
     LOOPS_PER_SECOND = int(110) #something on my PC specifically
