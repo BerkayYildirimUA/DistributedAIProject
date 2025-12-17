@@ -127,7 +127,7 @@ def training_loop(args):
                 else:
                     agent = ACC_TD3Agent(args, scene=scene)
 
-                if elapsed_duration == -1: #TODO: MAKE SURE ITS WHAT YOU WANT IT TO BE, -1 OR 1
+                if elapsed_duration == -1: #TODO: MAKE SURE ITS WHAT YOU WANT IT TO BE, -1 OR 0
                     agent.reset_buffer()
 
                 agent.train(duration_seconds=current_chunk_duration)
