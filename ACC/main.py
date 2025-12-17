@@ -42,7 +42,7 @@ maybe change action space center if need be, like 0 =! do nothing, perhabs.
 
 def main_loop(args):
     scene = Scenario('vehicle.tesla.model3', delta_seconds=args.delta_seconds,
-                     map_name=args.map, number_of_npc=20
+                     map_name=args.map, number_of_npc=0
                      , lead_car_bp_name='vehicle.tesla.model3'
                      )
     engine = Engine(args, scene)
